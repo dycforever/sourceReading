@@ -637,7 +637,7 @@ static inline int is_normal_idx(enum zone_type idx)
 static inline int is_highmem(struct zone *zone)
 {
 #ifdef CONFIG_HIGHMEM
-    //锝氾綇锝庯絽鏄湪pglist_data鐨勪竴涓暟缁勪腑锛屾墍浠ュ噺鍘绘暟缁勫悕锛屽氨鐭ラ亾鏈綒锝忥綆锝呮槸鏁扮粍涓殑绗嚑椤逛簡
+    //ｚｏｎｅ是在pglist_data的一个数组中，所以减去数组名，就知道本ｚｏｎｅ是数组中的第几项了
 	int zone_idx = zone - zone->zone_pgdat->node_zones;
 	return zone_idx == ZONE_HIGHMEM ||
 		(zone_idx == ZONE_MOVABLE && zone_movable_is_highmem());
@@ -934,6 +934,7 @@ unsigned long __init node_memmap_size_bytes(int, unsigned long, unsigned long);
  * pfn_valid_within() should be used in this case; we optimise this away
  * when we have no holes within a MAX_ORDER_NR_PAGES block.
  */
+// 检测是否page在hole中 
 #ifdef CONFIG_HOLES_IN_ZONE
 #define pfn_valid_within(pfn) pfn_valid(pfn)
 #else

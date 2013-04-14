@@ -137,7 +137,7 @@ static inline unsigned long global_page_state(enum zone_stat_item item)
 #endif
 	return x;
 }
-
+// 读取指定的某一个数据 
 static inline unsigned long zone_page_state(struct zone *zone,
 					enum zone_stat_item item)
 {

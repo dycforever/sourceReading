@@ -112,7 +112,9 @@ static inline int allocflags_to_migratetype(gfp_t gfp_flags)
 	if (unlikely(page_group_by_mobility_disabled))
 		return MIGRATE_UNMOVABLE;
 
-	/* Group based on mobility */
+	/* Group based on mobility 
+     * MOVABLE 的值是 10b; RECLAIMABLE的值是01;
+     * */
 	return (((gfp_flags & __GFP_MOVABLE) != 0) << 1) |
 		((gfp_flags & __GFP_RECLAIMABLE) != 0);
 }
@@ -175,6 +177,7 @@ static inline void arch_alloc_page(struct page *page, int order) { }
 extern struct page *
 FASTCALL(__alloc_pages(gfp_t, unsigned int, struct zonelist *));
 
+// 从某个节点分配指定阶数的内存
 static inline struct page *alloc_pages_node(int nid, gfp_t gfp_mask,
 						unsigned int order)
 {
