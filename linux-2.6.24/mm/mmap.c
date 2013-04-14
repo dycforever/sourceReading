@@ -410,6 +410,7 @@ static inline void __vma_link_file(struct vm_area_struct *vma)
 			mapping->i_mmap_writable++;
 
 		flush_dcache_mmap_lock(mapping);
+        // 插入到非线性，或者优先级树
 		if (unlikely(vma->vm_flags & VM_NONLINEAR))
 			vma_nonlinear_insert(vma, &mapping->i_mmap_nonlinear);
 		else
@@ -914,15 +915,18 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr,
 	 *  mounted, in which case we dont add PROT_EXEC.)
 	 */
 	if ((prot & PROT_READ) && (current->personality & READ_IMPLIES_EXEC))
+        // 如果file是EXEC的, 前面的判断file只是为了防止访问空指针
 		if (!(file && (file->f_path.mnt->mnt_flags & MNT_NOEXEC)))
 			prot |= PROT_EXEC;
 
 	if (!len)
 		return -EINVAL;
 
+    //关于security的，可以跳过
 	if (!(flags & MAP_FIXED))
 		addr = round_hint_to_min(addr);
 
+    // 跳过
 	error = arch_mmap_check(addr, len, flags);
 	if (error)
 		return error;
@@ -944,6 +948,8 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr,
 	 * that it represents a valid section of the address space.
 	 */
 	addr = get_unmapped_area(file, addr, len, pgoff, flags);
+    // 高位清零, 但是不明白为什么要返回,而且return值是被当成error的
+    // 因为有可能addr = vma->vm_end，难道end必然是页对其的么？
 	if (addr & ~PAGE_MASK)
 		return addr;
 
@@ -971,7 +977,7 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr,
 	}
 
 	inode = file ? file->f_path.dentry->d_inode : NULL;
-
+    // 做一些检查，设置一些标记
 	if (file) {
 		switch (flags & MAP_TYPE) {
 		case MAP_SHARED:
@@ -1029,7 +1035,7 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr,
 			return -EINVAL;
 		}
 	}
-
+        // 可以忽略
 	error = security_file_mmap(file, reqprot, prot, flags, addr, 0);
 	if (error)
 		return error;
@@ -1096,9 +1102,11 @@ munmap_back:
 	}
 
 	/* Check against address space limit. */
+    // 就是检查一下
 	if (!may_expand_vm(mm, len >> PAGE_SHIFT))
 		return -ENOMEM;
 
+    // 设置一些标记
 	if (accountable && (!(flags & MAP_NORESERVE) ||
 			    sysctl_overcommit_memory == OVERCOMMIT_NEVER)) {
 		if (vm_flags & VM_SHARED) {
@@ -1143,6 +1151,7 @@ munmap_back:
 	vma->vm_page_prot = vm_get_page_prot(vm_flags);
 	vma->vm_pgoff = pgoff;
 
+    // 调用文件自己的mmap函数
 	if (file) {
 		error = -EINVAL;
 		if (vm_flags & (VM_GROWSDOWN|VM_GROWSUP))
@@ -1281,6 +1290,8 @@ full_search:
 			 * Start a new search - just in case we missed
 			 * some holes.
 			 */
+            // 因为要搜索每一个vma中间的洞，如果start不是从BASE开始的
+            // 那说明是从链表的中间开始的，那就要从头再来一遍
 			if (start_addr != TASK_UNMAPPED_BASE) {
 				addr = TASK_UNMAPPED_BASE;
 			        start_addr = addr;
@@ -1294,9 +1305,11 @@ full_search:
 			/*
 			 * Remember the place where we stopped the search:
 			 */
+            // 下次再找空洞，可以从这个地方开始找
 			mm->free_area_cache = addr + len;
 			return addr;
 		}
+        // 记录发现的最大的空洞的size
 		if (addr + mm->cached_hole_size < vma->vm_start)
 		        mm->cached_hole_size = vma->vm_start - addr;
 		addr = vma->vm_end;
@@ -1427,6 +1440,7 @@ get_unmapped_area(struct file *file, unsigned long addr, unsigned long len,
 				  unsigned long, unsigned long, unsigned long);
 
 	get_area = current->mm->get_unmapped_area;
+    // 如果有file且file指定了get unmapped area函数，就用file的
 	if (file && file->f_op && file->f_op->get_unmapped_area)
 		get_area = file->f_op->get_unmapped_area;
 	addr = get_area(file, addr, len, pgoff, flags);
@@ -2212,6 +2226,7 @@ struct vm_area_struct *copy_vma(struct vm_area_struct **vmap,
  * Return true if the calling process may expand its vm space by the passed
  * number of pages
  */
+// 就是看一下有没有超限
 int may_expand_vm(struct mm_struct *mm, unsigned long npages)
 {
 	unsigned long cur = mm->total_vm;	/* pages */
