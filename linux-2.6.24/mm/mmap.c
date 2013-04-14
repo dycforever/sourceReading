@@ -331,6 +331,8 @@ void validate_mm(struct mm_struct *mm)
 #define validate_mm(mm) do { } while (0)
 #endif
 
+// 从rbtree中找到一个vma，至少end比addr要大
+// 后三个参数都是输出用的
 static struct vm_area_struct *
 find_vma_prepare(struct mm_struct *mm, unsigned long addr,
 		struct vm_area_struct **pprev, struct rb_node ***rb_link,
@@ -1429,6 +1431,8 @@ get_unmapped_area(struct file *file, unsigned long addr, unsigned long len,
 EXPORT_SYMBOL(get_unmapped_area);
 
 /* Look up the first VMA which satisfies  addr < vm_end,  NULL if none. */
+// 找到end大于等于addr的第一个vma
+// 如果没找到，就返回mm->mmap,就是vma list中的第一个，也就是end最小的那个
 struct vm_area_struct * find_vma(struct mm_struct * mm, unsigned long addr)
 {
 	struct vm_area_struct *vma = NULL;
@@ -1466,6 +1470,9 @@ struct vm_area_struct * find_vma(struct mm_struct * mm, unsigned long addr)
 
 EXPORT_SYMBOL(find_vma);
 
+// 找到end大于等于addr的第一个vma，同时prev指向此vma的前一个,此时prev就是end要小于addr
+// 也有可能prev指向的那个就是符合要求的，那就返回NULL
+// 如果没找到，就返回mm->mmap,就是vma list中的第一个，也就是end最小的那个
 /* Same as find_vma, but also return a pointer to the previous VMA in *pprev. */
 struct vm_area_struct *
 find_vma_prev(struct mm_struct *mm, unsigned long addr,
@@ -1477,6 +1484,7 @@ find_vma_prev(struct mm_struct *mm, unsigned long addr,
 		goto out;
 
 	/* Guard against addr being lower than the first VMA */
+    // 这表示vma list中的第一个 
 	vma = mm->mmap;
 
 	/* Go through the RB tree quickly. */
@@ -1498,6 +1506,7 @@ find_vma_prev(struct mm_struct *mm, unsigned long addr,
 
 out:
 	*pprev = prev;
+    // 这个地方如果prev等于NULL，表示之前就没有遇到end比addr小的
 	return prev ? prev->vm_next : vma;
 }
 
@@ -1753,6 +1762,7 @@ static void unmap_region(struct mm_struct *mm,
  * Create a list of vma's touched by the unmap, removing them from the mm's
  * vma list as we go..
  */
+// 从指定的vma开始到end地址结束，把这些vma都从rbtree中删除
 static void
 detach_vmas_to_be_unmapped(struct mm_struct *mm, struct vm_area_struct *vma,
 	struct vm_area_struct *prev, unsigned long end)
@@ -1782,6 +1792,7 @@ detach_vmas_to_be_unmapped(struct mm_struct *mm, struct vm_area_struct *vma,
  * Split a vma into two pieces at address 'addr', a new vma is allocated
  * either for the first part or the tail.
  */
+
 int split_vma(struct mm_struct * mm, struct vm_area_struct * vma,
 	      unsigned long addr, int new_below)
 {
@@ -1791,6 +1802,7 @@ int split_vma(struct mm_struct * mm, struct vm_area_struct * vma,
 	if (is_vm_hugetlb_page(vma) && (addr & ~HPAGE_MASK))
 		return -EINVAL;
 
+    // 已经映射的线性区数量
 	if (mm->map_count >= sysctl_max_map_count)
 		return -ENOMEM;
 
@@ -1807,7 +1819,8 @@ int split_vma(struct mm_struct * mm, struct vm_area_struct * vma,
 		new->vm_start = addr;
 		new->vm_pgoff += ((addr - vma->vm_start) >> PAGE_SHIFT);
 	}
-
+    //就是如果这个vma有policy的话，要单独copy处理一下
+                    // 返回(vma)->vm_policy
 	pol = mpol_copy(vma_policy(vma));
 	if (IS_ERR(pol)) {
 		kmem_cache_free(vm_area_cachep, new);
@@ -1815,6 +1828,7 @@ int split_vma(struct mm_struct * mm, struct vm_area_struct * vma,
 	}
 	vma_set_policy(new, pol);
 
+    // 如果有映射的文件,引用计数加一
 	if (new->vm_file)
 		get_file(new->vm_file);
 
@@ -1847,7 +1861,10 @@ int do_munmap(struct mm_struct *mm, unsigned long start, size_t len)
 		return -EINVAL;
 
 	/* Find the first overlapping VMA */
+    // 返回第一个end大于start参数的vma，prev指向此vma的前一个
+    // 因为vma在rbtree中是按照and升序排列的，所以prev指向的那个end小于start参数
 	vma = find_vma_prev(mm, start, &prev);
+    // 如果返回NULL，表示没有一个vma的end大于start，那就不可能重复
 	if (!vma)
 		return 0;
 	/* we have  start < vma->vm_end  */
@@ -1864,16 +1881,24 @@ int do_munmap(struct mm_struct *mm, unsigned long start, size_t len)
 	 * unmapped vm_area_struct will remain in use: so lower split_vma
 	 * places tmp vma above, and higher split_vma places tmp vma below.
 	 */
+    // 从下面两处调用的地方看，可以发现split的原则是，不破坏的已有vma的start和end
+    // 如果有重叠，就把新申请的那部分重叠的区域给去掉
 	if (start > vma->vm_start) {
+        // 到这里，说明 start落在vma的start和end之间
+        // 申请的上半段和已有的下半段重合
+        // 此函数在start处切分,
 		int error = split_vma(mm, vma, start, 0);
 		if (error)
 			return error;
 		prev = vma;
 	}
 
+    // 到这里就说明，start在vma的start前面
 	/* Does it split the last one? */
 	last = find_vma(mm, end);
 	if (last && end > last->vm_start) {
+        // 到这里，说明想申请的从start开始到start + len = end这段area
+        // 它的后半段会和现有的vma的上半段重叠
 		int error = split_vma(mm, last, end, 1);
 		if (error)
 			return error;
@@ -1910,6 +1935,7 @@ asmlinkage long sys_munmap(unsigned long addr, size_t len)
 static inline void verify_mm_writelocked(struct mm_struct *mm)
 {
 #ifdef CONFIG_DEBUG_VM
+    // return 1 表示成功 
 	if (unlikely(down_read_trylock(&mm->mmap_sem))) {
 		WARN_ON(1);
 		up_read(&mm->mmap_sem);
@@ -1938,15 +1964,18 @@ unsigned long do_brk(unsigned long addr, unsigned long len)
 	if ((addr + len) > TASK_SIZE || (addr + len) < addr)
 		return -EINVAL;
 
+    // 可以忽略
 	if (is_hugepage_only_range(mm, addr, len))
 		return -EINVAL;
 
+    // 可以忽略
 	error = security_file_mmap(0, 0, 0, 0, addr, 1);
 	if (error)
 		return error;
 
 	flags = VM_DATA_DEFAULT_FLAGS | VM_ACCOUNT | mm->def_flags;
 
+    // 可以忽略
 	error = arch_mmap_check(addr, len, flags);
 	if (error)
 		return error;
@@ -1968,13 +1997,17 @@ unsigned long do_brk(unsigned long addr, unsigned long len)
 	 * mm->mmap_sem is required to protect against another thread
 	 * changing the mappings in case we sleep.
 	 */
+    // debug用，可忽略 
 	verify_mm_writelocked(mm);
 
 	/*
 	 * Clear old maps.  this also does some error checking for us
 	 */
  munmap_back:
+    // 从rbtree中找到一个vma，至少end比addr要大
+    // 后三个参数都是输出用的
 	vma = find_vma_prepare(mm, addr, &prev, &rb_link, &rb_parent);
+    // 如果addr恰好落在此vma中 
 	if (vma && vma->vm_start < addr + len) {
 		if (do_munmap(mm, addr, len))
 			return -ENOMEM;
