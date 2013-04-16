@@ -2473,7 +2473,9 @@ static inline int handle_pte_fault(struct mm_struct *mm,
 
 	entry = *pte;
 	if (!pte_present(entry)) {
+        // 页不在内存中 
 		if (pte_none(entry)) {
+            // 页表项是空的
 			if (vma->vm_ops) {
 				if (vma->vm_ops->fault || vma->vm_ops->nopage)
 					return do_linear_fault(mm, vma, address,
@@ -2485,9 +2487,12 @@ static inline int handle_pte_fault(struct mm_struct *mm,
 			return do_anonymous_page(mm, vma, address,
 						 pte, pmd, write_access);
 		}
+        // 如果页表项不是空的（否则上面就return了）,就看_PAGE_FILE标记
+        // 有就是非线性映射
 		if (pte_file(entry))
 			return do_nonlinear_fault(mm, vma, address,
 					pte, pmd, write_access, entry);
+        // 否则就是swap页面
 		return do_swap_page(mm, vma, address,
 					pte, pmd, write_access, entry);
 	}

@@ -332,7 +332,9 @@ void validate_mm(struct mm_struct *mm)
 #endif
 
 // 从rbtree中找到一个vma，至少end比addr要大
-// 后三个参数都是输出用的
+// 后三个参数都是输出用的:
+// rb_link表示addr代表的vma在rbtree中的插入点
+// rb_parent表示插入点的父结点
 static struct vm_area_struct *
 find_vma_prepare(struct mm_struct *mm, unsigned long addr,
 		struct vm_area_struct **pprev, struct rb_node ***rb_link,
@@ -421,8 +423,11 @@ __vma_link(struct mm_struct *mm, struct vm_area_struct *vma,
 	struct vm_area_struct *prev, struct rb_node **rb_link,
 	struct rb_node *rb_parent)
 {
+    // 加入到vma list中
 	__vma_link_list(mm, vma, prev, rb_parent);
+    // 加入到rbtree中
 	__vma_link_rb(mm, vma, rb_link, rb_parent);
+    // 加入到匿名页list中
 	__anon_vma_link(vma);
 }
 
@@ -442,6 +447,7 @@ static void vma_link(struct mm_struct *mm, struct vm_area_struct *vma,
 	anon_vma_lock(vma);
 
 	__vma_link(mm, vma, prev, rb_link, rb_parent);
+    // 如果是文件映射，就和相关的address space联系起来
 	__vma_link_file(vma);
 
 	anon_vma_unlock(vma);
@@ -1243,17 +1249,22 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 
 	if (len > TASK_SIZE)
 		return -ENOMEM;
-
+    
+    // 映射会在固定映射上建立
 	if (flags & MAP_FIXED)
 		return addr;
 
 	if (addr) {
 		addr = PAGE_ALIGN(addr);
 		vma = find_vma(mm, addr);
+        // addr之后没有vma了，或者addr 到 len的这段内存没有和现有的vma重叠
+        // 那就等于得到了一片没有映射的内存地址
 		if (TASK_SIZE - len >= addr &&
 		    (!vma || addr + len <= vma->vm_start))
 			return addr;
 	}
+    
+    // 之前的简单搜索，没有找到不重合的vma，就看一下cache
 	if (len > mm->cached_hole_size) {
 	        start_addr = addr = mm->free_area_cache;
 	} else {
@@ -1262,6 +1273,7 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	}
 
 full_search:
+    // 遍历所有的vma
 	for (vma = find_vma(mm, addr); ; vma = vma->vm_next) {
 		/* At this point:  (!vma || addr < vma->vm_end). */
 		if (TASK_SIZE - len < addr) {
@@ -1277,6 +1289,7 @@ full_search:
 			}
 			return -ENOMEM;
 		}
+        // 这是正常逻辑
 		if (!vma || addr + len <= vma->vm_start) {
 			/*
 			 * Remember the place where we stopped the search:
@@ -1719,6 +1732,7 @@ find_extend_vma(struct mm_struct * mm, unsigned long addr)
  *
  * Called with the mm semaphore held.
  */
+// 把vma以及它next的所有vma都释放掉
 static void remove_vma_list(struct mm_struct *mm, struct vm_area_struct *vma)
 {
 	/* Update high watermark before we lower total_vm */
@@ -1730,6 +1744,7 @@ static void remove_vma_list(struct mm_struct *mm, struct vm_area_struct *vma)
 		if (vma->vm_flags & VM_LOCKED)
 			mm->locked_vm -= nrpages;
 		vm_stat_account(mm, vma->vm_flags, vma->vm_file, -nrpages);
+        // 返回值是vma的next
 		vma = remove_vma(vma);
 	} while (vma);
 	validate_mm(mm);
@@ -1771,6 +1786,9 @@ detach_vmas_to_be_unmapped(struct mm_struct *mm, struct vm_area_struct *vma,
 	struct vm_area_struct *tail_vma = NULL;
 	unsigned long addr;
 
+    // 把vma后根的所有start < vma->end 的vma都删掉
+    // 之后的其他vma都插入到insertion_point指定的位置
+    // 等于把链表中间的一段remove掉了
 	insertion_point = (prev ? &prev->vm_next : &mm->mmap);
 	do {
 		rb_erase(&vma->vm_rb, &mm->mm_rb);
@@ -1780,6 +1798,7 @@ detach_vmas_to_be_unmapped(struct mm_struct *mm, struct vm_area_struct *vma,
 	} while (vma && vma->vm_start < end);
 	*insertion_point = vma;
 	tail_vma->vm_next = NULL;
+    // 查看是否是这个函数
 	if (mm->unmap_area == arch_unmap_area)
 		addr = prev ? prev->vm_end : mm->mmap_base;
 	else
@@ -1792,7 +1811,7 @@ detach_vmas_to_be_unmapped(struct mm_struct *mm, struct vm_area_struct *vma,
  * Split a vma into two pieces at address 'addr', a new vma is allocated
  * either for the first part or the tail.
  */
-
+// 把vma从地址addr开始分成两个，一个是旧的，另一个是新的
 int split_vma(struct mm_struct * mm, struct vm_area_struct * vma,
 	      unsigned long addr, int new_below)
 {
@@ -1849,6 +1868,9 @@ int split_vma(struct mm_struct * mm, struct vm_area_struct * vma,
  * work.  This now handles partial unmappings.
  * Jeremy Fitzhardinge <jeremy@goop.org>
  */
+// 取消start开始长度为len的地址映射
+// 貌似会先检查指定的地址范围，如果发现有地址没有被相应的vma对应
+// 就会把没被映射的部分new一个vma，插入，再统一删除
 int do_munmap(struct mm_struct *mm, unsigned long start, size_t len)
 {
 	unsigned long end;
@@ -1870,6 +1892,7 @@ int do_munmap(struct mm_struct *mm, unsigned long start, size_t len)
 	/* we have  start < vma->vm_end  */
 
 	/* if it doesn't overlap, we have nothing.. */
+    // start + len 在vma->vm_start之上，表示没有重叠的部分
 	end = start + len;
 	if (vma->vm_start >= end)
 		return 0;
@@ -1882,7 +1905,7 @@ int do_munmap(struct mm_struct *mm, unsigned long start, size_t len)
 	 * places tmp vma above, and higher split_vma places tmp vma below.
 	 */
     // 从下面两处调用的地方看，可以发现split的原则是，不破坏的已有vma的start和end
-    // 如果有重叠，就把新申请的那部分重叠的区域给去掉
+    // 如果有重叠，就把参数指定的内存区域中，那部分重叠的区域给去掉
 	if (start > vma->vm_start) {
         // 到这里，说明 start落在vma的start和end之间
         // 申请的上半段和已有的下半段重合
@@ -1908,10 +1931,14 @@ int do_munmap(struct mm_struct *mm, unsigned long start, size_t len)
 	/*
 	 * Remove the vma's, and unmap the actual pages
 	 */
+    // 把vma开始，所有满足vma->start的vma都从vma list链表中删除
+    // 所以下面会释放vma list
 	detach_vmas_to_be_unmapped(mm, vma, prev, end);
+    // 解除页表映射
 	unmap_region(mm, vma, prev, start, end);
 
 	/* Fix up all other VM information */
+    // 把vma以及后继的vma都释放掉
 	remove_vma_list(mm, vma);
 
 	return 0;
@@ -2007,7 +2034,7 @@ unsigned long do_brk(unsigned long addr, unsigned long len)
     // 从rbtree中找到一个vma，至少end比addr要大
     // 后三个参数都是输出用的
 	vma = find_vma_prepare(mm, addr, &prev, &rb_link, &rb_parent);
-    // 如果addr恰好落在此vma中 
+    // 如果addr落在此vma中，把这部分地址中已有的部分解除映射
 	if (vma && vma->vm_start < addr + len) {
 		if (do_munmap(mm, addr, len))
 			return -ENOMEM;
@@ -2015,6 +2042,7 @@ unsigned long do_brk(unsigned long addr, unsigned long len)
 	}
 
 	/* Check against address space limits *after* clearing old maps... */
+    // 就是检查一下，当前进程拥有的已经建立映射的页面数，有没有超过限额
 	if (!may_expand_vm(mm, len >> PAGE_SHIFT))
 		return -ENOMEM;
 
@@ -2112,7 +2140,11 @@ int insert_vm_struct(struct mm_struct * mm, struct vm_area_struct * vma)
 		BUG_ON(vma->anon_vma);
 		vma->vm_pgoff = vma->vm_start >> PAGE_SHIFT;
 	}
+    
+    // rb_link表示vma在rbtree中的插入点
+    // rb_parent表示插入点的父结点
 	__vma = find_vma_prepare(mm,vma->vm_start,&prev,&rb_link,&rb_parent);
+    // 如果要插入的vma与已经存在的vma有重叠
 	if (__vma && __vma->vm_start < vma->vm_end)
 		return -ENOMEM;
 	if ((vma->vm_flags & VM_ACCOUNT) &&
