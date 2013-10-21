@@ -31,7 +31,8 @@
 #define ICMP_ADDRESS		17	/* Address Mask Request		*/
 #define ICMP_ADDRESSREPLY	18	/* Address Mask Reply		*/
 
-
+// 在已知是unrachalbe的基础上，各种的可能性
+// 下同
 /* Codes for UNREACH. */
 #define ICMP_NET_UNREACH	0	/* Network Unreachable		*/
 #define ICMP_HOST_UNREACH	1	/* Host Unreachable		*/
