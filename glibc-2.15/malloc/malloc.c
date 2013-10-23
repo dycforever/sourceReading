@@ -1529,6 +1529,8 @@ nextchunk-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 typedef struct malloc_chunk* mbinptr;
 
 /* addressing -- note that bin_at(0) does not exist */
+// dyc: every bin acts as a malloc_chunk, but only has fd/bk, which are two pointers,
+// dyc: so we need *2
 #define bin_at(m, i) \
   (mbinptr) (((char *) &((m)->bins[((i) - 1) * 2]))			      \
 	     - offsetof (struct malloc_chunk, fd))
@@ -3473,9 +3475,9 @@ _int_malloc(mstate av, size_t bytes)
   if ((unsigned long)(nb) <= (unsigned long)(get_max_fast ())) {
 	  // dyc: according to sizeof(size_t): (nb >> (3 or 4)) -2
 	  idx = fastbin_index(nb);
-	  // dyc: get from array in ar_ptr
+	  // dyc: get from array in ar_ptr use idx
 	  mfastbinptr* fb = &fastbin (av, idx);
-	  // dyc: mfastbinptr AND mchunkptr are [struct chunk*] 
+	  // dyc: mfastbinptr AND mchunkptr are both [struct chunk*] 
 	  mchunkptr pp = *fb;
 	  do
 	  {
@@ -3487,8 +3489,12 @@ _int_malloc(mstate av, size_t bytes)
 	  while ((pp = catomic_compare_and_exchange_val_acq (fb, victim->fd, victim))
 			  != victim);
 	  // dyc: function above defined in ../include/atomic.h
+	  // dyc: first time, *fb==victim, so *fb=victim->fd, return old *fd, aka victim, while continue
+	  // dyc: second time, (*fb=victim->fd)!=victim, return old *fd, so while break
+	  // dyc: the result is , the fastbinY[idx] now point to the next free chunk, and victim holding the alloced chunk
 
 	  if (victim != 0) {
+		  // dyc: if the condition(!=) is true, the victim shouldn't belong to this fastbin, so memory corrupted
 		  if (__builtin_expect (fastbin_index (chunksize (victim)) != idx, 0))
 		  {
 			  errstr = "malloc(): memory corruption (fast)";
@@ -3514,32 +3520,33 @@ errout:
   */
 
   if (in_smallbin_range(nb)) {
-    idx = smallbin_index(nb);
-    bin = bin_at(av,idx);
+	  idx = smallbin_index(nb);
+	  bin = bin_at(av,idx);
 
-    if ( (victim = last(bin)) != bin) {
-      if (victim == 0) /* initialization check */
-	malloc_consolidate(av);
-      else {
-	bck = victim->bk;
-	if (__builtin_expect (bck->fd != victim, 0))
-	  {
-	    errstr = "malloc(): smallbin double linked list corrupted";
-	    goto errout;
+	  // dyc: if there is a free chunk in list, get one
+	  if ( (victim = last(bin)) != bin) {
+		  if (victim == 0) /* initialization check */
+			  malloc_consolidate(av);
+		  else {
+			  bck = victim->bk;
+			  if (__builtin_expect (bck->fd != victim, 0))
+			  {
+				  errstr = "malloc(): smallbin double linked list corrupted";
+				  goto errout;
+			  }
+			  set_inuse_bit_at_offset(victim, nb);
+			  bin->bk = bck;
+			  bck->fd = bin;
+
+			  if (av != &main_arena)
+				  victim->size |= NON_MAIN_ARENA;
+			  check_malloced_chunk(av, victim, nb);
+			  void *p = chunk2mem(victim);
+			  if (__builtin_expect (perturb_byte, 0))
+				  alloc_perturb (p, bytes);
+			  return p;
+		  }
 	  }
-	set_inuse_bit_at_offset(victim, nb);
-	bin->bk = bck;
-	bck->fd = bin;
-
-	if (av != &main_arena)
-	  victim->size |= NON_MAIN_ARENA;
-	check_malloced_chunk(av, victim, nb);
-	void *p = chunk2mem(victim);
-	if (__builtin_expect (perturb_byte, 0))
-	  alloc_perturb (p, bytes);
-	return p;
-      }
-    }
   }
 
   /*
