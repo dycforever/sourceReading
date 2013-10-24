@@ -1544,32 +1544,32 @@ typedef struct malloc_chunk* mbinptr;
 
 /* Take a chunk off a bin list */
 #define unlink(P, BK, FD) {                                            \
-  FD = P->fd;                                                          \
-  BK = P->bk;                                                          \
-  if (__builtin_expect (FD->bk != P || BK->fd != P, 0))                \
-    malloc_printerr (check_action, "corrupted double-linked list", P); \
-  else {                                                               \
-    FD->bk = BK;                                                       \
-    BK->fd = FD;                                                       \
-    if (!in_smallbin_range (P->size)				       \
-	&& __builtin_expect (P->fd_nextsize != NULL, 0)) {	       \
-      assert (P->fd_nextsize->bk_nextsize == P);		       \
-      assert (P->bk_nextsize->fd_nextsize == P);		       \
-      if (FD->fd_nextsize == NULL) {				       \
-	if (P->fd_nextsize == P)				       \
-	  FD->fd_nextsize = FD->bk_nextsize = FD;		       \
-	else {							       \
-	  FD->fd_nextsize = P->fd_nextsize;			       \
-	  FD->bk_nextsize = P->bk_nextsize;			       \
-	  P->fd_nextsize->bk_nextsize = FD;			       \
-	  P->bk_nextsize->fd_nextsize = FD;			       \
-	}							       \
-      }	else {							       \
-	P->fd_nextsize->bk_nextsize = P->bk_nextsize;		       \
-	P->bk_nextsize->fd_nextsize = P->fd_nextsize;		       \
-      }								       \
-    }								       \
-  }                                                                    \
+	FD = P->fd;                                                          \
+	BK = P->bk;                                                          \
+	if (__builtin_expect (FD->bk != P || BK->fd != P, 0))                \
+	malloc_printerr (check_action, "corrupted double-linked list", P); \
+	else {                                                               \
+		FD->bk = BK;                                                       \
+		BK->fd = FD;                                                       \
+		if (!in_smallbin_range (P->size)				       \
+				&& __builtin_expect (P->fd_nextsize != NULL, 0)) {	       \
+			assert (P->fd_nextsize->bk_nextsize == P);		       \
+			assert (P->bk_nextsize->fd_nextsize == P);		       \
+			if (FD->fd_nextsize == NULL) {				       \
+				if (P->fd_nextsize == P)				       \
+				FD->fd_nextsize = FD->bk_nextsize = FD;		       \
+				else {							       \
+					FD->fd_nextsize = P->fd_nextsize;			       \
+					FD->bk_nextsize = P->bk_nextsize;			       \
+					P->fd_nextsize->bk_nextsize = FD;			       \
+					P->bk_nextsize->fd_nextsize = FD;			       \
+				}							       \
+			}	else {							       \
+				P->fd_nextsize->bk_nextsize = P->bk_nextsize;		       \
+				P->bk_nextsize->fd_nextsize = P->fd_nextsize;		       \
+			}								       \
+		}								       \
+	}                                                                    \
 }
 
 /*
@@ -1751,6 +1751,7 @@ typedef struct malloc_chunk* mfastbinptr;
 
 #define FASTCHUNKS_BIT        (1U)
 
+// dyc: the mean of this bit is inverted, zhazha!!
 #define have_fastchunks(M)     (((M)->flags &  FASTCHUNKS_BIT) == 0)
 #define clear_fastchunks(M)    catomic_or (&(M)->flags, FASTCHUNKS_BIT)
 #define set_fastchunks(M)      catomic_and (&(M)->flags, ~FASTCHUNKS_BIT)
@@ -3561,9 +3562,10 @@ errout:
   */
 
   else {
-    idx = largebin_index(nb);
-    if (have_fastchunks(av))
-      malloc_consolidate(av);
+	  idx = largebin_index(nb);
+	  if (have_fastchunks(av))
+		  // dyc: if FASTCHUNKS_BIT bit set, consolidate fastbins
+		  malloc_consolidate(av);
   }
   // dyc: here means idx is the index of smallbins/largebins, 
   // and doesn't get free chunk at once
@@ -3616,7 +3618,8 @@ errout:
 				  remainder->fd_nextsize = NULL;
 				  remainder->bk_nextsize = NULL;
 			  }
-
+				// dyc: set_head(p, s)       ((p)->size = (s))
+				// dyc: set_foot(p, s)       (((mchunkptr)((char*)(p) + (s)))->prev_size = (s))
 			  set_head(victim, nb | PREV_INUSE |
 					  (av != &main_arena ? NON_MAIN_ARENA : 0));
 			  set_head(remainder, remainder_size | PREV_INUSE);
@@ -3647,7 +3650,9 @@ errout:
 		  }
 
 		  /* place chunk in bin */
-
+		  // dyc: fwd and bck's fd/bk member pointer will not be modified in this if-else,
+		  // 	  so we can assign them to victim's fd/bk
+>>>>>>> 4c9b3ab2611ee6d75234f2ed3cf07c777c973184
 		  if (in_smallbin_range(size)) {
 			  victim_index = smallbin_index(size);
 			  bck = bin_at(av, victim_index);
@@ -3665,6 +3670,7 @@ errout:
 				  /* if smaller than smallest, bypass loop below */
 				  assert((bck->bk->size & NON_MAIN_ARENA) == 0);
 				  if ((unsigned long)(size) < (unsigned long)(bck->bk->size)) {
+				  	  // dyc: chunk size in list is bigger --> smaller
 					  fwd = bck;
 					  bck = bck->bk;
 
@@ -3674,12 +3680,15 @@ errout:
 				  }
 				  else {
 					  assert((fwd->size & NON_MAIN_ARENA) == 0);
+					  // dyc: head --fwd--> tail      bigger size ----> smaller size
 					  while ((unsigned long) size < fwd->size)
 					  {
 						  fwd = fwd->fd_nextsize;
 						  assert((fwd->size & NON_MAIN_ARENA) == 0);
 					  }
 
+					  // dyc: I suppose, because only the first chunk in "same size group" need to set nextsize field
+					  // 	  insert in the second position don't need assign these two field and reduce time
 					  if ((unsigned long) size == (unsigned long) fwd->size)
 						  /* Always insert in the second position.  */
 						  fwd = fwd->fd;
@@ -3696,7 +3705,7 @@ errout:
 				  victim->fd_nextsize = victim->bk_nextsize = victim;
 		  }
 
-		  // dyc: insert into bin list
+		  // dyc: insert victim into bin list
 		  mark_bin(av, victim_index);
 		  victim->bk = bck;
 		  victim->fd = fwd;
@@ -4228,100 +4237,112 @@ _int_free(mstate av, mchunkptr p, int have_lock)
 
 static void malloc_consolidate(mstate av)
 {
-  mfastbinptr*    fb;                 /* current fastbin being consolidated */
-  mfastbinptr*    maxfb;              /* last fastbin (for loop control) */
-  mchunkptr       p;                  /* current chunk being consolidated */
-  mchunkptr       nextp;              /* next chunk to consolidate */
-  mchunkptr       unsorted_bin;       /* bin header */
-  mchunkptr       first_unsorted;     /* chunk to link to */
+	mfastbinptr*    fb;                 /* current fastbin being consolidated */
+	mfastbinptr*    maxfb;              /* last fastbin (for loop control) */
+	mchunkptr       p;                  /* current chunk being consolidated */
+	mchunkptr       nextp;              /* next chunk to consolidate */
+	mchunkptr       unsorted_bin;       /* bin header */
+	mchunkptr       first_unsorted;     /* chunk to link to */
 
-  /* These have same use as in free() */
-  mchunkptr       nextchunk;
-  INTERNAL_SIZE_T size;
-  INTERNAL_SIZE_T nextsize;
-  INTERNAL_SIZE_T prevsize;
-  int             nextinuse;
-  mchunkptr       bck;
-  mchunkptr       fwd;
+	/* These have same use as in free() */
+	mchunkptr       nextchunk;
+	INTERNAL_SIZE_T size;
+	INTERNAL_SIZE_T nextsize;
+	INTERNAL_SIZE_T prevsize;
+	int             nextinuse;
+	mchunkptr       bck;
+	mchunkptr       fwd;
 
-  /*
-    If max_fast is 0, we know that av hasn't
-    yet been initialized, in which case do so below
-  */
+	/*
+	   If max_fast is 0, we know that av hasn't
+	   yet been initialized, in which case do so below
+	   */
 
-  if (get_max_fast () != 0) {
-    clear_fastchunks(av);
+	if (get_max_fast () != 0) {
+		// dyc:	"clear" FASTCHUNKS_BIT in flags
+		clear_fastchunks(av);
 
-    unsorted_bin = unsorted_chunks(av);
+		unsorted_bin = unsorted_chunks(av);
 
-    /*
-      Remove each chunk from fast bin and consolidate it, placing it
-      then in unsorted bin. Among other reasons for doing this,
-      placing in unsorted bin avoids needing to calculate actual bins
-      until malloc is sure that chunks aren't immediately going to be
-      reused anyway.
-    */
+		/*
+		   Remove each chunk from fast bin and consolidate it, placing it
+		   then in unsorted bin. Among other reasons for doing this,
+		   placing in unsorted bin avoids needing to calculate actual bins
+		   until malloc is sure that chunks aren't immediately going to be
+		   reused anyway.
+		   */
 
-    maxfb = &fastbin (av, NFASTBINS - 1);
-    fb = &fastbin (av, 0);
-    do {
-      p = atomic_exchange_acq (fb, 0);
-      if (p != 0) {
-	do {
-	  check_inuse_chunk(av, p);
-	  nextp = p->fd;
+		maxfb = &fastbin (av, NFASTBINS - 1);
+		fb = &fastbin (av, 0);
+		// dyc: iterate all fastbin's chunk list in av
+		do {
+			// assign 0 to *fb and return old *fb atomically
+			p = atomic_exchange_acq (fb, 0);
+			if (p != 0) {
+				// dyc: iterate this chunk list
+				do {
+					// dyc: for debug
+					check_inuse_chunk(av, p);
+					nextp = p->fd;
 
-	  /* Slightly streamlined version of consolidation code in free() */
-	  size = p->size & ~(PREV_INUSE|NON_MAIN_ARENA);
-	  nextchunk = chunk_at_offset(p, size);
-	  nextsize = chunksize(nextchunk);
+					/* Slightly streamlined version of consolidation code in free() */
+					size = p->size & ~(PREV_INUSE|NON_MAIN_ARENA);
+					// dyc: return (char*)p+size
+					nextchunk = chunk_at_offset(p, size);
+					nextsize = chunksize(nextchunk);
 
-	  if (!prev_inuse(p)) {
-	    prevsize = p->prev_size;
-	    size += prevsize;
-	    p = chunk_at_offset(p, -((long) prevsize));
-	    unlink(p, bck, fwd);
-	  }
+					// dyc: merge previous chunk
+					if (!prev_inuse(p)) {
+						prevsize = p->prev_size;
+						size += prevsize;
+						p = chunk_at_offset(p, -((long) prevsize));
+						unlink(p, bck, fwd);
+					}
 
-	  if (nextchunk != av->top) {
-	    nextinuse = inuse_bit_at_offset(nextchunk, nextsize);
+					// dyc: try to merge next chunk if it is not a top chunk
+					if (nextchunk != av->top) {
+						nextinuse = inuse_bit_at_offset(nextchunk, nextsize);
 
-	    if (!nextinuse) {
-	      size += nextsize;
-	      unlink(nextchunk, bck, fwd);
-	    } else
-	      clear_inuse_bit_at_offset(nextchunk, 0);
+						if (!nextinuse) {
+							size += nextsize;
+							unlink(nextchunk, bck, fwd);
+						} else
+							// dyc: TODO why it can be inuse ?? forget to clear the bit ??
+							clear_inuse_bit_at_offset(nextchunk, 0);
 
-	    first_unsorted = unsorted_bin->fd;
-	    unsorted_bin->fd = p;
-	    first_unsorted->bk = p;
+						// dyc: add p to unsorted bin list (second place)
+						first_unsorted = unsorted_bin->fd;
+						unsorted_bin->fd = p;
+						first_unsorted->bk = p;
 
-	    if (!in_smallbin_range (size)) {
-	      p->fd_nextsize = NULL;
-	      p->bk_nextsize = NULL;
-	    }
+						if (!in_smallbin_range (size)) {
+							p->fd_nextsize = NULL;
+							p->bk_nextsize = NULL;
+						}
 
-	    set_head(p, size | PREV_INUSE);
-	    p->bk = unsorted_bin;
-	    p->fd = first_unsorted;
-	    set_foot(p, size);
-	  }
+						set_head(p, size | PREV_INUSE);
+						p->bk = unsorted_bin;
+						p->fd = first_unsorted;
+   						// dyc: (((mchunkptr)((char*)(p) + (s)))->prev_size = (s))
+						set_foot(p, size);
+					}
 
-	  else {
-	    size += nextsize;
-	    set_head(p, size | PREV_INUSE);
-	    av->top = p;
-	  }
+					else {
+						size += nextsize;
+						set_head(p, size | PREV_INUSE);
+						av->top = p;
+					}
 
-	} while ( (p = nextp) != 0);
+				} while ( (p = nextp) != 0);
 
-      }
-    } while (fb++ != maxfb);
-  }
-  else {
-    malloc_init_state(av);
-    check_malloc_state(av);
-  }
+			}
+		} while (fb++ != maxfb);
+	}
+	else {
+		// dyc: means get_max_fast () == 0
+		malloc_init_state(av);
+		check_malloc_state(av);
+	}
 }
 
 /*
