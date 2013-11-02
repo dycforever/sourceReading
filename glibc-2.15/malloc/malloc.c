@@ -3586,6 +3586,7 @@ errout:
   for(;;) {
 
 	  int iters = 0;
+	  // dyc: iterate unsorted_chunks
 	  while ( (victim = unsorted_chunks(av)->bk) != unsorted_chunks(av)) {
 		  bck = victim->bk;
 		  if (__builtin_expect (victim->size <= 2 * SIZE_SZ, 0)
@@ -3618,8 +3619,8 @@ errout:
 				  remainder->fd_nextsize = NULL;
 				  remainder->bk_nextsize = NULL;
 			  }
-				// dyc: set_head(p, s)       ((p)->size = (s))
-				// dyc: set_foot(p, s)       (((mchunkptr)((char*)(p) + (s)))->prev_size = (s))
+			  // dyc: set_head(p, s)       ((p)->size = (s))
+			  // dyc: set_foot(p, s)       (((mchunkptr)((char*)(p) + (s)))->prev_size = (s))
 			  set_head(victim, nb | PREV_INUSE |
 					  (av != &main_arena ? NON_MAIN_ARENA : 0));
 			  set_head(remainder, remainder_size | PREV_INUSE);
@@ -3652,7 +3653,6 @@ errout:
 		  /* place chunk in bin */
 		  // dyc: fwd and bck's fd/bk member pointer will not be modified in this if-else,
 		  // 	  so we can assign them to victim's fd/bk
->>>>>>> 4c9b3ab2611ee6d75234f2ed3cf07c777c973184
 		  if (in_smallbin_range(size)) {
 			  victim_index = smallbin_index(size);
 			  bck = bin_at(av, victim_index);
@@ -3725,6 +3725,7 @@ errout:
 	  if (!in_smallbin_range(nb)) {
 		  bin = bin_at(av, idx);
 
+		  // dyc: alloc mem from largebin; if largebin is empty or too small, skip this code
 		  /* skip scan if empty or largest chunk is too small */
 		  if ((victim = first(bin)) != bin &&
 				  (unsigned long)(victim->size) >= (unsigned long)(nb)) {
@@ -3781,6 +3782,7 @@ errout:
 			  return p;
 		  }
 	  }
+	  // dyc: here means can't/didn't alloc mem from largebins
 
 	  /*
 		 Search for a chunk by scanning bins, starting with next largest
@@ -3795,6 +3797,7 @@ errout:
 
 	  ++idx;
 	  bin = bin_at(av,idx);
+	  // dyc: ((i) >> BINMAPSHIFT)  ===>   i>>5
 	  block = idx2block(idx);
 	  map = av->binmap[block];
 	  bit = idx2bit(idx);
