@@ -1,0 +1,11 @@
+kernel//home/dyc/program/ldd/ldd3_examples/misc-modules/hello.ko
+kernel//home/dyc/program/ldd/ldd3_examples/misc-modules/hellop.ko
+kernel//home/dyc/program/ldd/ldd3_examples/misc-modules/seq.ko
+kernel//home/dyc/program/ldd/ldd3_examples/misc-modules/jit.ko
+kernel//home/dyc/program/ldd/ldd3_examples/misc-modules/jiq.ko
+kernel//home/dyc/program/ldd/ldd3_examples/misc-modules/sleepy.ko
+kernel//home/dyc/program/ldd/ldd3_examples/misc-modules/complete.ko
+kernel//home/dyc/program/ldd/ldd3_examples/misc-modules/silly.ko
+kernel//home/dyc/program/ldd/ldd3_examples/misc-modules/faulty.ko
+kernel//home/dyc/program/ldd/ldd3_examples/misc-modules/kdatasize.ko
+kernel//home/dyc/program/ldd/ldd3_examples/misc-modules/kdataalign.ko

@@ -47,6 +47,7 @@ check_script_status()
    fi
 }
 
+# if interactive, ask user   or    just exec it
 run()
 {
    if [ -z $interactive ]; then
@@ -84,6 +85,7 @@ run()
 # Read any local settings/overrides
 [ -r /etc/sysconfig/rc.site ] && source /etc/sysconfig/rc.site
 
+# dyc: use default value but not assign to it
 DISTRO=${DISTRO:-"Linux From Scratch"}
 DISTRO_CONTACT=${DISTRO_CONTACT:-"lfs-dev@linuxfromscratch.org (Registration required)"}
 DISTRO_MINI=${DISTRO_MINI:-"LFS"}
@@ -99,6 +101,7 @@ if [ "${runlevel}" == "" ]; then
    exit 1
 fi
 
+# dyc: previous=${PREVLEVEL} or N
 previous=${PREVLEVEL}
 [ "${previous}" == "" ] && previous=N
 
@@ -144,6 +147,8 @@ fi
 
 # Read the state file if it exists from runlevel S
 [ -r /var/run/interactive ] && source /var/run/interactive
+
+# dyc: just stop all previous services and start services in this level
 
 # Attempt to stop all services started by the previous runlevel,
 # and killed in this runlevel
