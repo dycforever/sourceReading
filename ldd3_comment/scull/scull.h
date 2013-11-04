@@ -62,11 +62,11 @@
  * The array (quantum-set) is SCULL_QSET long.
  */
 #ifndef SCULL_QUANTUM
-#define SCULL_QUANTUM 4000		/* Ã¿¸öÖ¸Õë(Á¿×Ó)Ö¸ÏòÒ»¸ö4000×Ö½ÚµÄÇøÓò */
+#define SCULL_QUANTUM 4000		/* æ¯ä¸ªæŒ‡é’ˆ(é‡å­)æŒ‡å‘ä¸€ä¸ª4000å­—èŠ‚çš„åŒºåŸŸ */
 #endif
 
 #ifndef SCULL_QSET
-#define SCULL_QSET    1000		/* Ò»¸öÓĞ1000¸ö(Á¿×Ó)µÄÖ¸ÕëÊı×é */
+#define SCULL_QSET    1000		/* ä¸€ä¸ªæœ‰1000ä¸ª(é‡å­)çš„æŒ‡é’ˆæ•°ç»„ */
 #endif
 
 /*
@@ -78,21 +78,21 @@
 
 /*
  * Representation of scull quantum sets.
- * Ò»¸öÁ´±íÏî
+ * ä¸€ä¸ªé“¾è¡¨é¡¹
  */
 struct scull_qset {
-    //data±íÊ¾Ò»¸öÊı×éµÄÊ×µØÖ·£¬Êı×éÖĞµÄÃ¿Ò»¸öÔªËØ¶¼ÊÇÒ»¸öÖ¸Õë
-    //Êı×éÖĞÔªËØµÄ¸öÊı¾ÍÊÇqsetÖĞµÄ¸öÊı
+    //dataè¡¨ç¤ºä¸€ä¸ªæ•°ç»„çš„é¦–åœ°å€ï¼Œæ•°ç»„ä¸­çš„æ¯ä¸€ä¸ªå…ƒç´ éƒ½æ˜¯ä¸€ä¸ªæŒ‡é’ˆ
+    //æ•°ç»„ä¸­å…ƒç´ çš„ä¸ªæ•°å°±æ˜¯qsetä¸­çš„ä¸ªæ•°
 	void **data;
-	struct scull_qset *next;	/* ÏÂÒ»¸öÁ´±í½Úµã£¨Á´±íÏî£© */
+	struct scull_qset *next;	/* ä¸‹ä¸€ä¸ªé“¾è¡¨èŠ‚ç‚¹ï¼ˆé“¾è¡¨é¡¹ï¼‰ */
 };
 
-/* ÎÒÃÇ×Ô¼ºµÄÉè±¸(°üº¬ÁË»ù±¾µÄcdev×Ö·ûÉè±¸½á¹¹) */
+/* æˆ‘ä»¬è‡ªå·±çš„è®¾å¤‡(åŒ…å«äº†åŸºæœ¬çš„cdevå­—ç¬¦è®¾å¤‡ç»“æ„) */
 struct scull_dev {
-	struct scull_qset *data;  /* Pointer to first quantum set (Á´±íµÄÍ·)*/
+	struct scull_qset *data;  /* Pointer to first quantum set (é“¾è¡¨çš„å¤´)*/
 	int quantum;              /* the current quantum size */
 	int qset;                 /* the current array size */
-	unsigned long size;       /* amount of data stored here (±£´æÔÚÆäÖĞµÄÊı¾İ×ÜÁ¿)*/
+	unsigned long size;       /* amount of data stored here (ä¿å­˜åœ¨å…¶ä¸­çš„æ•°æ®æ€»é‡)*/
 	unsigned int access_key;  /* used by sculluid and scullpriv */
 	struct semaphore sem;     /* mutual exclusion semaphore     */
 	struct cdev cdev;	  /* Char device structure		*/

@@ -1,21 +1,22 @@
 /*
  * main.c -- the bare scull char module
  *
- * �˴���Ϊldd3���ӣ��Լ�����Щע��;ϣ�����Ժ͸�������ͬ����Ȥ�������һ��ѧϰ���ۡ�
- * ����ע�͵Ĳ��Եĵط��뷢mail���ң������ԣ�
+ * 此代码为ldd3例子，自己加了些注释;希望可以和更多有着同样兴趣的鸟儿们一块学习讨论。
+ * 哪有注释的不对的地方请发mail给我，或留言；
  *
  * author : liyangth@gmail.com 
  *
  * date: 2007-2-7
  * 
- * Note��ע�͵�ÿһ���ؼ��Ķζ���[tag00]���˱�ǩ����ҿ��԰���tag��˳���Ķ���
- * e.g: ���� "Tag000"
+ * Note：注释的每一个关键的段都以[tag00]作了标签，大家可以按照tag的顺序阅读；
+ * e.g: 搜索 "Tag000"
  */
 
 #include <generated/autoconf.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/init.h>
+
 
 #include <linux/kernel.h>	/* printk() */
 #include <linux/slab.h>		/* kmalloc() */
@@ -43,14 +44,14 @@ int scull_quantum = SCULL_QUANTUM;  // 4000
 int scull_qset =    SCULL_QSET;  //1000
 
 /*
- * ģ�����������ģ��ת��ʱ��ֵ�������㣻
+ * 模块参数，可在模块转载时赋值，很灵活方便；
  * e.g:
  * 		insmod scull.ko scull_major=111 scull_nr_devs=3 scull_quantum=1000
  *
- *[�β�˵��]
- * 1 -- ��������
- * 2 -- �������ͣ�
- * 3 -- sysfs�����ķ����������루һ����S_IRUGO�ͳɣ���
+ *[形参说明]
+ * 1 -- 变量名；
+ * 2 -- 变量类型；
+ * 3 -- sysfs入口项的访问许可掩码（一般用S_IRUGO就成）；
 */
 module_param(scull_major, int, S_IRUGO); 
 module_param(scull_nr_devs, int, S_IRUGO);
@@ -61,13 +62,12 @@ MODULE_AUTHOR("Alessandro Rubini, Jonathan Corbet");
 MODULE_LICENSE("Dual BSD/GPL");
 
 struct scull_dev *scull_devices;	/* allocated in scull_init_module */
-/* Note: ��Ҫ���������һ��ָ��scull_dev�ṹ��ָ��, ����ʵ��һ��scull_dev�ṹ����,�ȴ�����kmalloc����������scull�豸�ռ� */
+/* Note: 不要把它理解成一个指向scull_dev结构的指针, 它其实是一个scull_dev结构数组,等待下面kmalloc分配多个我们scull设备空间 */
 
 
 /*
- * Empty out the scull device; ������������,��������α�дһ���ַ�����û�й�ϵ,���Բ���;
- *
- * must be called with the device semaphore held. Ҫע��һ����,�϶���Ҫͬ����;
+ * Empty out the scull device; 销毁链表
+ * must be called with the device semaphore held. 
  *
  */
 int scull_trim(struct scull_dev *dev)
@@ -76,7 +76,7 @@ int scull_trim(struct scull_dev *dev)
 	int qset = dev->qset;   /* "dev" is not-null */
 	int i;
 
-    //����dev�У�data�����е�����scull_qset����
+    //遍历dev中，data链表中的所有scull_qset链表
 	for (dptr = dev->data; dptr; dptr = next) { /* all the list items */
 		if (dptr->data) {
 			for (i = 0; i < qset; i++)
@@ -89,21 +89,20 @@ int scull_trim(struct scull_dev *dev)
 	}
 	dev->size = 0;
 	dev->quantum = scull_quantum;
-	dev->qset = scull_qset; //�����ģ�������һ��int
+	dev->qset = scull_qset; //这个是模块参数，一个int
 	dev->data = NULL;
 	return 0;
 }
 
-//Start: [Tag003] proc��ʵ��,�����Ȳ���;
 #ifdef SCULL_DEBUG /* use proc only if debugging */
-//������Ϸ���ʵ�ֵ�proc
+//这个是老方法实现的proc
 /*
  * The proc filesystem: function to read and entry
  */
-//�������ֻʹ����buf count eof data�ĸ�����
-//��һ��ѭ������scull_devices�����е�����Ԫ��
-//�ڶ���ѭ������ÿһ��scull_qset
-//������ѭ������ÿ��scull_qset�е�ÿһ������Ԫ��,��ӡ��Ϣ
+//这个函数只使用了buf count eof data四个参数
+//第一个循环遍历scull_devices数组中的所有元素
+//第二个循环遍历每一个scull_qset
+//第三个循环遍历每个scull_qset中的每一个数组元素,打印信息
 int scull_read_procmem(char *buf, char **start, off_t offset,
                    int count, int *eof, void *data)
 {
@@ -134,7 +133,7 @@ int scull_read_procmem(char *buf, char **start, off_t offset,
 	return len;
 }
 
-//����������·���ʵ�ֵ�
+//下面的是用新方法实现的
 /*
  * For now, the seq_file implementation will exist in parallel.  The
  * older read_procmem function should maybe go away, though.
@@ -164,7 +163,7 @@ static void scull_seq_stop(struct seq_file *s, void *v)
 	/* Actually, there's nothing to do here */
 }
 
-//���ѭ������ָ��device������qset
+//外层循环遍历指定device的所有qset
 static int scull_seq_show(struct seq_file *s, void *v)
 {
 	struct scull_dev *dev = (struct scull_dev *) v;
@@ -191,7 +190,7 @@ static int scull_seq_show(struct seq_file *s, void *v)
 	
 /*
  * Tie the sequence operators up.
- * ��һ����������ǣ�����ļ�ר����
+ * 这一类操作几乎是ｐｒｏｃ文件专属的
  */
 static struct seq_operations scull_seq_ops = {
 	.start = scull_seq_start,
@@ -224,7 +223,7 @@ static struct file_operations scull_proc_ops = {
 /*
  * Actually create (and remove) the /proc file(s).
  */
-//�ֱ������Ϸ���ʵ����2��proc�ļ�
+//分别用新老方法实现了2个proc文件
 static void scull_create_proc(void)
 {
 	struct proc_dir_entry *entry;
@@ -249,23 +248,23 @@ static void scull_remove_proc(void)
 
 
 
-/* ��ʼʵ�ֶ��豸�����ķ�������,�ؼ�!!! */
+/* 开始实现对设备操作的方法集了,关键!!! */
 /*
  * Open and close
  */
 //[Tag004]
 /*
-openӦ��ɵĹ����У�
-	1.����豸�ض��Ĵ��������豸δ���������Ƶ�Ӳ�����⣩
-	2.����豸���״δ򿪣��������г�ʼ����
-	3.���б�Ҫ������f_opָ�룻
-	4.���䲢��дfilp->private_data��������������ֻʵ������ɣ�
+open应完成的工作有：
+	1.检查设备特定的错误（诸如设备未就绪或类似的硬件问题）
+	2.如果设备是首次打开，则对其进行初始化；
+	3.如有必要，更新f_op指针；
+	4.分配并填写filp->private_data；（在这里我们只实现这项即可）
 */
 
 /*
-[�β�˵��]
-	struct inode *inode -- ������i_cdev��Ա�õ�dev;
-	struct file *filp -- ���õ���dev��ŵ����ĳ�Աprivate_data�У�
+[形参说明]
+	struct inode *inode -- 用它的i_cdev成员得到dev;
+	struct file *filp -- 将得到的dev存放到他的成员private_data中；
 */
 int scull_open(struct inode *inode, struct file *filp)
 {
@@ -273,14 +272,14 @@ int scull_open(struct inode *inode, struct file *filp)
 
 	dev = container_of(inode->i_cdev, struct scull_dev, cdev);
 	/*
-	[˵��]
-		1.����Ҫ����Ӧ���������Լ��������豸��������ǯ����������ַ��豸�ṹ��
-		2.inode�ṹ��i_cdev��Ա�����ṩ�����ַ��豸�ṹ��
-		3.���������˶�����<linux/kernel.h>�еĺ���ʵ��ͨ��cdev�õ�dev;
+	[说明]
+		1.我们要填充的应该是我们自己的特殊设备，而不是钳在他里面的字符设备结构；
+		2.inode结构的i_cdev成员这能提供基本字符设备结构；
+		3.这里利用了定义在<linux/kernel.h>中的宏来实现通过cdev得到dev;
 	*/
 	
 	/*
-	�Ժ�read , write ,�Ȳ�����ʵ���оͿ������õ�dev�ˣ�
+	以后read , write ,等操作的实现中就靠他来得到dev了；
 	*/
 	filp->private_data = dev; /* for other methods */
 	
@@ -298,12 +297,12 @@ int scull_open(struct inode *inode, struct file *filp)
 /* close device file, in here we do nothing */
 /* 
  * [Tag005]
- * closeӦ��ɵĹ����У�
- *	1.�ͷ���open����ģ�������filp->private_data�е��������ݣ�
- *  2.�����һ�ιرղ���ʱ�ر��豸��
- * [ע�⣺]������ÿ�ε�closeϵͳ���ö���ȥ���õ�release. ��openʱ��Ҳ����openʱ�Żᴴ��
- * һ���µ����ݽṹ����fork, dupʱֻ������������ṹ��ά����һ�����ü�����
- * ���Ե�������ü���Ϊ0ʱ�����õ�close����ζ��Ҫ�ͷ��豸���ݽṹ����ʱrelease�Żᱻ���ã�
+ * close应完成的工作有：
+ *	1.释放由open分配的，保存在filp->private_data中的所有内容；
+ *  2.在最后一次关闭操作时关闭设备；
+ * [注意：]并不是每次的close系统调用都会去调用到release. 在open时，也仅在open时才会创建
+ * 一个新的数据结构；在fork, dup时只是增加了这个结构中维护的一个引用计数；
+ * 所以当这个引用计数为0时，调用的close才意味着要释放设备数据结构，此时release才会被调用；
  */
 int scull_release(struct inode *inode, struct file *filp)
 {
@@ -314,9 +313,9 @@ int scull_release(struct inode *inode, struct file *filp)
 /*
  * Follow the list
  * 
- * ��һ�ε���ʱ���ڴ���������
- * Ȼ������ҵ���n���ڵ㣻
- * �Ա�д���������ϵ����
+ * 第一次调用时用于创建链表；
+ * 然后就是找到第n个节点；
+ * 对编写驱动程序关系不大；
  */
 struct scull_qset *scull_follow(struct scull_dev *dev, int n)
 {
@@ -346,21 +345,21 @@ struct scull_qset *scull_follow(struct scull_dev *dev, int n)
 
 /*[Tag006]
  * Data management: read and write
- * [read��write�Ĳ���]
- *		1] filp -- �ļ�ָ�룻�����ĳ�Աfilp->private_data�õ�dev;
- * 		2] buf -- ���������û��ռ��ָ�룻
- *  	3] count -- ��������С��(ϣ��������ֽ���Ŀ)
- *		4] f_pos -- ָ��һ����ƫ���������ָ�룬�������ָ�����û����ļ��н��д�ȡ
- *			������λ�ã�
+ * [read和write的参数]
+ *		1] filp -- 文件指针；用它的成员filp->private_data得到dev;
+ * 		2] buf -- 都是来自用户空间的指针；
+ *  	3] count -- 缓冲区大小；(希望传输的字节数目)
+ *		4] f_pos -- 指向一个长偏移量对象的指针，这个对象指明了用户在文件中进行存取
+ *			操作的位置；
  *
- *[����ֵ]
- * 		1]�������ֵ����count�����������������Ŀ���ֽڴ��䣻
- *		2]�������ֵ��������С��count,���������д���µ����ݣ�
- *		3]���Ϊ0����֤���Ѿ������ļ�β��
- *		4]���Ϊ���������˴��󡣻᷵��һ�������룬��ֵָ���˷�����ʲô����
- * 			��������<linux/errno.h>�ж��壻
- *			���磺-EINTR (ϵͳ���ñ��ж�)
- *				  -EFAULT (��Ч��ַ)
+ *[返回值]
+ * 		1]如果返回值等于count，则完成了所请求数目的字节传输；
+ *		2]如果返回值是正，但小于count,则继续读或写余下的数据；
+ *		3]如果为0，则证明已经到了文件尾；
+ *		4]如果为负，则发生了错误。会返回一个错误码，该值指明了发生了什么错误。
+ * 			错误码在<linux/errno.h>中定义；
+ *			例如：-EINTR (系统调用被中断)
+ *				  -EFAULT (无效地址)
  */
 
 
@@ -376,39 +375,39 @@ ssize_t scull_read(struct file *filp, char __user *buf, size_t count,
 
 	if (down_interruptible(&dev->sem))
 		return -ERESTARTSYS;
-	if (*f_pos >= dev->size) //����λ�õ��ļ�β���򳬳��ļ�β��
+	if (*f_pos >= dev->size) //操作位置到文件尾，或超出文件尾了
 		goto out;
-	if (*f_pos + count > dev->size) //�ڵ�ǰλ����Ҫ������Ŀ�����ļ�β��
-		count = dev->size - *f_pos;	//��С��ε�������ȡ��Ŀ
+	if (*f_pos + count > dev->size) //在当前位置所要读的数目超过文件尾了
+		count = dev->size - *f_pos;	//减小这次的期望读取数目
 
 	/* find listitem, qset index, and offset in the quantum */
-	item = (long)*f_pos / itemsize; //ȷ�����ĸ��������£����ĸ��ڵ��£�
-	rest = (long)*f_pos % itemsize; //������������ʲôλ�ã�ƫ������������������qset������ƫ������
-	s_pos = rest / quantum;		//������ڵ���**data���ָ������ĵڼ��У�
-	 q_pos = rest % quantum; //�����У�������������ƫ������
+	item = (long)*f_pos / itemsize; //确定是哪个链表项下，即哪个节点下；
+	rest = (long)*f_pos % itemsize; //在这个链表项的什么位置（偏移量），用于下面找qset索引和偏移量；
+	s_pos = rest / quantum;		//在这个节点里**data这个指针数组的第几行；
+	 q_pos = rest % quantum; //在这行，即这个量子里的偏移量；
 
 	/* follow the list up to the right position (defined elsewhere) */
-	dptr = scull_follow(dev, item);  //�ҵ����������
+	dptr = scull_follow(dev, item);  //找到这个链表项
 
 	if (dptr == NULL || !dptr->data || ! dptr->data[s_pos])
 		goto out; /* don't fill holes */
 
-//��һ������Ϊ��λ�������˴��룻
+//以一个量子为单位传，简化了代码；
 	/* read only up to the end of this quantum */
 	if (count > quantum - q_pos)
 		count = quantum - q_pos;
 
 /*
- * ����Ϊ�ⲽ׼���˾������ĸ��������ָ������ĵڼ��еĵڼ��У���dptr->data[s_pos] + q_pos��
- * �����λ�õ��ں�̬��buf�п����û�̬	
+ * 上面为这步准备了具体在哪个链表项的指针数组的第几行的第几列（即dptr->data[s_pos] + q_pos）
+ * 从这个位置的内核态的buf中拷给用户态	
 */	
 
-//�ؼ�һ���������ݿ����û��ռ�
+//关键一步，将数据拷给用户空间
 	if (copy_to_user(buf, dptr->data[s_pos] + q_pos, count)) {
 		retval = -EFAULT;
 		goto out;
 	}
-	*f_pos += count; //�����ļ�ָ��
+	*f_pos += count; //更新文件指针
 	retval = count;
 
   out:
@@ -416,7 +415,7 @@ ssize_t scull_read(struct file *filp, char __user *buf, size_t count,
 	return retval;
 }
 
-//��read��ʵ������
+//与read的实现类似
 ssize_t scull_write(struct file *filp, const char __user *buf, size_t count,
                 loff_t *f_pos)
 {
@@ -631,7 +630,7 @@ loff_t scull_llseek(struct file *filp, loff_t off, int whence)
 }
 
 
-//[Tag007]������������Ϊһ������
+//[Tag007]将这组操作打包为一个对象；
 struct file_operations scull_fops = {
 	.owner =    THIS_MODULE,
 	.llseek =   scull_llseek,
@@ -647,7 +646,7 @@ struct file_operations scull_fops = {
  */
 
 
-//[Tag008]ģ��ж�ػ�goto failʱ��
+//[Tag008]模块卸载或goto fail时；
 /*
  * The cleanup function is used to handle initialization failures as well.
  * Thefore, it must be careful to work correctly even if some of the items
@@ -662,7 +661,7 @@ void scull_cleanup_module(void)
 	if (scull_devices) {
 		for (i = 0; i < scull_nr_devs; i++) {
 			scull_trim(scull_devices + i);
-			cdev_del(&scull_devices[i].cdev);	//[???]��һ���ں˺���ô��
+			cdev_del(&scull_devices[i].cdev);	//[???]是一个内核函数么？
 		}
 		kfree(scull_devices);
 	}
@@ -682,13 +681,13 @@ void scull_cleanup_module(void)
 
 
 /* [Tag002] 
-	������Ҫ����2����;
-	���ں��ڲ�ʹ��struct cdev�ṹ����ʾ�ַ��豸;
-	[1]��������Ϊ���ǽ�cdev�ṹǶ�뵽�Լ���scull_dev�豸����,�����������������������
-	��ʼ���ѷ���Ľṹ;
+	这里主要干了2件事;
+	在内核内部使用struct cdev结构来表示字符设备;
+	[1]在这里因为我们将cdev结构嵌入到自己的scull_dev设备下了,所以我们用下面这个方法来
+	初始化已分配的结构;
 	cdev_init(&dev->cdev, &scull_fops);
 	
-	[2]�����ں������½ṹ����Ϣ;
+	[2]告诉内核我们新结构的信息;
 */
 /*
  * Set up the char_dev structure for this device.
@@ -698,25 +697,25 @@ static void scull_setup_cdev(struct scull_dev *dev, int index)
 	int err, devno = MKDEV(scull_major, scull_minor + index);
     
    // [1]
-	cdev_init(&dev->cdev, &scull_fops);	/* ��ʼ��, �ַ��豸�͸���һ��������������ķ����� */
+	cdev_init(&dev->cdev, &scull_fops);	/* 初始化, 字符设备和给它一组在它上面操作的方法集 */
 	
-	/* �������ַ��豸�ĳ�Ա */
-	dev->cdev.owner = THIS_MODULE;		//ģ�����
-	dev->cdev.ops = &scull_fops;		//����һ������Լ��ķ�����
+	/* 填充基本字符设备的成员 */
+	dev->cdev.owner = THIS_MODULE;		//模块计数
+	dev->cdev.ops = &scull_fops;		//附上一组操作自己的方法集
 	
 //	[2]
 	err = cdev_add (&dev->cdev, devno, 1);
 	/*
-	����˵��:
-		cdev -- �ַ��豸�Ľṹָ��,���Ǿ���Ҫ�������߸��ں�;
-		devno -- �豸���,��MKDEV����ȫ�ֵ����豸�źʹ��豸�����ɵ�;
-		1	-- ��Ӧ�ú͸��豸�������豸��ŵ�����, һ������¶�Ϊ1;
-			һ�����Ƕ���һ���豸��Ŷ�Ӧһ���豸;		
+	函数说明:
+		cdev -- 字符设备的结构指针,我们就是要把他告诉给内核;
+		devno -- 设备编号,用MKDEV利用全局的主设备号和次设备号生成的;
+		1	-- 是应该和该设备关联的设备编号的数量, 一般情况下都为1;
+			一般我们都是一个设备编号对应一个设备;		
 	*/
 	/*
-	ע��:
-		�ڵ���cdev_add��,���ǵ��豸�ͱ����ӵ�ϵͳ��,��"��"��. ���ӵĲ�����Ҳ�Ϳ��Ա��ں˵�����
-		,���,����������û����ȫ׼���ô����豸�ϵĲ���ʱ,�Ͳ��ܵ���cdev_add!
+	注意:
+		在调用cdev_add后,我们的设备就被添加到系统了,他"活"了. 附加的操作集也就可以被内核调用了
+		,因此,在驱动程序还没有完全准备好处理设备上的操作时,就不能调用cdev_add!
 	*/
 	/* Fail gracefully if need be */
 	if (err)
@@ -724,7 +723,7 @@ static void scull_setup_cdev(struct scull_dev *dev, int index)
 }
 
 /*[Tag000]
- * ��ģ�����ʱ�����ã�����ΪʲôҪ���������ʵ�����أ�����Tag002ʱ����Ӧ�þ������ˣ�
+ * 当模块加载时，调用；但是为什么要放在最后来实现他呢，看到Tag002时，你应该就明白了；
 */
 int scull_init_module(void)
 {
@@ -732,17 +731,17 @@ int scull_init_module(void)
 	dev_t dev = 0;
 
 /* [Tag001] */
-/* [1]�����豸��� */
+/* [1]分配设备编号 */
 /*
  * Get a range of minor numbers to work with, asking for a dynamic
  * major unless directed otherwise at load time.
  */
-	if (scull_major) { 	/* Ԥ���Լ�ָ�������豸�� */
-		dev = MKDEV(scull_major, scull_minor); /* �������豸��,�ҵ��豸��Ÿ�����1�� */
+	if (scull_major) { 	/* 预先自己指定了主设备号 */
+		dev = MKDEV(scull_major, scull_minor); /* 利用主设备号,找到设备编号给方法1用 */
 		result = register_chrdev_region(dev, scull_nr_devs, "scull");
-	} else {		/* ��̬�Լ������豸���,Ȼ���������豸��ŵõ����豸��;
-						��ס��������������ô��Ҫ���豸�ļ���,��Ϊ������ǰ֪������
-						��ȻҲ��������ldd3�����ṩ�Ľű�,�޷���&&ͨ�� */
+	} else {		/* 动态自己生成设备编号,然后再利用设备编号得到主设备号;
+						记住如果用这个方法那么就要后建设备文件了,因为不能提前知道主号
+						当然也可以利用ldd3书中提供的脚本,巨方便&&通用 */
 		result = alloc_chrdev_region(&dev, scull_minor, scull_nr_devs,
 				"scull");
 		scull_major = MAJOR(dev);
@@ -752,7 +751,7 @@ int scull_init_module(void)
 		return result;
 	}
 
-    /*[2]�豸����ʵ����*/ 
+    /*[2]设备对象实例化*/ 
         /* 
 	 * allocate the devices -- we can't have them static, as the number
 	 * can be specified at load time
@@ -764,14 +763,14 @@ int scull_init_module(void)
 	}
 	memset(scull_devices, 0, scull_nr_devs * sizeof(struct scull_dev));
 
-/* [3]�������ʼ���豸����2.6���·���,��scull_setup_cdev����� */
+/* [3]在这里初始化设备用了2.6的新方法,在scull_setup_cdev里完成 */
         /* Initialize each device. */
 	for (i = 0; i < scull_nr_devs; i++) {
-		scull_devices[i].quantum = scull_quantum;	/* ���Ը����Լ�insmodʱ����
-														���Լ��ı����Ӻ����Ӽ�(ָ������)�Ĵ�С */
+		scull_devices[i].quantum = scull_quantum;	/* 可以根据自己insmod时传参
+														来自己改变量子和量子集(指针数组)的大小 */
 		scull_devices[i].qset = scull_qset;
 		sema_init(&scull_devices[i].sem,1);
-		scull_setup_cdev(&scull_devices[i], i);	/* �ڷֱ������豸��ź�goto Tag002 �豸ע�� */
+		scull_setup_cdev(&scull_devices[i], i);	/* 在分别完主设备编号后goto Tag002 设备注册 */
 	}
 
         /* At this point call the init function for any friend device */
