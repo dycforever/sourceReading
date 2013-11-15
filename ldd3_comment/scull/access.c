@@ -54,6 +54,8 @@ static int scull_s_open(struct inode *inode, struct file *filp)
 {
 	struct scull_dev *dev = &scull_s_device; /* device information */
 
+    // dyc:atomic_dec_and_test() dec count and test if count==0
+    //     so if available==0, return EBUSY
 	if (! atomic_dec_and_test (&scull_s_available)) {
 		atomic_inc(&scull_s_available);
 		return -EBUSY; /* already open */

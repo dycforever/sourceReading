@@ -904,8 +904,10 @@ static int futex_requeue(u32 __user *uaddr1, struct rw_semaphore *fshared,
 	if (likely(cmpval != NULL)) {
 		u32 curval;
 
+        // dyc: success return 0
 		ret = get_futex_value_locked(&curval, uaddr1);
 
+        // dyc: unlikely won't into this if block
 		if (unlikely(ret)) {
 			spin_unlock(&hb1->lock);
 			if (hb1 != hb2)
@@ -930,6 +932,7 @@ static int futex_requeue(u32 __user *uaddr1, struct rw_semaphore *fshared,
 		}
 	}
 
+    // dyc: ret==0 here
 	head1 = &hb1->chain;
 	plist_for_each_entry_safe(this, next, head1, list) {
 		if (!match_futex (&this->key, &key1))
