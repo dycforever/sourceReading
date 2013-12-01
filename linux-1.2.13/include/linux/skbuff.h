@@ -187,7 +187,8 @@ extern __inline__ void skb_queue_tail(struct sk_buff_head *list_, struct sk_buff
  *	Remove an sk_buff from a list. This routine is also interrupt safe
  *	so you can grab read and free buffers as another process adds them.
  */
-
+// dyc: remove the element next to param[list_] from list
+// dyc: because list_ always a queue head
 extern __inline__ struct sk_buff *skb_dequeue(struct sk_buff_head *list_)
 {
 	long flags;

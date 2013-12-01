@@ -128,12 +128,19 @@ __register_chrdev_region(unsigned int major, unsigned int baseminor,
 
 	i = major_to_index(major);
 
+    // dyc: typeof cp is [struct char_device_struct**]
+    // dyc: this loop want to find the first device which (major) > the (allocing device's major)
+    //                                                      or (minor) > the (allocing device's minor)
+    // dyc: this means find the dev-number-range's start point
 	for (cp = &chrdevs[i]; *cp; cp = &(*cp)->next)
 		if ((*cp)->major > major ||
 		    ((*cp)->major == major &&
 		     (((*cp)->baseminor >= baseminor) ||
 		      ((*cp)->baseminor + (*cp)->minorct > baseminor))))
 			break;
+
+    // dyc: here means allocing device'minor-range won't be overlapped with previous device's
+    // dyc: so only check if will overlap with next device
 
 	/* Check for overlapping minor ranges.  */
 	if (*cp && (*cp)->major == major) {
@@ -155,6 +162,7 @@ __register_chrdev_region(unsigned int major, unsigned int baseminor,
 		}
 	}
 
+    // dyc: add to list
 	cd->next = *cp;
 	*cp = cd;
 	mutex_unlock(&chrdevs_lock);

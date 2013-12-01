@@ -231,6 +231,7 @@ struct sk_buff *skb_dequeue(struct sk_buff_head *list_)
 		return NULL;
 	}
 
+    // dyc: remove result from double-linked list
 	result->next->prev = list;
 	list->next = result->next;
 

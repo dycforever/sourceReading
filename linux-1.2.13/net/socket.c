@@ -438,13 +438,16 @@ void sock_close(struct inode *inode, struct file *filp)
 /*
  *	Update the socket async list
  */
- 
+// dyc: find the fasync_struct from sock by param[filp]. 
+//      If param[on] is true while find failed, malloc new one and insert 
+//      if param[on] is false, remove it from list
 static int sock_fasync(struct inode *inode, struct file *filp, int on)
 {
 	struct fasync_struct *fa, *fna=NULL, **prev;
 	struct socket *sock;
 	unsigned long flags;
 	
+    // dyc: maybe n in fna means new?
 	if (on)
 	{
 		fna=(struct fasync_struct *)kmalloc(sizeof(struct fasync_struct), GFP_KERNEL);
@@ -475,11 +478,9 @@ static int sock_fasync(struct inode *inode, struct file *filp, int on)
 		fna->magic=FASYNC_MAGIC;
 		fna->fa_next=sock->fasync_list;
 		sock->fasync_list=fna;
-	}
-	else
-	{
-		if(fa!=NULL)
-		{
+	} else {
+        // dyc: remove from list
+		if(fa!=NULL) {
 			*prev=fa->fa_next;
 			kfree_s(fa,sizeof(struct fasync_struct));
 		}

@@ -1,16 +1,3 @@
-/*
- * main.c -- the bare scull char module
- *
- * 此代码为ldd3例子，自己加了些注释;希望可以和更多有着同样兴趣的鸟儿们一块学习讨论。
- * 哪有注释的不对的地方请发mail给我，或留言；
- *
- * author : liyangth@gmail.com 
- *
- * date: 2007-2-7
- * 
- * Note：注释的每一个关键的段都以[tag00]作了标签，大家可以按照tag的顺序阅读；
- * e.g: 搜索 "Tag000"
- */
 
 #include <generated/autoconf.h>
 #include <linux/module.h>
@@ -61,12 +48,12 @@ module_param(scull_qset, int, S_IRUGO);
 MODULE_AUTHOR("Alessandro Rubini, Jonathan Corbet");
 MODULE_LICENSE("Dual BSD/GPL");
 
+// dyc: point to an scull_dev* array
 struct scull_dev *scull_devices;	/* allocated in scull_init_module */
-/* Note: 不要把它理解成一个指向scull_dev结构的指针, 它其实是一个scull_dev结构数组,等待下面kmalloc分配多个我们scull设备空间 */
 
 
 /*
- * Empty out the scull device; 销毁链表
+ * Empty out the scull device;
  * must be called with the device semaphore held. 
  *
  */
@@ -722,9 +709,7 @@ static void scull_setup_cdev(struct scull_dev *dev, int index)
 		printk(KERN_NOTICE "Error %d adding scull%d", err, index);
 }
 
-/*[Tag000]
- * 当模块加载时，调用；但是为什么要放在最后来实现他呢，看到Tag002时，你应该就明白了；
-*/
+
 int scull_init_module(void)
 {
 	int result, i;

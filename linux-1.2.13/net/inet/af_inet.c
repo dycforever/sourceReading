@@ -245,11 +245,13 @@ static void remove_sock(struct sock *sk1)
 		return;
 	}
 
+    // dyc: find sk2 which next point to sk1
 	while(sk2 && sk2->next != sk1) 
 	{
 		sk2 = sk2->next;
 	}
 
+    // dyc: remove sk1 from list
 	if (sk2) 
 	{
 		sk1->prot->inuse -= 1;
