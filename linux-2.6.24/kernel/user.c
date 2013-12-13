@@ -333,6 +333,8 @@ struct user_struct * alloc_uid(struct user_namespace *ns, uid_t uid)
 	up = uid_hash_find(uid, hashent);
 	spin_unlock_irq(&uidhash_lock);
 
+    // dyc: if this user has not in this namespace, alloc one
+    // dyc: or return otherwise
 	if (!up) {
 		struct user_struct *new;
 

@@ -36,6 +36,7 @@ static struct user_namespace *clone_user_ns(struct user_namespace *old_ns)
 	if (!ns)
 		return ERR_PTR(-ENOMEM);
 
+    // dyc:set to 1
 	kref_init(&ns->kref);
 
 	for (n = 0; n < UIDHASH_SZ; ++n)
@@ -56,6 +57,7 @@ static struct user_namespace *clone_user_ns(struct user_namespace *old_ns)
 		return ERR_PTR(-ENOMEM);
 	}
 
+    // dyc: use new user_struct to statistic
 	switch_uid(new_user);
 	return ns;
 }

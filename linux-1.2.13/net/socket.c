@@ -178,9 +178,9 @@ static int get_fd(struct inode *inode)
 		return(-1);
 	}
 
-	FD_CLR(fd, &current->files->close_on_exec);
-		current->files->fd[fd] = file;
-	file->f_op = &socket_file_ops;
+    FD_CLR(fd, &current->files->close_on_exec);
+    current->files->fd[fd] = file;
+    file->f_op = &socket_file_ops;
 	file->f_mode = 3;
 	file->f_flags = O_RDWR;
 	file->f_count = 1;
@@ -821,6 +821,8 @@ static int sock_accept(int fd, struct sockaddr *upeer_sockaddr, int *upeer_addrl
 		return(i);
 	}
 
+    // dyc: ops is a pointer to struct proto_ops
+    //      such as inet_accept()
 	i = newsock->ops->accept(sock, newsock, file->f_flags);
 	if ( i < 0) 
 	{
