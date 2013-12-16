@@ -251,6 +251,7 @@ struct module
 	enum module_state state;
 
 	/* Member of list of modules */
+    // dyc: list all modules in kernel
 	struct list_head list;
 
 	/* Unique handle for this module */

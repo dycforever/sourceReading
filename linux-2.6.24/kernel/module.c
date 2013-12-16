@@ -1437,6 +1437,8 @@ static long get_offset(unsigned long *size, Elf_Shdr *sechdr)
 {
 	long ret;
 
+    // dyc: let *size's value align to sechdr->sh_addralign or 1
+    //      so calculate ALIGN first just to set a proper start point for this section
 	ret = ALIGN(*size, sechdr->sh_addralign ?: 1);
 	*size = ret + sechdr->sh_size;
 	return ret;
@@ -1470,6 +1472,8 @@ static void layout_sections(struct module *mod,
 		for (i = 0; i < hdr->e_shnum; ++i) {
 			Elf_Shdr *s = &sechdrs[i];
 
+            // dyc: don't compliant with first condition or 
+            //      compliant with at leaset one second condition
 			if ((s->sh_flags & masks[m][0]) != masks[m][0]
 			    || (s->sh_flags & masks[m][1])
 			    || s->sh_entsize != ~0UL
@@ -1517,6 +1521,7 @@ static void set_license(struct module *mod, const char *license)
 }
 
 /* Parse tag=value strings from .modinfo section */
+// dyc: find next string, so skip this string(non-zero chars) first, then skip zeros(find first non-zero char)
 static char *next_string(char *string, unsigned long *secsize)
 {
 	/* Skip non-zero chars */
@@ -1535,6 +1540,8 @@ static char *next_string(char *string, unsigned long *secsize)
 	return string;
 }
 
+// dyc: at address[sechdrs[info].sh_addr] has some zero-delimited strings which pattern is [a]=[b], 
+// find the one a=tag and return b;
 static char *get_modinfo(Elf_Shdr *sechdrs,
 			 unsigned int info,
 			 const char *tag)
@@ -1715,6 +1722,8 @@ static struct module *load_module(void __user *umod,
 	secstrings = (void *)hdr + sechdrs[hdr->e_shstrndx].sh_offset;
 	sechdrs[0].sh_addr = 0;
 
+    // dyc: set address for section's sh_addr field
+    //      and find SHT_SYMTAB
 	for (i = 1; i < hdr->e_shnum; i++) {
 		if (sechdrs[i].sh_type != SHT_NOBITS
 		    && len < sechdrs[i].sh_offset + sechdrs[i].sh_size)
@@ -1818,6 +1827,7 @@ static struct module *load_module(void __user *umod,
 	mod->state = MODULE_STATE_COMING;
 
 	/* Allow arches to frob section contents and sizes.  */
+    // dyc: return 0
 	err = module_frob_arch_sections(hdr, sechdrs, secstrings, mod);
 	if (err < 0)
 		goto free_mod;
@@ -1841,6 +1851,7 @@ static struct module *load_module(void __user *umod,
 	layout_sections(mod, hdr, sechdrs, secstrings);
 
 	/* Do the allocs. */
+    // dyc: call vmalloc_exec inner
 	ptr = module_alloc(mod->core_size);
 	if (!ptr) {
 		err = -ENOMEM;
@@ -1859,6 +1870,7 @@ static struct module *load_module(void __user *umod,
 
 	/* Transfer each section which specifies SHF_ALLOC */
 	DEBUGP("final section addresses:\n");
+    // dyc: copy all data from param to memory alloc before
 	for (i = 0; i < hdr->e_shnum; i++) {
 		void *dest;
 
@@ -1879,6 +1891,7 @@ static struct module *load_module(void __user *umod,
 		DEBUGP("\t0x%lx %s\n", sechdrs[i].sh_addr, secstrings + sechdrs[i].sh_name);
 	}
 	/* Module has been moved. */
+    // dyc: struct module is in elf object before, so point to new memory after copy
 	mod = (void *)sechdrs[modindex].sh_addr;
 
 	/* Now we've moved module, initialize linked lists, etc. */
@@ -1901,6 +1914,8 @@ static struct module *load_module(void __user *umod,
 	setup_modinfo(mod, sechdrs, infoindex);
 
 	/* Fix up syms, so that st_value is a pointer to location. */
+
+    // dyc: (sechdrs[symindex].sh_type == SHT_SYMTAB)
 	err = simplify_symbols(sechdrs, symindex, strtab, versindex, pcpuindex,
 			       mod);
 	if (err < 0)
@@ -2113,6 +2128,7 @@ sys_init_module(void __user *umod,
 
 	/* Now sew it into the lists.  They won't access us, since
            strong_try_module_get() will fail. */
+    // dyc: add mod's list field to kernel's module list
 	stop_machine_run(__link_module, mod, NR_CPUS);
 
 	/* Drop lock so they can recurse */
