@@ -778,7 +778,7 @@ int dev_valid_name(const char *name)
  *	Limited to bits_per_byte * page size devices (ie 32K on most platforms).
  *	Returns the number of the unit assigned or a negative errno code.
  */
-
+// dyc: see comments above
 static int __dev_alloc_name(struct net *net, const char *name, char *buf)
 {
 	int i = 0;
@@ -3595,6 +3595,7 @@ int register_netdevice(struct net_device *dev)
 	BUG_ON(dev_boot_phase);
 	ASSERT_RTNL();
 
+    // dyc: call cond_resched()
 	might_sleep();
 
 	/* When net_device's are persistent, this will be fatal. */
