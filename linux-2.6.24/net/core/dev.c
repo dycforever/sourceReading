@@ -199,6 +199,7 @@ EXPORT_SYMBOL(dev_base_lock);
 #define NETDEV_HASHBITS	8
 #define NETDEV_HASHENTRIES (1 << NETDEV_HASHBITS)
 
+// dyc: calculate a hash value and return corresponding slot
 static inline struct hlist_head *dev_name_hash(struct net *net, const char *name)
 {
 	unsigned hash = full_name_hash(name, strnlen(name, IFNAMSIZ));
@@ -1134,11 +1135,13 @@ int register_netdevice_notifier(struct notifier_block *nb)
 	int err;
 
 	rtnl_lock();
+    // dyc: add to netdev_chain notifier chain
 	err = raw_notifier_chain_register(&netdev_chain, nb);
 	if (err)
 		goto unlock;
 	if (dev_boot_phase)
 		goto unlock;
+    // dyc: for namespace
 	for_each_net(net) {
 		for_each_netdev(net, dev) {
 			err = nb->notifier_call(nb, NETDEV_REGISTER, dev);
@@ -2660,6 +2663,8 @@ static const struct file_operations ptype_seq_fops = {
 };
 
 
+// dyc: create dev/softnet_stat/ptype three proc files 
+//      and readable for user/group/other
 static int __net_init dev_proc_net_init(struct net *net)
 {
 	int rc = -ENOMEM;
@@ -3605,6 +3610,7 @@ int register_netdevice(struct net_device *dev)
 
 	spin_lock_init(&dev->queue_lock);
 	spin_lock_init(&dev->_xmit_lock);
+    // dyc: call lockdep_set_class_and_name()
 	netdev_set_lockdep_class(&dev->_xmit_lock, dev->type);
 	dev->xmit_lock_owner = -1;
 	spin_lock_init(&dev->ingress_lock);
@@ -3626,12 +3632,14 @@ int register_netdevice(struct net_device *dev)
 		goto err_uninit;
 	}
 
+    // dyc: get a new available index
 	dev->ifindex = dev_new_index(net);
 	if (dev->iflink == -1)
 		dev->iflink = dev->ifindex;
 
-	/* Check for existence of name */
+    // dyc: calculate a hash value and return corresponding slot
 	head = dev_name_hash(net, dev->name);
+	/* Check for existence of name */
 	hlist_for_each(p, head) {
 		struct net_device *d
 			= hlist_entry(p, struct net_device, name_hlist);
@@ -3898,6 +3906,7 @@ static struct net_device_stats *internal_stats(struct net_device *dev)
  *	and performs basic initialization.  Also allocates subquue structs
  *	for each queue on the device at the end of the netdevice.
  */
+// dyc: alloc mem and call setup(dev)
 struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
 		void (*setup)(struct net_device *), unsigned int queue_count)
 {
@@ -3922,9 +3931,11 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
 	dev = (struct net_device *)
 		(((long)p + NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST);
 	dev->padded = (char *)dev - (char *)p;
+    // dyc: set namespace
 	dev->nd_net = &init_net;
 
 	if (sizeof_priv) {
+        // dyc: dev->priv is aligned with NETDEV_ALIGN_CONST
 		dev->priv = ((char *)dev +
 			     ((sizeof(struct net_device) +
 			       (sizeof(struct net_device_subqueue) *
@@ -3935,6 +3946,7 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
 	dev->egress_subqueue_count = queue_count;
 
 	dev->get_stats = internal_stats;
+    // dyc: INIT_LIST_HEAD(&dev->napi_list);
 	netpoll_netdev_init(dev);
 	setup(dev);
 	strcpy(dev->name, name);
@@ -4410,6 +4422,7 @@ static int __init net_dev_init(void)
 
 	BUG_ON(!dev_boot_phase);
 
+    // dyc: call register_pernet_subsys(&dev_proc_ops);
 	if (dev_proc_init())
 		goto out;
 
@@ -4449,7 +4462,9 @@ static int __init net_dev_init(void)
 	open_softirq(NET_TX_SOFTIRQ, net_tx_action, NULL);
 	open_softirq(NET_RX_SOFTIRQ, net_rx_action, NULL);
 
+    // dyc: add notifier_block to cpu_chain list
 	hotcpu_notifier(dev_cpu_callback, 0);
+
 	dst_init();
 	dev_mcast_init();
 	rc = 0;

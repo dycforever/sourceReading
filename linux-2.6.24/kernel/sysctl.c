@@ -1487,6 +1487,7 @@ static __init int sysctl_init(void)
 	return 0;
 }
 
+// dyc: if config MODULE, core_initcall() is modelu_init()
 core_initcall(sysctl_init);
 
 /**

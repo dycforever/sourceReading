@@ -70,6 +70,7 @@ int __cpuinit register_cpu_notifier(struct notifier_block *nb)
 {
 	int ret;
 	mutex_lock(&cpu_add_remove_lock);
+    // dyc: add to cpu_chain list
 	ret = raw_notifier_chain_register(&cpu_chain, nb);
 	mutex_unlock(&cpu_add_remove_lock);
 	return ret;

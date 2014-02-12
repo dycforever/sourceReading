@@ -477,9 +477,12 @@ int netdev_register_kobject(struct net_device *net)
 #endif
 #endif /* CONFIG_SYSFS */
 
+    // dyc: in file drivers/base/core.c
 	return device_add(dev);
 }
 
+//dyc: class_register's implementation at 
+// drivers/base/class.c
 int netdev_kobject_init(void)
 {
 	return class_register(&net_class);

@@ -265,6 +265,9 @@ extern void lockdep_init_map(struct lockdep_map *lock, const char *name,
  * of dependencies wrong: they are either too broad (they need a class-split)
  * or they are too narrow (they suffer from a false class-split):
  */
+// dyc: no specific key, use (lock)->dep_map.key
+//      no specific name, use "key"
+//      no specific subclass, use 0
 #define lockdep_set_class(lock, key) \
 		lockdep_init_map(&(lock)->dep_map, #key, key, 0)
 #define lockdep_set_class_and_name(lock, key, name) \
