@@ -76,12 +76,16 @@ void __lockfunc _read_lock(rwlock_t *lock)
 }
 EXPORT_SYMBOL(_read_lock);
 
+// dyc: will cli in local_irq_save and disable preempt
+//      then spin lock
 unsigned long __lockfunc _spin_lock_irqsave(spinlock_t *lock)
 {
 	unsigned long flags;
 
 	local_irq_save(flags);
+    // dyc: increase thread_info's preempt_count and use a barrier
 	preempt_disable();
+    // dyc: can be void
 	spin_acquire(&lock->dep_map, 0, 0, _RET_IP_);
 	/*
 	 * On lockdep we dont want the hand-coded irq-enable of
@@ -91,6 +95,7 @@ unsigned long __lockfunc _spin_lock_irqsave(spinlock_t *lock)
 #ifdef CONFIG_LOCKDEP
 	LOCK_CONTENDED(lock, _raw_spin_trylock, _raw_spin_lock);
 #else
+    // dyc: just spin lock code in assemble language
 	_raw_spin_lock_flags(lock, &flags);
 #endif
 	return flags;

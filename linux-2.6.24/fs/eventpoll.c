@@ -1011,15 +1011,18 @@ static int ep_poll(struct eventpoll *ep, struct epoll_event __user *events,
 		MAX_SCHEDULE_TIMEOUT : (timeout * HZ + 999) / 1000;
 
 retry:
+    // dyc: save flags, cli, disable preempt, lock
 	spin_lock_irqsave(&ep->lock, flags);
 
 	res = 0;
+    // dyc: if has event ready, call ep_send_events, else sleep
 	if (list_empty(&ep->rdllist)) {
 		/*
 		 * We don't have any available event to return to the caller.
 		 * We need to sleep here, and we will be wake up by
 		 * ep_poll_callback() when events will become available.
 		 */
+        // dyc: set default_wake_function
 		init_waitqueue_entry(&wait, current);
 		wait.flags |= WQ_FLAG_EXCLUSIVE;
 		__add_wait_queue(&ep->wq, &wait);
@@ -1213,6 +1216,8 @@ error_return:
  * Implement the event wait interface for the eventpoll file. It is the kernel
  * part of the user space epoll_wait(2).
  */
+// dyc: check can write events, file can epoll
+//      then call ep_poll with file's private_data
 asmlinkage long sys_epoll_wait(int epfd, struct epoll_event __user *events,
 			       int maxevents, int timeout)
 {
