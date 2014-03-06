@@ -110,6 +110,7 @@ extern struct x8664_pda _proxy_pda;
        }					\
        ret__; })
 
+// dyc: read gs:offset_of(field)
 #define read_pda(field) pda_from_op("mov",field)
 #define write_pda(field,val) pda_to_op("mov",field,val)
 #define add_pda(field,val) pda_to_op("add",field,val)

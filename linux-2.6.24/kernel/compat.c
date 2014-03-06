@@ -608,6 +608,7 @@ long compat_sys_clock_nanosleep(clockid_t which_clock, int flags,
 	err = sys_clock_nanosleep(which_clock, flags,
 				  (struct timespec __user *) &in,
 				  (struct timespec __user *) &out);
+    // dyc: current_thread_info()->addr_limit = oldfs
 	set_fs(oldfs);
 
 	if ((err == -ERESTART_RESTARTBLOCK) && rmtp &&
