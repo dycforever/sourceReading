@@ -214,6 +214,7 @@ static inline void proc_flush_task(struct task_struct *task)
 {
 }
 
+// dyc: if not define CONFIG_PROC_FS
 static inline struct proc_dir_entry *create_proc_entry(const char *name,
 	mode_t mode, struct proc_dir_entry *parent) { return NULL; }
 

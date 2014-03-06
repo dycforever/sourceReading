@@ -720,6 +720,7 @@ int snull_init_module(void)
 
 	ret = -ENODEV;
 	for (i = 0; i < 2;  i++)
+        // dyc: in file[dev.c], 
 		if ((result = register_netdev(snull_devs[i])))
 			printk("snull: error %i registering device \"%s\"\n",
 					result, snull_devs[i]->name);

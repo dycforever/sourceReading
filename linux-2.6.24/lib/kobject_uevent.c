@@ -84,6 +84,8 @@ out:
  * Returns 0 if kobject_uevent() is completed with success or the
  * corresponding error when it fails.
  */
+// dyc: build env-variable array, increase uevent_seqnum, 
+//      then send netlink message or call hotplug
 int kobject_uevent_env(struct kobject *kobj, enum kobject_action action,
 		       char *envp_ext[])
 {
@@ -105,6 +107,8 @@ int kobject_uevent_env(struct kobject *kobj, enum kobject_action action,
 	while (!top_kobj->kset && top_kobj->parent)
 		top_kobj = top_kobj->parent;
 
+    // dyc: so, top_kob must no parent while belong to a kset
+    //      finally we get a ancient kset
 	if (!top_kobj->kset) {
 		pr_debug("kobject attempted to send uevent without kset!\n");
 		return -EINVAL;
@@ -136,6 +140,7 @@ int kobject_uevent_env(struct kobject *kobj, enum kobject_action action,
 		return -ENOMEM;
 
 	/* complete object path */
+    // dyc: walk path, malloc buffer, copy and return 
 	devpath = kobject_get_path(kobj, GFP_KERNEL);
 	if (!devpath) {
 		retval = -ENOENT;
@@ -143,6 +148,7 @@ int kobject_uevent_env(struct kobject *kobj, enum kobject_action action,
 	}
 
 	/* default keys */
+    // dyc: assign key-values to env->buffer
 	retval = add_uevent_var(env, "ACTION=%s", action_string);
 	if (retval)
 		goto exit;
@@ -154,6 +160,7 @@ int kobject_uevent_env(struct kobject *kobj, enum kobject_action action,
 		goto exit;
 
 	/* keys passed in from the caller */
+    // dyc: copy env-variable passed in by caller
 	if (envp_ext) {
 		for (i = 0; envp_ext[i]; i++) {
 			retval = add_uevent_var(env, envp_ext[i]);
@@ -174,6 +181,7 @@ int kobject_uevent_env(struct kobject *kobj, enum kobject_action action,
 
 	/* we will send an event, so request a new sequence number */
 	spin_lock(&sequence_lock);
+    // dyc: increase global variable
 	seq = ++uevent_seqnum;
 	spin_unlock(&sequence_lock);
 	retval = add_uevent_var(env, "SEQNUM=%llu", (unsigned long long)seq);
@@ -193,6 +201,7 @@ int kobject_uevent_env(struct kobject *kobj, enum kobject_action action,
 			char *scratch;
 
 			/* add header */
+            // dyc: return buffer's tail and extend length with param [len]
 			scratch = skb_put(skb, len);
 			sprintf(scratch, "%s@%s", action_string, devpath);
 
@@ -210,6 +219,8 @@ int kobject_uevent_env(struct kobject *kobj, enum kobject_action action,
 #endif
 
 	/* call uevent_helper, usually only enabled during early boot */
+    // dyc: It is said that, usually uevent_helper is /sbin/hotplug
+    //      and when we use netlink socket, we don't need hotplug any more
 	if (uevent_helper[0]) {
 		char *argv [3];
 
@@ -263,6 +274,7 @@ int add_uevent_var(struct kobj_uevent_env *env, const char *format, ...)
 	va_list args;
 	int len;
 
+    // dyc: I guess envp_idx is pointer to next available envp slot
 	if (env->envp_idx >= ARRAY_SIZE(env->envp)) {
 		printk(KERN_ERR "add_uevent_var: too many keys\n");
 		WARN_ON(1);

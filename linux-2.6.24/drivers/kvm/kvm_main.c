@@ -2390,6 +2390,7 @@ static __init void kvm_init_msr_list(void)
 	u32 dummy[2];
 	unsigned i, j;
 
+    // dyc: read all kinds of MSR, if its value > 0, keep it in msrs_to_save array
 	for (i = j = 0; i < ARRAY_SIZE(msrs_to_save); i++) {
 		if (rdmsr_safe(msrs_to_save[i], &dummy[0], &dummy[1]) < 0)
 			continue;
@@ -3589,6 +3590,7 @@ static __init int kvm_init(void)
 	static struct page *bad_page;
 	int r;
 
+    // dyc: call kmem_cache_create() with pte_chain_cache/rmap_desc_cache/mmu_page_header_cache
 	r = kvm_mmu_module_init();
 	if (r)
 		goto out4;

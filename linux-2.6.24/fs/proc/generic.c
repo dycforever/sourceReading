@@ -33,6 +33,7 @@ static loff_t proc_file_lseek(struct file *, loff_t, int);
 
 DEFINE_SPINLOCK(proc_subdir_lock);
 
+// dyc:equal returen 1
 static int proc_match(int len, const char *name, struct proc_dir_entry *de)
 {
 	if (de->namelen != len)
@@ -275,6 +276,7 @@ static const struct inode_operations proc_file_inode_operations = {
  * returns the struct proc_dir_entry for "/proc/tty/driver", and
  * returns "serial" in residual.
  */
+// dyc: found entry by name, return 0
 static int xlate_proc_name(const char *name,
 			   struct proc_dir_entry **ret, const char **residual)
 {
@@ -301,6 +303,8 @@ static int xlate_proc_name(const char *name,
 		}
 		cp += len + 1;
 	}
+    // dyc: [cp] point to the last '/'
+    //      [de] point tomatched proc entry
 	*residual = cp;
 	*ret = de;
 out:

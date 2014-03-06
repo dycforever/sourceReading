@@ -292,6 +292,7 @@ static struct pernet_operations __net_initdata dev_mc_net_ops = {
 
 void __init dev_mcast_init(void)
 {
+    // dyc: call register_pernet_operations(first_device, ops) with lock
 	register_pernet_subsys(&dev_mc_net_ops);
 }
 
