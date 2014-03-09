@@ -1266,10 +1266,11 @@ void pneigh_enqueue(struct neigh_table *tbl, struct neigh_parms *p,
 	spin_unlock(&tbl->proxy_queue.lock);
 }
 
-
+// dyc: alloc a memory for neigh_param, copy default data from tbl's field, then customize some field and return
 struct neigh_parms *neigh_parms_alloc(struct net_device *dev,
 				      struct neigh_table *tbl)
 {
+    // dyc: just mem alloc and copy
 	struct neigh_parms *p = kmemdup(&tbl->parms, sizeof(*p), GFP_KERNEL);
 
 	if (p) {
@@ -1289,6 +1290,7 @@ struct neigh_parms *neigh_parms_alloc(struct net_device *dev,
 		}
 		p->sysctl_table = NULL;
 		write_lock_bh(&tbl->lock);
+        // dyc: add this param to tbl's param list
 		p->next		= tbl->parms.next;
 		tbl->parms.next = p;
 		write_unlock_bh(&tbl->lock);

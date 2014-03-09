@@ -778,7 +778,7 @@ int dev_valid_name(const char *name)
  *	Limited to bits_per_byte * page size devices (ie 32K on most platforms).
  *	Returns the number of the unit assigned or a negative errno code.
  */
-// dyc: see comments above
+// dyc: see comments above, find first unused i for device name such as "eth%i"
 static int __dev_alloc_name(struct net *net, const char *name, char *buf)
 {
 	int i = 0;
@@ -802,6 +802,10 @@ static int __dev_alloc_name(struct net *net, const char *name, char *buf)
 		if (!inuse)
 			return -ENOMEM;
 
+        // dyc: [name] is a format string with %
+        // dyc: [d->name] is a device's name
+        // dyc: code below just iterate all the device name, 
+        //      if number i is used then set i-th bit
 		for_each_netdev(net, d) {
 			if (!sscanf(d->name, name, &i))
 				continue;
@@ -850,6 +854,7 @@ int dev_alloc_name(struct net_device *dev, const char *name)
 	int ret;
 
 	BUG_ON(!dev->nd_net);
+    // dyc: inited in alloc_netdev_mq function, such as &init_net
 	net = dev->nd_net;
 	ret = __dev_alloc_name(net, name, buf);
 	if (ret >= 0)
@@ -1001,6 +1006,7 @@ int dev_open(struct net_device *dev)
 	/*
 	 *	Is it even present?
 	 */
+    // dyc: this bit had been set in register_netdevice()
 	if (!netif_device_present(dev))
 		return -ENODEV;
 
@@ -3492,6 +3498,7 @@ int dev_ioctl(struct net *net, unsigned int cmd, void __user *arg)
  *	number.  The caller must hold the rtnl semaphore or the
  *	dev_base_lock to be sure it remains unique.
  */
+// dyc: find a unused ifindex
 static int dev_new_index(struct net *net)
 {
 	static int ifindex;
@@ -3595,7 +3602,7 @@ int register_netdevice(struct net_device *dev)
 	BUG_ON(dev_boot_phase);
 	ASSERT_RTNL();
 
-    // dyc: call cond_resched()
+    // dyc: call cond_resched(), means preemptable
 	might_sleep();
 
 	/* When net_device's are persistent, this will be fatal. */
@@ -3605,6 +3612,7 @@ int register_netdevice(struct net_device *dev)
 
 	spin_lock_init(&dev->queue_lock);
 	spin_lock_init(&dev->_xmit_lock);
+    // dyc: seems to for debug
 	netdev_set_lockdep_class(&dev->_xmit_lock, dev->type);
 	dev->xmit_lock_owner = -1;
 	spin_lock_init(&dev->ingress_lock);
@@ -3626,6 +3634,7 @@ int register_netdevice(struct net_device *dev)
 		goto err_uninit;
 	}
 
+    // dyc: find a unused ifindex
 	dev->ifindex = dev_new_index(net);
 	if (dev->iflink == -1)
 		dev->iflink = dev->ifindex;
@@ -3641,6 +3650,7 @@ int register_netdevice(struct net_device *dev)
 		}
 	}
 
+    // dyc: remove illegal features combination
 	/* Fix illegal checksum combinations */
 	if ((dev->features & NETIF_F_HW_CSUM) &&
 	    (dev->features & (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM))) {
@@ -3655,7 +3665,6 @@ int register_netdevice(struct net_device *dev)
 		       dev->name);
 		dev->features &= ~(NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM|NETIF_F_HW_CSUM);
 	}
-
 
 	/* Fix illegal SG+CSUM combinations. */
 	if ((dev->features & NETIF_F_SG) &&
@@ -3699,8 +3708,11 @@ int register_netdevice(struct net_device *dev)
 
 	set_bit(__LINK_STATE_PRESENT, &dev->state);
 
+    // dyc: init qdisc related thing
 	dev_init_scheduler(dev);
+    // dyc: atomic_inc(&dev->refcnt);
 	dev_hold(dev);
+    // dyc: add dev to dev->dev_list/dev->name_hlist/dev->index_hlist
 	list_netdevice(dev);
 
 	/* Notify protocols, that a new device appeared. */
@@ -3737,6 +3749,7 @@ int register_netdev(struct net_device *dev)
 {
 	int err;
 
+    // dyc:	mutex_lock(&rtnl_mutex);
 	rtnl_lock();
 
 	/*
@@ -3898,6 +3911,7 @@ static struct net_device_stats *internal_stats(struct net_device *dev)
  *	and performs basic initialization.  Also allocates subquue structs
  *	for each queue on the device at the end of the netdevice.
  */
+// dyc: alloc memory for netdevice and its private data
 struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
 		void (*setup)(struct net_device *), unsigned int queue_count)
 {
@@ -3921,9 +3935,11 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
 
 	dev = (struct net_device *)
 		(((long)p + NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST);
+    // dyc: leading pad for 32-byte alignment
 	dev->padded = (char *)dev - (char *)p;
 	dev->nd_net = &init_net;
 
+    // dyc: private data follows alloced net struct
 	if (sizeof_priv) {
 		dev->priv = ((char *)dev +
 			     ((sizeof(struct net_device) +
@@ -3935,6 +3951,8 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
 	dev->egress_subqueue_count = queue_count;
 
 	dev->get_stats = internal_stats;
+
+    //dyc: INIT_LIST_HEAD(&dev->napi_list);
 	netpoll_netdev_init(dev);
 	setup(dev);
 	strcpy(dev->name, name);

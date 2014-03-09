@@ -113,6 +113,7 @@ static struct rtnl_link *rtnl_msg_handlers[NPROTO];
 
 static inline int rtm_msgindex(int msgtype)
 {
+    // dyc: RTM_BASE=16
 	int msgindex = msgtype - RTM_BASE;
 
 	/*
@@ -171,10 +172,12 @@ int __rtnl_register(int protocol, int msgtype,
 	int msgindex;
 
 	BUG_ON(protocol < 0 || protocol >= NPROTO);
+    // dyc: return msgtype - RTM_BASE(16)
 	msgindex = rtm_msgindex(msgtype);
 
 	tab = rtnl_msg_handlers[protocol];
 	if (tab == NULL) {
+        // dyc: alloc size: RTM_NR_MSGTYPES*sizeof(*tab)
 		tab = kcalloc(RTM_NR_MSGTYPES, sizeof(*tab), GFP_KERNEL);
 		if (tab == NULL)
 			return -ENOBUFS;

@@ -137,8 +137,10 @@ extern __be32		inet_confirm_addr(const struct net_device *dev, __be32 dst, __be3
 extern struct in_ifaddr *inet_ifa_byprefix(struct in_device *in_dev, __be32 prefix, __be32 mask);
 extern void		inet_forward_change(void);
 
+// dyc: 只有当ifa->ifa_addr和addr在同一网段上才会match
 static __inline__ int inet_ifa_match(__be32 addr, struct in_ifaddr *ifa)
 {
+    // dyc: 只有相等，异或才为0
 	return !((addr^ifa->ifa_address)&ifa->ifa_mask);
 }
 

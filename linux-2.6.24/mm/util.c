@@ -60,6 +60,7 @@ void *kmemdup(const void *src, size_t len, gfp_t gfp)
 {
 	void *p;
 
+    // dyc: just __kmalloc or record caller's address for debug (monitor memory leak)
 	p = kmalloc_track_caller(len, gfp);
 	if (p)
 		memcpy(p, src, len);
@@ -88,6 +89,7 @@ void *krealloc(const void *p, size_t new_size, gfp_t flags)
 		return ZERO_SIZE_PTR;
 	}
 
+    // dyc: get size from slab
 	if (p)
 		ks = ksize(p);
 

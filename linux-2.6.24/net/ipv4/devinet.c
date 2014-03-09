@@ -160,6 +160,8 @@ static struct in_device *inetdev_init(struct net_device *dev)
 	memcpy(&in_dev->cnf, &ipv4_devconf_dflt, sizeof(in_dev->cnf));
 	in_dev->cnf.sysctl = NULL;
 	in_dev->dev = dev;
+    // dyc: an instance of struct neigh_table means a [neighbor protocal], 
+    //      arp_tbl is the instance for arp
 	if ((in_dev->arp_parms = neigh_parms_alloc(dev, &arp_tbl)) == NULL)
 		goto out_kfree;
 	/* Reference in_dev->dev */
@@ -170,6 +172,7 @@ static struct in_device *inetdev_init(struct net_device *dev)
 #endif
 
 	/* Account for reference dev->ip_ptr (below) */
+    // dyc: atomic_inc(&(idev)->refcnt)
 	in_dev_hold(in_dev);
 
 #ifdef CONFIG_SYSCTL
@@ -180,6 +183,7 @@ static struct in_device *inetdev_init(struct net_device *dev)
 		ip_mc_up(in_dev);
 
 	/* we can receive as soon as ip_ptr is set -- do this last */
+    // dyc: dev->ip_ptr, in_dev with smp_wmb()
 	rcu_assign_pointer(dev->ip_ptr, in_dev);
 out:
 	return in_dev;
@@ -354,7 +358,7 @@ static int __inet_insert_ifa(struct in_ifaddr *ifa, struct nlmsghdr *nlh,
 	for (ifap = &in_dev->ifa_list; (ifa1 = *ifap) != NULL;
 	     ifap = &ifa1->ifa_next) {
 		if (!(ifa1->ifa_flags & IFA_F_SECONDARY) &&
-		    ifa->ifa_scope <= ifa1->ifa_scope)
+		                    ifa->ifa_scope <= ifa1->ifa_scope)
 			last_primary = &ifa1->ifa_next;
 		if (ifa1->ifa_mask == ifa->ifa_mask &&
 		    inet_ifa_match(ifa1->ifa_address, ifa)) {
@@ -366,21 +370,25 @@ static int __inet_insert_ifa(struct in_ifaddr *ifa, struct nlmsghdr *nlh,
 				inet_free_ifa(ifa);
 				return -EINVAL;
 			}
+            // dyc: it is a secondary address
 			ifa->ifa_flags |= IFA_F_SECONDARY;
 		}
 	}
 
+    // dyc: it is a primary address
 	if (!(ifa->ifa_flags & IFA_F_SECONDARY)) {
 		net_srandom(ifa->ifa_local);
 		ifap = last_primary;
 	}
 
+    // dyc: insert into primary list, before last_primary
 	ifa->ifa_next = *ifap;
 	*ifap = ifa;
 
 	/* Send message first, then call notifier.
 	   Notifier will trigger FIB update, so that
 	   listeners of netlink will know about new ifaddr */
+    // dyc: send message to related user process
 	rtmsg_ifa(RTM_NEWADDR, ifa, nlh, pid);
 	blocking_notifier_call_chain(&inetaddr_chain, NETDEV_UP, ifa);
 
@@ -394,6 +402,7 @@ static int inet_insert_ifa(struct in_ifaddr *ifa)
 
 static int inet_set_ifa(struct net_device *dev, struct in_ifaddr *ifa)
 {
+    // dyc: just return (struct in_device*)dev->ip_ptr
 	struct in_device *in_dev = __in_dev_get_rtnl(dev);
 
 	ASSERT_RTNL();
@@ -558,10 +567,12 @@ errout:
 	return ERR_PTR(err);
 }
 
+// dyc: be called when protocal[PF_INET] msgtype[RTM_NEWADDR] happens
 static int inet_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
 {
 	struct in_ifaddr *ifa;
 
+    // dyc: mutex_trylock(&rtnl_mutex);
 	ASSERT_RTNL();
 
 	ifa = rtm_to_ifaddr(nlh);
@@ -885,8 +896,10 @@ __be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope)
 		goto no_in_dev;
 
 	for_primary_ifa(in_dev) {
+        // dyc: 找一个 ifa->ifa_scope <= scope
 		if (ifa->ifa_scope > scope)
 			continue;
+        // dyc: 只有当ifa->ifa_addr和dst在同一网段上才会match
 		if (!dst || inet_ifa_match(dst, ifa)) {
 			addr = ifa->ifa_local;
 			break;
@@ -925,6 +938,7 @@ out:
 	return addr;
 }
 
+// dyc: find an address == local, in the same subnet with dst, and <= scope
 static __be32 confirm_addr_indev(struct in_device *in_dev, __be32 dst,
 			      __be32 local, int scope)
 {
@@ -935,22 +949,29 @@ static __be32 confirm_addr_indev(struct in_device *in_dev, __be32 dst,
 		if (!addr &&
 		    (local == ifa->ifa_local || !local) &&
 		    ifa->ifa_scope <= scope) {
+            // dyc: here means addr==0
 			addr = ifa->ifa_local;
+            // dyc: same means dst and local in the same ifa's subnet 
+            //      I don't know why it works, this same means dst/local in previous ifa's subnet
 			if (same)
 				break;
 		}
 		if (!same) {
 			same = (!local || inet_ifa_match(local, ifa)) &&
 				(!dst || inet_ifa_match(dst, ifa));
+            // dyc: addr has value, means local==0 or exists a ifa, which local == ifa->ifa_local
 			if (same && addr) {
 				if (local || !dst)
 					break;
+                // dyc: here means local==0 && dst != 0
 				/* Is the selected addr into dst subnet? */
 				if (inet_ifa_match(addr, ifa))
+                    // dyc: here means local==0 && dst and addr in same subnet
 					break;
 				/* No, then can we use new local src? */
 				if (ifa->ifa_scope <= scope) {
 					addr = ifa->ifa_local;
+                    // dyc: why?? addr not in ifa's subnet
 					break;
 				}
 				/* search for large dst subnet for addr */
@@ -1046,6 +1067,7 @@ static int inetdev_event(struct notifier_block *this, unsigned long event,
 			 void *ptr)
 {
 	struct net_device *dev = ptr;
+    // dyc: just return (struct in_device*)dev->ip_ptr
 	struct in_device *in_dev = __in_dev_get_rtnl(dev);
 
 	if (dev->nd_net != &init_net)
@@ -1054,6 +1076,7 @@ static int inetdev_event(struct notifier_block *this, unsigned long event,
 	ASSERT_RTNL();
 
 	if (!in_dev) {
+        // dyc: get in_dev above failed, and it needs to create one
 		if (event == NETDEV_REGISTER) {
 			in_dev = inetdev_init(dev);
 			if (!in_dev)
@@ -1068,6 +1091,8 @@ static int inetdev_event(struct notifier_block *this, unsigned long event,
 
 	switch (event) {
 	case NETDEV_REGISTER:
+        // dyc: I guess, here means __in_dev_get_rtnl() above returns an in_dev.
+        //      But it is a register, it shouldn't happen
 		printk(KERN_DEBUG "inetdev_event: bug\n");
 		dev->ip_ptr = NULL;
 		break;
@@ -1125,6 +1150,7 @@ static struct notifier_block ip_netdev_notifier = {
 
 static inline size_t inet_nlmsg_size(void)
 {
+    // dyc: align to 4
 	return NLMSG_ALIGN(sizeof(struct ifaddrmsg))
 	       + nla_total_size(4) /* IFA_ADDRESS */
 	       + nla_total_size(4) /* IFA_LOCAL */
@@ -1217,6 +1243,7 @@ static void rtmsg_ifa(int event, struct in_ifaddr* ifa, struct nlmsghdr *nlh,
 	u32 seq = nlh ? nlh->nlmsg_seq : 0;
 	int err = -ENOBUFS;
 
+    // dyc: call __alloc_skb() 
 	skb = nlmsg_new(inet_nlmsg_size(), GFP_KERNEL);
 	if (skb == NULL)
 		goto errout;
@@ -1489,6 +1516,7 @@ static struct devinet_sysctl_table {
 	},
 };
 
+// dyc: alloc mem , init its fields and then assign it to p->sysctl
 static void devinet_sysctl_register(struct in_device *in_dev,
 				    struct ipv4_devconf *p)
 {
@@ -1507,6 +1535,7 @@ static void devinet_sysctl_register(struct in_device *in_dev,
 
 	if (dev) {
 		dev_name = dev->name;
+        // dyc: ifindex is a int
 		t->devinet_dev[0].ctl_name = dev->ifindex;
 	} else {
 		dev_name = "default";
