@@ -106,9 +106,11 @@ struct kobj_type {
 };
 
 struct kobj_uevent_env {
-	char *envp[UEVENT_NUM_ENVP];
+    // dyc: save env-var pointers
+	char *envp[UEVENT_NUM_ENVP];    //  32
 	int envp_idx;
-	char buf[UEVENT_BUFFER_SIZE];
+    // dyc: save env-var value
+	char buf[UEVENT_BUFFER_SIZE];   //  2048
 	int buflen;
 };
 
@@ -156,6 +158,7 @@ static inline struct kset * to_kset(struct kobject * kobj)
 	return kobj ? container_of(kobj,struct kset,kobj) : NULL;
 }
 
+// dyc: kobject_get will increase count
 static inline struct kset * kset_get(struct kset * k)
 {
 	return k ? to_kset(kobject_get(&k->kobj)) : NULL;

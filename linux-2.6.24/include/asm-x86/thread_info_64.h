@@ -57,6 +57,7 @@ struct thread_info {
 #define init_thread_info	(init_thread_union.thread_info)
 #define init_stack		(init_thread_union.stack)
 
+// dyc: get current_thread_info from kernel stack
 static inline struct thread_info *current_thread_info(void)
 { 
 	struct thread_info *ti;

@@ -111,14 +111,15 @@ char *kobject_get_path(struct kobject *kobj, gfp_t gfp_mask)
 	char *path;
 	int len;
 
+    // dyc: walk through and calculate path length
 	len = get_kobj_path_length(kobj);
 	if (len == 0)
 		return NULL;
 	path = kzalloc(len, gfp_mask);
 	if (!path)
 		return NULL;
+    // dyc: copy path string to buffer and return
 	fill_kobj_path(kobj, path, len);
-
 	return path;
 }
 EXPORT_SYMBOL_GPL(kobject_get_path);
@@ -131,8 +132,10 @@ void kobject_init(struct kobject * kobj)
 {
 	if (!kobj)
 		return;
+    // dyc: set 1
 	kref_init(&kobj->kref);
 	INIT_LIST_HEAD(&kobj->entry);
+    // dyc: to increase kset's ref_count
 	kobj->kset = kset_get(kobj->kset);
 }
 
@@ -162,6 +165,7 @@ static void unlink(struct kobject * kobj)
  *	@kobj:	object.
  */
 
+// dyc: if(kobj->kset) then add kobj to kset's list
 int kobject_add(struct kobject * kobj)
 {
 	int error = 0;
@@ -169,14 +173,17 @@ int kobject_add(struct kobject * kobj)
 
 	if (!(kobj = kobject_get(kobj)))
 		return -ENOENT;
+    // dyc: k_name point to NULL
 	if (!kobj->k_name)
 		kobject_set_name(kobj, "NO_NAME");
+    // dyc: k_name point to '\0'
 	if (!*kobj->k_name) {
 		pr_debug("kobject attempted to be registered with no name!\n");
 		WARN_ON(1);
 		kobject_put(kobj);
 		return -EINVAL;
 	}
+
 	parent = kobject_get(kobj->parent);
 
 	pr_debug("kobject %s: registering. parent: %s, set: %s\n",
@@ -242,6 +249,7 @@ int kobject_register(struct kobject * kobj)
  * kobject to the system, you must call kobject_rename() in order to
  * change the name of the kobject.
  */
+// dyc: malloc as little memory as possible for kobj->k_name
 int kobject_set_name(struct kobject * kobj, const char * fmt, ...)
 {
 	int error = 0;
@@ -587,6 +595,7 @@ int kset_register(struct kset * k)
 	err = kset_add(k);
 	if (err)
 		return err;
+    // dyc: generate a 'uevent' event
 	kobject_uevent(&k->kobj, KOBJ_ADD);
 	return 0;
 }

@@ -82,6 +82,7 @@
 
 #define local_save_flags(flags)		raw_local_save_flags(flags)
 
+  // dyc: read and test bit(X86_EFLAGS_IF) in eflags-reg
 #define irqs_disabled()						\
 ({								\
 	unsigned long flags;					\

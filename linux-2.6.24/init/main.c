@@ -368,6 +368,7 @@ unsigned long __per_cpu_offset[NR_CPUS] __read_mostly;
 
 EXPORT_SYMBOL(__per_cpu_offset);
 
+// dyc: copy linked data from bin to memory
 static void __init setup_per_cpu_areas(void)
 {
 	unsigned long size, i;
@@ -703,6 +704,8 @@ static void __init do_initcalls(void)
 			msg = "preemption imbalance";
 			preempt_count() = count;
 		}
+        // dyc:irqs_disabled() --> return !(flags & X86_EFLAGS_IF);
+        // so if interrupt flags in EFLAGS reg, enable it
 		if (irqs_disabled()) {
 			msg = "disabled interrupts";
 			local_irq_enable();

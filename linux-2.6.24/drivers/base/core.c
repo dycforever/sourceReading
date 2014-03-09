@@ -525,6 +525,7 @@ static void klist_children_put(struct klist_node *n)
 
 void device_initialize(struct device *dev)
 {
+	// dyc: (dev)->kobj.kset = &(devices_subsys)
 	kobj_set_kset_s(dev, devices_subsys);
 	kobject_init(&dev->kobj);
 	klist_init(&dev->klist_children, klist_children_get,
@@ -534,7 +535,9 @@ void device_initialize(struct device *dev)
 	init_MUTEX(&dev->sem);
 	spin_lock_init(&dev->devres_lock);
 	INIT_LIST_HEAD(&dev->devres_head);
+    // dyc: for power manager
 	device_init_wakeup(dev, 0);
+	// dyc: dev->numa_node = node;
 	set_dev_node(dev, -1);
 }
 
@@ -728,6 +731,7 @@ int device_add(struct device *dev)
 	struct class_interface *class_intf;
 	int error = -EINVAL;
 
+    // dyc: increase dev-kobj's ref_count
 	dev = get_device(dev);
 	if (!dev || !strlen(dev->bus_id))
 		goto Error;
