@@ -1853,6 +1853,9 @@ static inline void inuse_fini(struct proto *prot)
 }
 #endif
 
+// dyc: alloc slab for prot->slab, for prot->rsk_prot->slab and
+//      prot->twsk_prot->twsk_slab if necessary
+//      then add it into proto_list
 int proto_register(struct proto *prot, int alloc_slab)
 {
 	char *request_sock_slab_name = NULL;

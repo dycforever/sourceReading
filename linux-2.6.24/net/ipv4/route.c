@@ -2919,6 +2919,7 @@ static int __init set_rhash_entries(char *str)
 }
 __setup("rhash_entries=", set_rhash_entries);
 
+// dyc: add many timer
 int __init ip_rt_init(void)
 {
 	int rc = 0;

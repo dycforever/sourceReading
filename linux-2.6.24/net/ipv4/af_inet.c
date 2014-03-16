@@ -1361,6 +1361,7 @@ static int __init inet_init(void)
 
 	BUILD_BUG_ON(sizeof(struct inet_skb_parm) > sizeof(dummy_skb->cb));
 
+    // dyc: alloc slab for prot and add it into proto_list
 	rc = proto_register(&tcp_prot, 1);
 	if (rc)
 		goto out;
@@ -1383,6 +1384,7 @@ static int __init inet_init(void)
 	 *	Add all the base protocols.
 	 */
 
+    // dyc: assign inet_protos[hash] = prot;
 	if (inet_add_protocol(&icmp_protocol, IPPROTO_ICMP) < 0)
 		printk(KERN_CRIT "inet_init: Cannot add ICMP protocol\n");
 	if (inet_add_protocol(&udp_protocol, IPPROTO_UDP) < 0)
