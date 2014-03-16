@@ -1072,6 +1072,7 @@ void split_page(struct page *page, unsigned int order)
 
 	VM_BUG_ON(PageCompound(page));
 	VM_BUG_ON(!page_count(page));
+	// dyc: in for loop, atomic_set(&page->_count, 1);
 	for (i = 1; i < (1 << order); i++)
 		set_page_refcounted(page + i);
 }
@@ -4392,12 +4393,15 @@ void *__init alloc_large_system_hash(const char *tablename,
 	/* allow the kernel cmdline to have a say */
 	if (!numentries) {
 		/* round applicable memory size up to nearest megabyte */
+        // dyc: round up numentries to 2^8
 		numentries = nr_kernel_pages;
 		numentries += (1UL << (20 - PAGE_SHIFT)) - 1;
 		numentries >>= 20 - PAGE_SHIFT;
 		numentries <<= 20 - PAGE_SHIFT;
 
 		/* limit to 1 bucket per 2^scale bytes of low memory */
+        // dyc: 我觉得scale可以理解为度量的标度, 因为之前的 numentries 可以理解为用
+        //      PAGE数量作为单位
 		if (scale > PAGE_SHIFT)
 			numentries >>= (scale - PAGE_SHIFT);
 		else
@@ -4418,9 +4422,11 @@ void *__init alloc_large_system_hash(const char *tablename,
 	if (numentries > max)
 		numentries = max;
 
+    // dyc: find the leftest bit of numentries
 	log2qty = ilog2(numentries);
 
 	do {
+        // dyc: size = bucketsize * 2^( log2(numentries) )
 		size = bucketsize << log2qty;
 		if (flags & HASH_EARLY)
 			table = alloc_bootmem(size);
@@ -4441,6 +4447,7 @@ void *__init alloc_large_system_hash(const char *tablename,
 				unsigned long used = (unsigned long)table +
 						PAGE_ALIGN(size);
 				split_page(virt_to_page(table), order);
+                // dyc: avoid waste memory
 				while (used < alloc_end) {
 					free_page(used);
 					used += PAGE_SIZE;

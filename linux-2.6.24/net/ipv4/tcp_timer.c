@@ -457,6 +457,7 @@ static void tcp_keepalive_timer (unsigned long data)
 	}
 
 	if (sk->sk_state == TCP_LISTEN) {
+        // dyc: it is a conn_build timer
 		tcp_synack_timer(sk);
 		goto out;
 	}

@@ -2424,6 +2424,8 @@ static int __init set_thash_entries(char *str)
 }
 __setup("thash_entries=", set_thash_entries);
 
+// dyc: initialize tcp_hashinfo's fields, 
+//      including alloc hash tables and set system paramter
 void __init tcp_init(void)
 {
 	struct sk_buff *skb = NULL;
@@ -2448,6 +2450,7 @@ void __init tcp_init(void)
 		alloc_large_system_hash("TCP established",
 					sizeof(struct inet_ehash_bucket),
 					thash_entries,
+                    // dyc: if total memory >= 128MB
 					(num_physpages >= 128 * 1024) ?
 					13 : 15,
 					0,
