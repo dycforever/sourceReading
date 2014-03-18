@@ -131,6 +131,7 @@ EXPORT_SYMBOL_GPL(kobject_get_path);
  *	kobject_init - initialize object.
  *	@kobj:	object in question.
  */
+// dyc: set kobj's kref to 1 and increase kobj->kset's ref_count by 1
 void kobject_init(struct kobject * kobj)
 {
 	if (!kobj)
@@ -169,6 +170,7 @@ static void unlink(struct kobject * kobj)
  */
 
 // dyc: if(kobj->kset) then add kobj to kset's list
+//      and increase kobj/kobj->kset's kref by 1
 int kobject_add(struct kobject * kobj)
 {
 	int error = 0;
@@ -596,6 +598,7 @@ int kset_register(struct kset * k)
 		return -EINVAL;
 
 	kset_init(k);
+    // dyc: call kobject_add(&k->kobj);
 	err = kset_add(k);
 	if (err)
 		return err;

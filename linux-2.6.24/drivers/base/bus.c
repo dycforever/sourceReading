@@ -134,6 +134,7 @@ int bus_create_file(struct bus_type * bus, struct bus_attribute * attr)
 {
 	int error;
 	if (bus_get(bus)) {
+        // dyc: call sysfs_add_file()
 		error = sysfs_create_file(&bus->subsys.kobj, &attr->attr);
 		bus_put(bus);
 	} else
@@ -583,14 +584,17 @@ static BUS_ATTR(drivers_probe, S_IWUSR, NULL, store_drivers_probe);
 static BUS_ATTR(drivers_autoprobe, S_IWUSR | S_IRUGO,
 		show_drivers_autoprobe, store_drivers_autoprobe);
 
+// dyc: call bus_create_file() twice with different attributes
+//      will create two files in sysfs about bus_attr_drivers_probe and bus_attr_drivers_autoprobe
 static int add_probe_files(struct bus_type *bus)
 {
 	int retval;
-
+    // dyc: bus_attr_drivers_probe was defined above by BUS_ATTR()
 	retval = bus_create_file(bus, &bus_attr_drivers_probe);
 	if (retval)
 		goto out;
 
+    // dyc: bus_attr_drivers_autoprobe was defined above by BUS_ATTR()
 	retval = bus_create_file(bus, &bus_attr_drivers_autoprobe);
 	if (retval)
 		bus_remove_file(bus, &bus_attr_drivers_probe);
@@ -777,6 +781,7 @@ struct bus_type * find_bus(char * name)
  *	@bus:	Bus that has just been registered.
  */
 
+// dyc: for each bus->kobject's attribute, create a file under bus
 static int bus_add_attrs(struct bus_type * bus)
 {
 	int error = 0;
@@ -844,22 +849,30 @@ int bus_register(struct bus_type * bus)
 {
 	int retval;
 
+    // dyc: initialize semaphore and assign header to NULL
 	BLOCKING_INIT_NOTIFIER_HEAD(&bus->bus_notifier);
 
 	retval = kobject_set_name(&bus->subsys.kobj, "%s", bus->name);
 	if (retval)
 		goto out;
 
+    // dyc: bus_subsys is a global variable of type kset
+    //      declared by decl_subsys(bus, &bus_ktype, &bus_uevent_ops);
 	bus->subsys.kobj.kset = &bus_subsys;
 
+    // dyc: register this bus to global bus_subsys
+    //      call kset_register() indeed
 	retval = subsystem_register(&bus->subsys);
 	if (retval)
 		goto out;
 
+    // dyc: create a single SYSFS_KOBJ_ATTR file in sysfs with kobject=bus->subsys.kobj
 	retval = bus_create_file(bus, &bus_attr_uevent);
 	if (retval)
 		goto bus_uevent_fail;
 
+    // dyc: NOTE! bus is the parent of device and driver, 
+    //      while bus_subsys is not the parent of bus
 	kobject_set_name(&bus->devices.kobj, "devices");
 	bus->devices.kobj.parent = &bus->subsys.kobj;
 	retval = kset_register(&bus->devices);
@@ -881,6 +894,7 @@ int bus_register(struct bus_type * bus)
 	if (retval)
 		goto bus_probe_files_fail;
 
+    // dyc: for each bus->kobject's attribute, create a file under bus
 	retval = bus_add_attrs(bus);
 	if (retval)
 		goto bus_attrs_fail;

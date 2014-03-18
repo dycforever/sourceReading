@@ -39,6 +39,7 @@ static DEFINE_IDA(sysfs_ino_ida);
  *	Locking:
  *	mutex_lock(sysfs_mutex)
  */
+// dyc: see comments above
 static void sysfs_link_sibling(struct sysfs_dirent *sd)
 {
 	struct sysfs_dirent *parent_sd = sd->s_parent;
@@ -399,6 +400,7 @@ void sysfs_addrm_start(struct sysfs_addrm_cxt *acxt,
 			mutex_lock(&sysfs_mutex);
 		}
 	} else
+        // dyc: iget(inode) in sysfs_addrm_start()->ilookup5_nowait()
 		iput(inode);
 }
 
@@ -422,8 +424,11 @@ void sysfs_addrm_start(struct sysfs_addrm_cxt *acxt,
  *	0 on success, -EEXIST if entry with the given name already
  *	exists.
  */
+// dyc: set sd's parent_sd, add sd in its parent's sibling list, by ino's order
 int sysfs_add_one(struct sysfs_addrm_cxt *acxt, struct sysfs_dirent *sd)
 {
+    // dyc: find sys_dirent by name along parent_sd's child list
+    //      shouldn't have same name
 	if (sysfs_find_dirent(acxt->parent_sd, sd->s_name)) {
 		printk(KERN_WARNING "sysfs: duplicate filename '%s' "
 		       "can not be created\n", sd->s_name);
@@ -431,13 +436,17 @@ int sysfs_add_one(struct sysfs_addrm_cxt *acxt, struct sysfs_dirent *sd)
 		return -EEXIST;
 	}
 
+    // dyc: add acxt->parent_sd's s_count
+    //      acxt->parent_sd assigned in sysfs_addrm_start()
 	sd->s_parent = sysfs_get(acxt->parent_sd);
 
+	// dyc: just inode->i_nlink++;
 	if (sysfs_type(sd) == SYSFS_DIR && acxt->parent_inode)
 		inc_nlink(acxt->parent_inode);
 
 	acxt->cnt++;
 
+    // dyc: add sd in parent's sibling list, by ino's order
 	sysfs_link_sibling(sd);
 
 	return 0;
@@ -549,10 +558,12 @@ void sysfs_addrm_finish(struct sysfs_addrm_cxt *acxt)
 			inode->i_ctime = inode->i_mtime = CURRENT_TIME;
 
 		mutex_unlock(&inode->i_mutex);
+        // dyc: iget(inode) in sysfs_addrm_start()->ilookup5_nowait()
 		iput(inode);
 	}
 
 	/* kill removed sysfs_dirents */
+    // dyc: assigned in sysfs_remove_one()
 	while (acxt->removed) {
 		struct sysfs_dirent *sd = acxt->removed;
 
@@ -578,6 +589,7 @@ void sysfs_addrm_finish(struct sysfs_addrm_cxt *acxt)
  *	RETURNS:
  *	Pointer to sysfs_dirent if found, NULL if not.
  */
+// dyc: get sysfs_dirent by name
 struct sysfs_dirent *sysfs_find_dirent(struct sysfs_dirent *parent_sd,
 				       const unsigned char *name)
 {
@@ -635,6 +647,7 @@ static int create_dir(struct kobject *kobj, struct sysfs_dirent *parent_sd,
     // dyc: this function get the target inode and lock it, and lock sys_mutex at same time
     //      assign parent_sd and parent_inode to acxt
 	sysfs_addrm_start(&acxt, parent_sd);
+    // dyc: set sd's parent_sd, add sd in its parent's sibling list, by ino's order
 	rc = sysfs_add_one(&acxt, sd);
 	sysfs_addrm_finish(&acxt);
 
@@ -919,6 +932,7 @@ static inline unsigned char dt_type(struct sysfs_dirent *sd)
 	return (sd->s_mode >> 12) & 15;
 }
 
+// dyc: filldir is a function to read different kinds of layout of dirents
 static int sysfs_readdir(struct file * filp, void * dirent, filldir_t filldir)
 {
 	struct dentry *dentry = filp->f_path.dentry;

@@ -516,7 +516,7 @@ const struct file_operations sysfs_file_operations = {
 	.poll		= sysfs_poll,
 };
 
-
+// dyc: add a file(according to attr) to dir_ad
 int sysfs_add_file(struct sysfs_dirent *dir_sd, const struct attribute *attr,
 		   int type)
 {
@@ -530,6 +530,7 @@ int sysfs_add_file(struct sysfs_dirent *dir_sd, const struct attribute *attr,
 		return -ENOMEM;
 	sd->s_attr.attr = (void *)attr;
 
+    // dyc: dir_sd is the parent sysfs_dirent
 	sysfs_addrm_start(&acxt, dir_sd);
 	rc = sysfs_add_one(&acxt, sd);
 	sysfs_addrm_finish(&acxt);
@@ -568,6 +569,7 @@ int sysfs_add_file_to_group(struct kobject *kobj,
 	struct sysfs_dirent *dir_sd;
 	int error;
 
+    // dyc: get sysfs_dirent by group name
 	dir_sd = sysfs_get_dirent(kobj->sd, group);
 	if (!dir_sd)
 		return -ENOENT;
