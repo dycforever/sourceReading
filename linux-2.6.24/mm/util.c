@@ -9,6 +9,7 @@
  * @s: the string to duplicate
  * @gfp: the GFP mask used in the kmalloc() call when allocating memory
  */
+// dyc: alloc and copy
 char *kstrdup(const char *s, gfp_t gfp)
 {
 	size_t len;

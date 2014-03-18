@@ -489,12 +489,14 @@ static void __wait_on_freeing_inode(struct inode *inode);
  * by hand after calling find_inode now! This simplifies iunique and won't
  * add any additional branch in the common code.
  */
+// dyc: find a inode in @head list, which has same super block, pass test() and not in FREE/CLEAR state
 static struct inode * find_inode(struct super_block * sb, struct hlist_head *head, int (*test)(struct inode *, void *), void *data)
 {
 	struct hlist_node *node;
 	struct inode * inode = NULL;
 
 repeat:
+    // dyc: find a inode in @head list, which has same super block, pass test() and not in FREE/CLEAR state
 	hlist_for_each (node, head) { 
 		inode = hlist_entry(node, struct inode, i_hash);
 		if (inode->i_sb != sb)
@@ -793,6 +795,8 @@ static struct inode *ifind(struct super_block *sb,
 	struct inode *inode;
 
 	spin_lock(&inode_lock);
+    // dyc: head is get by super block and a hash value
+    //      this function get a inode in @head list, which has same super block, pass test() and not in FREE/CLEAR state
 	inode = find_inode(sb, head, test, data);
 	if (inode) {
 		__iget(inode);
@@ -858,11 +862,13 @@ static struct inode *ifind_fast(struct super_block *sb,
  *
  * Note, @test is called with the inode_lock held, so can't sleep.
  */
+// dyc: see comments above, nowait means return the inode without locking it, I guess...
 struct inode *ilookup5_nowait(struct super_block *sb, unsigned long hashval,
 		int (*test)(struct inode *, void *), void *data)
 {
 	struct hlist_head *head = inode_hashtable + hash(sb, hashval);
 
+    // dyc: pass in a test function to allow non-unique inode number
 	return ifind(sb, head, test, data, 0);
 }
 

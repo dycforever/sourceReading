@@ -305,12 +305,14 @@ static struct dentry_operations sysfs_dentry_ops = {
 	.d_iput		= sysfs_d_iput,
 };
 
+// dyc: alloc sysfs_dirent from slab, set s_ino and name 
 struct sysfs_dirent *sysfs_new_dirent(const char *name, umode_t mode, int type)
 {
 	char *dup_name = NULL;
 	struct sysfs_dirent *sd;
 
 	if (type & SYSFS_COPY_NAME) {
+        // dyc: alloc and copy
 		name = dup_name = kstrdup(name, GFP_KERNEL);
 		if (!name)
 			return NULL;
@@ -361,6 +363,7 @@ static int sysfs_ilookup_test(struct inode *inode, void *arg)
  *	return.  i_mutex of parent inode is locked on return if
  *	available.
  */
+// dyc: acquire parent's inode and lock it
 void sysfs_addrm_start(struct sysfs_addrm_cxt *acxt,
 		       struct sysfs_dirent *parent_sd)
 {
@@ -376,6 +379,9 @@ void sysfs_addrm_start(struct sysfs_addrm_cxt *acxt,
 	 */
 	mutex_lock(&sysfs_mutex);
 
+    // dyc: sysfs_sb is a super block, parent_sd->s_ino is a hash value, usually is the inode number
+    //      sysfs_ilookup_test is a test function which compares (inode->i_ino == sd->s_ino)
+    //      parent_st is data for sd above
 	inode = ilookup5_nowait(sysfs_sb, parent_sd->s_ino, sysfs_ilookup_test,
 				parent_sd);
 
@@ -619,12 +625,15 @@ static int create_dir(struct kobject *kobj, struct sysfs_dirent *parent_sd,
 	int rc;
 
 	/* allocate */
+    // dyc: alloc sysfs_dirent , assign inode number, name, mode, type
 	sd = sysfs_new_dirent(name, mode, SYSFS_DIR);
 	if (!sd)
 		return -ENOMEM;
 	sd->s_dir.kobj = kobj;
 
 	/* link in */
+    // dyc: this function get the target inode and lock it, and lock sys_mutex at same time
+    //      assign parent_sd and parent_inode to acxt
 	sysfs_addrm_start(&acxt, parent_sd);
 	rc = sysfs_add_one(&acxt, sd);
 	sysfs_addrm_finish(&acxt);
@@ -659,6 +668,7 @@ int sysfs_create_dir(struct kobject * kobj)
 	else
 		parent_sd = &sysfs_root;
 
+    // dyc: call create_dir() in this file
 	error = create_dir(kobj, parent_sd, kobject_name(kobj), &sd);
 	if (!error)
 		kobj->sd = sd;

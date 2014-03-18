@@ -108,12 +108,12 @@ int kobject_uevent_env(struct kobject *kobj, enum kobject_action action,
 		top_kobj = top_kobj->parent;
 
     // dyc: so, top_kob must no parent while belong to a kset
-    //      finally we get a ancient kset
 	if (!top_kobj->kset) {
 		pr_debug("kobject attempted to send uevent without kset!\n");
 		return -EINVAL;
 	}
 
+    // dyc: finally what we need is an ancient kset
 	kset = top_kobj->kset;
 	uevent_ops = kset->uevent_ops;
 
@@ -140,7 +140,7 @@ int kobject_uevent_env(struct kobject *kobj, enum kobject_action action,
 		return -ENOMEM;
 
 	/* complete object path */
-    // dyc: walk path, malloc buffer, copy and return 
+    // dyc: walk path, malloc buffer, assign kobj's full path and return 
 	devpath = kobject_get_path(kobj, GFP_KERNEL);
 	if (!devpath) {
 		retval = -ENOENT;
@@ -269,6 +269,8 @@ EXPORT_SYMBOL_GPL(kobject_uevent);
  * Returns 0 if environment variable was added successfully or -ENOMEM
  * if no space was available.
  */
+// dyc: add all env-variables into env-buf[]
+//      use env->envp_idx to record next variable's start address
 int add_uevent_var(struct kobj_uevent_env *env, const char *format, ...)
 {
 	va_list args;

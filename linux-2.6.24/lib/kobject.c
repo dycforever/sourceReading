@@ -50,8 +50,10 @@ static int create_dir(struct kobject * kobj)
 {
 	int error = 0;
 	if (kobject_name(kobj)) {
+        // dyc: call create_dir() in fs/sysfs/dir.c to create sysfs_dirent and assign it to kobj->sd
 		error = sysfs_create_dir(kobj);
 		if (!error) {
+            // dyc: see above, create file with default attributes of kobj's type 
 			if ((error = populate_dir(kobj)))
 				sysfs_remove_dir(kobj);
 		}
@@ -111,7 +113,8 @@ char *kobject_get_path(struct kobject *kobj, gfp_t gfp_mask)
 	char *path;
 	int len;
 
-    // dyc: walk through and calculate path length
+    // dyc: walk through from kobj to top_kobj
+    //      and calculate path length
 	len = get_kobj_path_length(kobj);
 	if (len == 0)
 		return NULL;
@@ -259,6 +262,7 @@ int kobject_set_name(struct kobject * kobj, const char * fmt, ...)
 	char *name;
 
 	/* find out how big a buffer we need */
+    // dyc: alloc a bit memory first
 	name = kmalloc(1024, GFP_KERNEL);
 	if (!name) {
 		error = -ENOMEM;
