@@ -933,6 +933,8 @@ static inline unsigned char dt_type(struct sysfs_dirent *sd)
 }
 
 // dyc: filldir is a function to read different kinds of layout of dirents
+//      I guess, file under dir is sort by inode number. After filldir() a file, filp->f_pos will point to 
+//      current inode's number. So, we can know where to start next time
 static int sysfs_readdir(struct file * filp, void * dirent, filldir_t filldir)
 {
 	struct dentry *dentry = filp->f_path.dentry;

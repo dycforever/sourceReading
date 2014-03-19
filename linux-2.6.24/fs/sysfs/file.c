@@ -105,6 +105,7 @@ static int fill_read_buffer(struct dentry * dentry, struct sysfs_buffer * buffer
 	int ret = 0;
 	ssize_t count;
 
+    // dyc: alloc a zero page and return its virtual address
 	if (!buffer->page)
 		buffer->page = (char *) get_zeroed_page(GFP_KERNEL);
 	if (!buffer->page)
@@ -115,6 +116,7 @@ static int fill_read_buffer(struct dentry * dentry, struct sysfs_buffer * buffer
 		return -ENODEV;
 
 	buffer->event = atomic_read(&attr_sd->s_attr.open->event);
+    // dyc: fill buffer->page
 	count = ops->show(kobj, attr_sd->s_attr.attr, buffer->page);
 
 	sysfs_put_active_two(attr_sd);
@@ -160,12 +162,13 @@ sysfs_read_file(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 
 	mutex_lock(&buffer->mutex);
 	if (buffer->needs_read_fill) {
-		retval = fill_read_buffer(file->f_path.dentry,buffer);
+		retval = fill_read_buffer(file->f_path.dentry, buffer);
 		if (retval)
 			goto out;
 	}
 	pr_debug("%s: count = %zd, ppos = %lld, buf = %s\n",
 		 __FUNCTION__, count, *ppos, buffer->page);
+    // dyc: copy buffer->count from buffer->page to buf
 	retval = simple_read_from_buffer(buf, count, ppos, buffer->page,
 					 buffer->count);
 out:

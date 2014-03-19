@@ -1724,6 +1724,7 @@ fastcall unsigned long __get_free_pages(gfp_t gfp_mask, unsigned int order)
 
 EXPORT_SYMBOL(__get_free_pages);
 
+// dyc: alloc a zero page and return its virtual address
 fastcall unsigned long get_zeroed_page(gfp_t gfp_mask)
 {
 	struct page * page;
@@ -1735,6 +1736,7 @@ fastcall unsigned long get_zeroed_page(gfp_t gfp_mask)
 	VM_BUG_ON((gfp_mask & __GFP_HIGHMEM) != 0);
 
 	page = alloc_pages(gfp_mask | __GFP_ZERO, 0);
+    // dyc: physical address to virtual address
 	if (page)
 		return (unsigned long) page_address(page);
 	return 0;
