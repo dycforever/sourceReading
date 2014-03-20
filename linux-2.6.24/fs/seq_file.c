@@ -64,6 +64,8 @@ EXPORT_SYMBOL(seq_open);
  *
  *	Ready-made ->f_op->read()
  */
+// dyc: copy data from @m->buf to @buf
+//      if data in @m->buf is consumed, retrive new data by call next()
 ssize_t seq_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 {
 	struct seq_file *m = (struct seq_file *)file->private_data;
@@ -93,7 +95,7 @@ ssize_t seq_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 			goto Enomem;
 	}
 	/* if not empty - flush it first */
-    // dyc: size means need to read
+    // dyc: consume data in m->buf first, @size means need to read
 	if (m->count) {
 		n = min(m->count, size);
 		err = copy_to_user(buf, m->buf + m->from, n);
@@ -111,7 +113,7 @@ ssize_t seq_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 			goto Done;
 	}
 	/* we need at least one record in buffer */
-    // dyc: I think, here means size!=0 && m->count==0
+    // dyc: here means size!=0 && m->count==0
     //      so, the m->buf is too small ?
 	while (1) {
 		pos = m->index;
@@ -123,8 +125,7 @@ ssize_t seq_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 		err = m->op->show(m, p);
 		if (err)
 			break;
-        // dyc: m->count may changed aftre m->index++
-        //      and calling m->op->show(m, p) above
+        // dyc: m->count may changed aftre calling m->op->show(m, p) above
 		if (m->count < m->size)
 			goto Fill;
         // dyc: here means after show(), m->count >= m->size
@@ -132,6 +133,7 @@ ssize_t seq_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 		m->op->stop(m, p);
 		kfree(m->buf);
         // dyc: m->size changed, <<= 1 !!
+        //      Why only extend buf here? maybe there is a convention. each data block has same size!
 		m->buf = kmalloc(m->size <<= 1, GFP_KERNEL);
 		if (!m->buf)
 			goto Enomem;
@@ -150,6 +152,7 @@ Fill:
 	while (m->count < size) {
 		size_t offs = m->count;
 		loff_t next = pos;
+        // dyc: variable next will changed in next()
 		p = m->op->next(m, p, &next);
 		if (!p || IS_ERR(p)) {
 			err = PTR_ERR(p);
@@ -220,12 +223,15 @@ static int traverse(struct seq_file *m, loff_t offset)
 		if (m->count == m->size)
 			goto Eoverflow;
 		if (pos + m->count > offset) {
+            // dyc: retrive enough data from file this time
+            //      break normally
 			m->from = offset - pos;
 			m->count -= m->from;
 			m->index = index;
 			break;
 		}
 		pos += m->count;
+        // dyc: set count to 0, means consume all data
 		m->count = 0;
 		if (pos == offset) {
 			index++;
@@ -252,6 +258,7 @@ Eoverflow:
  *
  *	Ready-made ->f_op->llseek()
  */
+// dyc: return new position
 loff_t seq_lseek(struct file *file, loff_t offset, int origin)
 {
 	struct seq_file *m = (struct seq_file *)file->private_data;
@@ -261,14 +268,17 @@ loff_t seq_lseek(struct file *file, loff_t offset, int origin)
 	m->version = file->f_version;
 	switch (origin) {
 		case 1:
+            // dyc: from current; offset is new position
 			offset += file->f_pos;
 		case 0:
+            // dyc: from pos begin
 			if (offset < 0)
 				break;
 			retval = offset;
 			if (offset != file->f_pos) {
 				while ((retval=traverse(m, offset)) == -EAGAIN)
 					;
+                // dyc: retval==0 means success
 				if (retval) {
 					/* with extreme prejudice... */
 					file->f_pos = 0;
