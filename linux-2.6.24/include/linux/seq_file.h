@@ -12,6 +12,9 @@ struct vfsmount;
 struct dentry;
 struct inode;
 
+// dyc: usually, @count means rest readable data bytes
+//      @from means current fpos
+//      @size means totally data bytes
 struct seq_file {
 	char *buf;
 	size_t size;

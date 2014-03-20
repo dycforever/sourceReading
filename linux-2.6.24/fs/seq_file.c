@@ -18,14 +18,16 @@
  *	@file: file we initialize
  *	@op: method table describing the sequence
  *
- *	seq_open() sets @file, associating it with a sequence described
- *	by @op.  @op->start() sets the iterator up and returns the first
- *	element of sequence. @op->stop() shuts it down.  @op->next()
- *	returns the next element of sequence.  @op->show() prints element
- *	into the buffer.  In case of error ->start() and ->next() return
+ *	seq_open() sets @file, associating it with a sequence described by @op.  
+ *	@op->start() sets the iterator up and returns the first element of sequence. 
+ *	@op->stop() shuts it down.  
+ *	@op->next() returns the next element of sequence.  
+ *	@op->show() prints element into the buffer.  
+ *	In case of error ->start() and ->next() return
  *	ERR_PTR(error).  In the end of sequence they return %NULL. ->show()
  *	returns 0 in case of success and negative number in case of error.
  */
+// dyc: see comment above
 int seq_open(struct file *file, const struct seq_operations *op)
 {
 	struct seq_file *p = file->private_data;
@@ -91,6 +93,7 @@ ssize_t seq_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 			goto Enomem;
 	}
 	/* if not empty - flush it first */
+    // dyc: size means need to read
 	if (m->count) {
 		n = min(m->count, size);
 		err = copy_to_user(buf, m->buf + m->from, n);
@@ -101,36 +104,49 @@ ssize_t seq_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 		size -= n;
 		buf += n;
 		copied += n;
+        // dyc: current data block was exhausted, retrive next
 		if (!m->count)
 			m->index++;
 		if (!size)
 			goto Done;
 	}
 	/* we need at least one record in buffer */
+    // dyc: I think, here means size!=0 && m->count==0
+    //      so, the m->buf is too small ?
 	while (1) {
 		pos = m->index;
 		p = m->op->start(m, &pos);
 		err = PTR_ERR(p);
+        // dyc: break will goto Done
 		if (!p || IS_ERR(p))
 			break;
 		err = m->op->show(m, p);
 		if (err)
 			break;
+        // dyc: m->count may changed aftre m->index++
+        //      and calling m->op->show(m, p) above
 		if (m->count < m->size)
 			goto Fill;
+        // dyc: here means after show(), m->count >= m->size
+        //      so, buf may be not large enough to contain all data return by one show()
 		m->op->stop(m, p);
 		kfree(m->buf);
+        // dyc: m->size changed, <<= 1 !!
 		m->buf = kmalloc(m->size <<= 1, GFP_KERNEL);
 		if (!m->buf)
 			goto Enomem;
 		m->count = 0;
 		m->version = 0;
 	}
+    // dyc: seems error happened
 	m->op->stop(m, p);
 	m->count = 0;
 	goto Done;
 Fill:
 	/* they want more? let's try to get some more */
+    // dyc: I guess op->show() should call something like seq_printf() to increase m->count
+    //      so, it is fill data from m's next()/show() to m->buf
+    //      until call next()/show() failed or m->buf is full
 	while (m->count < size) {
 		size_t offs = m->count;
 		loff_t next = pos;
@@ -323,6 +339,7 @@ int seq_escape(struct seq_file *m, const char *s, const char *esc)
 }
 EXPORT_SYMBOL(seq_escape);
 
+// dyc: print info into m->buf if possible
 int seq_printf(struct seq_file *m, const char *f, ...)
 {
 	va_list args;
