@@ -238,10 +238,12 @@ LOCK_PREFIX	"addl %1,%0"
 /*
  * implement exchange and add functionality
  */
+// dyc: the value be exchanged will not be passed out...
 static inline int rwsem_atomic_update(int delta, struct rw_semaphore *sem)
 {
 	int tmp = delta;
 
+    // dyc: exchange tmp and sem->count, then sem->count += tmp
 	__asm__ __volatile__(
 LOCK_PREFIX	"xadd %0,%1"
 		: "+r" (tmp), "+m" (sem->count)

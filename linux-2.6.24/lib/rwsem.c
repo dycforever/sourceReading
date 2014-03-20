@@ -21,6 +21,7 @@ void __init_rwsem(struct rw_semaphore *sem, const char *name,
 	debug_check_no_locks_freed((void *)sem, sizeof(*sem));
 	lockdep_init_map(&sem->dep_map, name, key, 0);
 #endif
+    // dyc: usually 0
 	sem->count = RWSEM_UNLOCKED_VALUE;
 	spin_lock_init(&sem->wait_lock);
 	INIT_LIST_HEAD(&sem->wait_list);
@@ -61,6 +62,7 @@ __rwsem_do_wake(struct rw_semaphore *sem, int downgrading)
 	 * if we can transition the active part of the count from 0 -> 1
 	 */
  try_again:
+    // dyc: oldcount = atomic_sum(1, sem->count) - 1
 	oldcount = rwsem_atomic_update(RWSEM_ACTIVE_BIAS, sem)
 						- RWSEM_ACTIVE_BIAS;
 	if (oldcount & RWSEM_ACTIVE_MASK)
@@ -79,6 +81,8 @@ __rwsem_do_wake(struct rw_semaphore *sem, int downgrading)
 	 * It is an allocated on the waiter's stack and may become invalid at
 	 * any time after that point (due to a wakeup from another source).
 	 */
+    // dyc: it says 'waiter' variable is located on waiter process's stack,
+    //      it may be destroyed after waiter->task = NULL
 	list_del(&waiter->list);
 	tsk = waiter->task;
 	smp_mb();

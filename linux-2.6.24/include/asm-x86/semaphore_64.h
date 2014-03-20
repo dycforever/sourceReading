@@ -103,6 +103,8 @@ static inline void down(struct semaphore * sem)
 {
 	might_sleep();
 
+    // dyc: jns means, jump if the result's leftest bit is 0
+    //      count usually init to 1; 0's leftest is 0, so down success and return 
 	__asm__ __volatile__(
 		"# atomic down operation\n\t"
 		LOCK_PREFIX "decl %0\n\t"     /* --sem->count */
