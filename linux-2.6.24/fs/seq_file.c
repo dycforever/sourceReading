@@ -176,6 +176,7 @@ Fill:
 		m->from = n;
 	else
 		pos++;
+    // dyc: block should be retrived next
 	m->index = pos;
 Done:
 	if (!copied)
