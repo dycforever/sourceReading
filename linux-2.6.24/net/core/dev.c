@@ -2032,12 +2032,15 @@ int netif_receive_skb(struct sk_buff *skb)
 	__be16 type;
 
 	/* if we've gotten here through NAPI, check netpoll */
+    // dyc: skb was dealed by netpoll if this func() return non-0
 	if (netpoll_receive_skb(skb))
 		return NET_RX_DROP;
 
+    // dyc set skb->tstamp if need
 	if (!skb->tstamp.tv64)
 		net_timestamp(skb);
 
+    // dyc: record input interface's index
 	if (!skb->iif)
 		skb->iif = skb->dev->ifindex;
 
@@ -2048,7 +2051,9 @@ int netif_receive_skb(struct sk_buff *skb)
 
 	__get_cpu_var(netdev_rx_stat).total++;
 
+	// dyc: skb->network_header = skb->data - skb->head;
 	skb_reset_network_header(skb);
+	// dyc: skb->transport_header = skb->data - skb->head;
 	skb_reset_transport_header(skb);
 	skb->mac_len = skb->network_header - skb->mac_header;
 
@@ -2066,6 +2071,7 @@ int netif_receive_skb(struct sk_buff *skb)
 	list_for_each_entry_rcu(ptype, &ptype_all, list) {
 		if (!ptype->dev || ptype->dev == skb->dev) {
 			if (pt_prev)
+	            // dyc: call pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
 				ret = deliver_skb(skb, pt_prev, orig_dev);
 			pt_prev = ptype;
 		}
@@ -2090,6 +2096,7 @@ ncls:
 		if (ptype->type == type &&
 		    (!ptype->dev || ptype->dev == skb->dev)) {
 			if (pt_prev)
+	            // dyc: call pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
 				ret = deliver_skb(skb, pt_prev, orig_dev);
 			pt_prev = ptype;
 		}
@@ -2168,6 +2175,7 @@ static void net_rx_action(struct softirq_action *h)
 
 	local_irq_disable();
 
+    // dyc: dev was add to list in __napi_schedule()
 	while (!list_empty(list)) {
 		struct napi_struct *n;
 		int work, weight;
@@ -2202,6 +2210,7 @@ static void net_rx_action(struct softirq_action *h)
 		 * accidently calling ->poll() when NAPI is not scheduled.
 		 */
 		work = 0;
+        // dyc: receive data from netcard 
 		if (test_bit(NAPI_STATE_SCHED, &n->state))
 			work = n->poll(n, weight);
 
@@ -4442,6 +4451,7 @@ static int __init net_dev_init(void)
 	if (dev_proc_init())
 		goto out;
 
+    // dyc: call class_register(&net_class)
 	if (netdev_kobject_init())
 		goto out;
 
@@ -4449,9 +4459,11 @@ static int __init net_dev_init(void)
 	for (i = 0; i < 16; i++)
 		INIT_LIST_HEAD(&ptype_base[i]);
 
+    // dyc: lock and call netdev_net_ops->init()
 	if (register_pernet_subsys(&netdev_net_ops))
 		goto out;
 
+    // dyc: lock and call default_device_ops->init()
 	if (register_pernet_device(&default_device_ops))
 		goto out;
 
@@ -4475,13 +4487,16 @@ static int __init net_dev_init(void)
 
 	dev_boot_phase = 0;
 
+    // dyc: softirq[NET_TX_SOFTIRQ].action = net_tx_action
 	open_softirq(NET_TX_SOFTIRQ, net_tx_action, NULL);
 	open_softirq(NET_RX_SOFTIRQ, net_rx_action, NULL);
 
     // dyc: add notifier_block to cpu_chain list
 	hotcpu_notifier(dev_cpu_callback, 0);
 
+	// dyc: register_netdevice_notifier(&dst_dev_notifier);
 	dst_init();
+	// dyc: register_pernet_subsys(&dev_mc_net_ops);
 	dev_mcast_init();
 	rc = 0;
 out:

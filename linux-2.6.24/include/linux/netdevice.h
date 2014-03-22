@@ -1287,6 +1287,7 @@ static inline int netif_rx_schedule_prep(struct net_device *dev,
 static inline void __netif_rx_schedule(struct net_device *dev,
 				       struct napi_struct *napi)
 {
+    // dyc: add dev to &__get_cpu_var(softnet_data).poll_list and then raise software irq
 	__napi_schedule(napi);
 }
 

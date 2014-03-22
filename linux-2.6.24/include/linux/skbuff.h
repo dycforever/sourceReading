@@ -719,6 +719,7 @@ static inline void __skb_queue_tail(struct sk_buff_head *list,
 {
 	struct sk_buff *prev, *next;
 
+    // dyc: add to queue
 	list->qlen++;
 	next = (struct sk_buff *)list;
 	prev = next->prev;

@@ -56,6 +56,7 @@ static inline int netpoll_rx(struct sk_buff *skb)
 
 	spin_lock_irqsave(&npinfo->rx_lock, flags);
 	/* check rx_flags again with the lock held */
+    // dyc: __netpoll_rx() return 1 if skb was dealed by netpoll
 	if (npinfo->rx_flags && __netpoll_rx(skb))
 		ret = 1;
 	spin_unlock_irqrestore(&npinfo->rx_lock, flags);

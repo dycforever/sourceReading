@@ -482,6 +482,7 @@ int __netpoll_rx(struct sk_buff *skb)
 	/* check if netpoll clients need ARP */
 	if (skb->protocol == htons(ETH_P_ARP) &&
 	    atomic_read(&trapped)) {
+        // dyc: add skb to queue
 		skb_queue_tail(&npi->arp_tx, skb);
 		return 1;
 	}
