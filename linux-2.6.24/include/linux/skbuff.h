@@ -542,6 +542,7 @@ static inline struct sk_buff *skb_share_check(struct sk_buff *skb,
 	might_sleep_if(pri & __GFP_WAIT);
 	if (skb_shared(skb)) {
 		struct sk_buff *nskb = skb_clone(skb, pri);
+        // dyc: decrease a reference, release if 0
 		kfree_skb(skb);
 		skb = nskb;
 	}

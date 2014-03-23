@@ -520,10 +520,15 @@ static void call_console_drivers(unsigned long start, unsigned long end)
 	_call_console_drivers(start_print, end, msg_level);
 }
 
+// dyc: og_start和con_start则是syslog和consoles读取数据的起始位置
+//      use logbuf_lock to protect log_buf[], log_start, log_end, con_start
 static void emit_log_char(char c)
 {
+    // dyc: log_buf[(log_end) & LOG_BUF_MASK] = c
 	LOG_BUF(log_end) = c;
 	log_end++;
+    // dyc: log_buf_len is a default value or set by kernel parameter
+    //      so if a single message is too long, only last part can be output
 	if (log_end - log_start > log_buf_len)
 		log_start = log_end - log_buf_len;
 	if (log_end - con_start > log_buf_len)
@@ -658,6 +663,7 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 	 * appropriate log level tags, we insert them here
 	 */
 	for (p = printk_buf; *p; p++) {
+        // dyc: log_level_unknown means a start of a new line
 		if (log_level_unknown) {
                         /* log_level_unknown signals the start of a new line */
 			if (printk_time) {
@@ -710,7 +716,9 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 			log_level_unknown = 1;
 	}
 
+    // dyc: return 0 if acquire successed
 	if (!down_trylock(&console_sem)) {
+        // dyc: semeaphore acquired
 		/*
 		 * We own the drivers.  We can drop the spinlock and
 		 * let release_console_sem() print the text, maybe ...
@@ -727,6 +735,7 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 		 */
 		if (cpu_online(smp_processor_id()) || have_callable_console()) {
 			console_may_schedule = 0;
+            // dyc: 此函数将log_buf中的内容发送给console，并且唤醒klogd
 			release_console_sem();
 		} else {
 			/* Release by hand to avoid flushing the buffer. */
@@ -736,6 +745,7 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 		lockdep_on();
 		raw_local_irq_restore(flags);
 	} else {
+        // dyc: trival code in this block ...
 		/*
 		 * Someone else owns the drivers.  We drop the spinlock, which
 		 * allows the semaphore holder to proceed and to call the
@@ -963,6 +973,7 @@ void release_console_sem(void)
 
 	console_may_schedule = 0;
 
+    // dyc: use logbuf_lock to protect log_buf[], log_start, log_end, con_start
 	for ( ; ; ) {
 		spin_lock_irqsave(&logbuf_lock, flags);
 		wake_klogd |= log_start - log_end;

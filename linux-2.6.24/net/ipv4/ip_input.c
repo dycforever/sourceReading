@@ -262,12 +262,13 @@ int ip_local_deliver(struct sk_buff *skb)
 	/*
 	 *	Reassemble IP fragments.
 	 */
-
 	if (ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)) {
+        // dyc: ip_defrag() return non-0 if IP fragments are all arrived
 		if (ip_defrag(skb, IP_DEFRAG_LOCAL_DELIVER))
 			return 0;
 	}
 
+    // dyc: ip_local_deliver_finish() pass data from L3 to L4
 	return NF_HOOK(PF_INET, NF_IP_LOCAL_IN, skb, skb->dev, NULL,
 		       ip_local_deliver_finish);
 }
@@ -334,6 +335,7 @@ static int ip_rcv_finish(struct sk_buff *skb)
 	 *	how the packet travels inside Linux networking.
 	 */
 	if (skb->dst == NULL) {
+        // dyc: find input route cache, drap packet if find failed
 		int err = ip_route_input(skb, iph->daddr, iph->saddr, iph->tos,
 					 skb->dev);
 		if (unlikely(err)) {
@@ -356,6 +358,7 @@ static int ip_rcv_finish(struct sk_buff *skb)
 	}
 #endif
 
+    // dyc: if has IP options, call ip_rcv_options() to deal with it
 	if (iph->ihl > 5 && ip_rcv_options(skb))
 		goto drop;
 
@@ -365,6 +368,7 @@ static int ip_rcv_finish(struct sk_buff *skb)
 	else if (rt->rt_type == RTN_BROADCAST)
 		IP_INC_STATS_BH(IPSTATS_MIB_INBCASTPKTS);
 
+    // dyc: for IPv4, call ip_local_deliver()
 	return dst_input(skb);
 
 drop:
@@ -391,6 +395,7 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt, 
 
 	IP_INC_STATS_BH(IPSTATS_MIB_INRECEIVES);
 
+    // dyc: if(atomic_read(&skb->users) != 1), decrease old's reference, clone a skb and return
 	if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL) {
 		IP_INC_STATS_BH(IPSTATS_MIB_INDISCARDS);
 		goto out;
@@ -419,7 +424,7 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt, 
 		goto inhdr_error;
 
 	iph = ip_hdr(skb);
-
+    // dyc: check with IP header's checksum
 	if (unlikely(ip_fast_csum((u8 *)iph, iph->ihl)))
 		goto inhdr_error;
 
@@ -442,6 +447,7 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt, 
 	/* Remove any debris in the socket control block */
 	memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
 
+    // dyc: deal with netfilter and call ip_rcv_finish()
 	return NF_HOOK(PF_INET, NF_IP_PRE_ROUTING, skb, dev, NULL,
 		       ip_rcv_finish);
 
