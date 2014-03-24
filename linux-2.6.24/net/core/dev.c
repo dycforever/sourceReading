@@ -2380,8 +2380,10 @@ static int dev_ifconf(struct net *net, char __user *arg)
  *	This is invoked by the /proc filesystem handler to display a device
  *	in detail.
  */
+// dyc: according pos to choice a net dev from &net->dev_base_head
 void *dev_seq_start(struct seq_file *seq, loff_t *pos)
 {
+    // dyc: set in dev_seq_open()
 	struct net *net = seq->private;
 	loff_t off;
 	struct net_device *dev;
@@ -2391,6 +2393,7 @@ void *dev_seq_start(struct seq_file *seq, loff_t *pos)
 		return SEQ_START_TOKEN;
 
 	off = 1;
+    // dyc: use @dev to iterate net->dev_base_head
 	for_each_netdev(net, dev)
 		if (off++ == *pos)
 			return dev;
@@ -2400,6 +2403,7 @@ void *dev_seq_start(struct seq_file *seq, loff_t *pos)
 
 void *dev_seq_next(struct seq_file *seq, void *v, loff_t *pos)
 {
+    // dyc: set in dev_seq_open()
 	struct net *net = seq->private;
 	++*pos;
 	return v == SEQ_START_TOKEN ?
@@ -2440,6 +2444,7 @@ static void dev_seq_printf_stats(struct seq_file *seq, struct net_device *dev)
  */
 static int dev_seq_show(struct seq_file *seq, void *v)
 {
+    // dyc: v is a net_device
 	if (v == SEQ_START_TOKEN)
 		seq_puts(seq, "Inter-|   Receive                            "
 			      "                    |  Transmit\n"
@@ -2497,10 +2502,12 @@ static const struct seq_operations dev_seq_ops = {
 	.show  = dev_seq_show,
 };
 
+// dyc: associate operation_function with dev_seq_ops
 static int dev_seq_open(struct inode *inode, struct file *file)
 {
 	struct seq_file *seq;
 	int res;
+    // dyc: file->private_data will be set in seq_open()
 	res =  seq_open(file, &dev_seq_ops);
 	if (!res) {
 		seq = file->private_data;
@@ -2516,6 +2523,7 @@ static int dev_seq_open(struct inode *inode, struct file *file)
 static int dev_seq_release(struct inode *inode, struct file *file)
 {
 	struct seq_file *seq = file->private_data;
+    // dyc: set in dev_seq_open()
 	struct net *net = seq->private;
 	put_net(net);
 	return seq_release(inode, file);
@@ -2684,6 +2692,7 @@ static int __net_init dev_proc_net_init(struct net *net)
 {
 	int rc = -ENOMEM;
 
+    // dyc: create proc file under /proc/net
 	if (!proc_net_fops_create(net, "dev", S_IRUGO, &dev_seq_fops))
 		goto out;
 	if (!proc_net_fops_create(net, "softnet_stat", S_IRUGO, &softnet_seq_fops))

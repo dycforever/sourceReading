@@ -276,7 +276,7 @@ static const struct inode_operations proc_file_inode_operations = {
  * returns the struct proc_dir_entry for "/proc/tty/driver", and
  * returns "serial" in residual.
  */
-// dyc: found entry by name, return 0
+// dyc: see comments above, found entry by name, return 0
 static int xlate_proc_name(const char *name,
 			   struct proc_dir_entry **ret, const char **residual)
 {
@@ -293,7 +293,9 @@ static int xlate_proc_name(const char *name,
 			break;
 
 		len = next - cp;
+        // dyc: compare dir name and return 1 if match
 		for (de = de->subdir; de ; de = de->next) {
+            // dyc: break for loop if match
 			if (proc_match(len, cp, de))
 				break;
 		}
@@ -303,8 +305,8 @@ static int xlate_proc_name(const char *name,
 		}
 		cp += len + 1;
 	}
-    // dyc: [cp] point to the last '/'
-    //      [de] point tomatched proc entry
+    // dyc: [cp] point to the char after last '/'
+    //      [de] point to the matched proc entry
 	*residual = cp;
 	*ret = de;
 out:
@@ -528,6 +530,8 @@ static const struct inode_operations proc_dir_inode_operations = {
 	.setattr	= proc_notify_change,
 };
 
+// dyc: set proc operations for dp and add @dp into @dir's subdir list
+//      this function will set a default file_operations
 static int proc_register(struct proc_dir_entry * dir, struct proc_dir_entry * dp)
 {
 	unsigned int i;
@@ -548,6 +552,7 @@ static int proc_register(struct proc_dir_entry * dir, struct proc_dir_entry * dp
 			dp->proc_iops = &proc_link_inode_operations;
 	} else if (S_ISREG(dp->mode)) {
 		if (dp->proc_fops == NULL)
+            // dyc: set a default file_operations
 			dp->proc_fops = &proc_file_operations;
 		if (dp->proc_iops == NULL)
 			dp->proc_iops = &proc_file_inode_operations;
@@ -562,6 +567,9 @@ static int proc_register(struct proc_dir_entry * dir, struct proc_dir_entry * dp
 	return 0;
 }
 
+// dyc: @parent is read only
+//      create proc file and return it
+//      
 static struct proc_dir_entry *proc_create(struct proc_dir_entry **parent,
 					  const char *name,
 					  mode_t mode,
@@ -574,6 +582,8 @@ static struct proc_dir_entry *proc_create(struct proc_dir_entry **parent,
 	/* make sure name is valid */
 	if (!name || !strlen(name)) goto out;
 
+    // dyc: return 0 if match, so if no *parent and can't find a matched parent dir, something wrong!
+    //      fn is the last item(file name) in @name
 	if (!(*parent) && xlate_proc_name(name, parent, &fn) != 0)
 		goto out;
 
@@ -583,6 +593,7 @@ static struct proc_dir_entry *proc_create(struct proc_dir_entry **parent,
 
 	len = strlen(fn);
 
+    // dyc: name locate at the end of the struct
 	ent = kmalloc(sizeof(struct proc_dir_entry) + len + 1, GFP_KERNEL);
 	if (!ent) goto out;
 
@@ -646,6 +657,7 @@ struct proc_dir_entry *proc_mkdir(const char *name,
 	return proc_mkdir_mode(name, S_IRUGO | S_IXUGO, parent);
 }
 
+// dyc: create proc file under parent dir
 struct proc_dir_entry *create_proc_entry(const char *name, mode_t mode,
 					 struct proc_dir_entry *parent)
 {
@@ -664,8 +676,10 @@ struct proc_dir_entry *create_proc_entry(const char *name, mode_t mode,
 		nlink = 1;
 	}
 
+    // dyc: create proc file and return it
 	ent = proc_create(&parent,name,mode,nlink);
 	if (ent) {
+        // dyc: set proc operations for dp and add @dp into @dir's subdir list
 		if (proc_register(parent, ent) < 0) {
 			kfree(ent);
 			ent = NULL;
