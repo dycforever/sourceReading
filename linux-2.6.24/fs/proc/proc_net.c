@@ -26,6 +26,7 @@
 #include "internal.h"
 
 
+// dyc: create proc file under /proc/net
 struct proc_dir_entry *proc_net_fops_create(struct net *net,
 	const char *name, mode_t mode, const struct file_operations *fops)
 {
@@ -44,6 +45,7 @@ void proc_net_remove(struct net *net, const char *name)
 }
 EXPORT_SYMBOL_GPL(proc_net_remove);
 
+// dyc: get struct* net from inode and deal with namespace 
 struct net *get_proc_net(const struct inode *inode)
 {
 	return maybe_get_net(PDE_NET(PDE(inode)));
