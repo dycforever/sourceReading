@@ -42,6 +42,8 @@ ngx_strerror(ngx_err_t err, u_char *errstr, size_t size)
 }
 
 
+// dyc: save errno-related message retrieve from system's strerror()
+//      in ngx_sys_errlist[] array
 ngx_int_t
 ngx_strerror_init(void)
 {

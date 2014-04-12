@@ -62,7 +62,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
 
     /* force localtime update with a new timezone */
 
-    // dyc: run ngx_cached_time()
+    // dyc: get (ngx_time_t *) ngx_cached_time
     tp = ngx_timeofday();
     tp->sec = 0;
 
@@ -213,11 +213,11 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         return NULL;
     }
 
-    // dyc: copy and low
+    // dyc: copy and lower case letters
     ngx_strlow(cycle->hostname.data, (u_char *) hostname, cycle->hostname.len);
 
 
-    // dyc: create conf for every modules
+    // dyc: create conf for every nginx-core-modules
     for (i = 0; ngx_modules[i]; i++) {
         if (ngx_modules[i]->type != NGX_CORE_MODULE) {
             continue;
@@ -282,7 +282,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
                        cycle->conf_file.data);
     }
 
-    // dyc: init conf for every modules
+    // dyc: init conf for every nginx-core-modules
     for (i = 0; ngx_modules[i]; i++) {
         if (ngx_modules[i]->type != NGX_CORE_MODULE) {
             continue;
@@ -747,7 +747,7 @@ old_shm_zone_done:
     }
 
 
-    // dyc: here means NGX_PROCESS_MASTER AND isn't init_cycle()
+    // dyc: here means I am NGX_PROCESS_MASTER AND isn't init_cycle()
     if (ngx_temp_pool == NULL) {
         ngx_temp_pool = ngx_create_pool(128, cycle->log);
         if (ngx_temp_pool == NULL) {

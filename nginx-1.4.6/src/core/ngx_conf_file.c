@@ -167,8 +167,8 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
 
 
     for ( ;; ) {
+        // dyc: parse tokens and push into cf->args
         rc = ngx_conf_read_token(cf);
-
         /*
          * ngx_conf_read_token() may return
          *
@@ -287,7 +287,7 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
     name = cf->args->elts;
 
     found = 0;
-
+    // dyc: iterate all modules to recognize each cmd
     for (i = 0; ngx_modules[i]; i++) {
 
         cmd = ngx_modules[i]->commands;
@@ -314,7 +314,7 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
             }
 
             /* is the directive's location right ? */
-
+            // dyc: totally belong to different type
             if (!(cmd->type & cf->cmd_type)) {
                 continue;
             }
@@ -334,7 +334,7 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
             }
 
             /* is the directive's argument count right ? */
-
+            // dyc: check argument count
             if (!(cmd->type & NGX_CONF_ANY)) {
 
                 if (cmd->type & NGX_CONF_FLAG) {
@@ -384,11 +384,11 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
             }
 
             rv = cmd->set(cf, cmd, conf);
-
+            // dyc: if rv == 0
             if (rv == NGX_CONF_OK) {
                 return NGX_OK;
             }
-
+            // dyc: if rv == -1
             if (rv == NGX_CONF_ERROR) {
                 return NGX_ERROR;
             }
@@ -471,7 +471,8 @@ ngx_conf_read_token(ngx_conf_t *cf)
                 }
                 return NGX_CONF_FILE_DONE;
             }
-
+            // dyc: start is the start position of a token
+            //      so len is the length of the parsed part of this token
             len = b->pos - start;
 
             // dyc: NGX_CONF_BUFFER = 4096
@@ -500,7 +501,7 @@ ngx_conf_read_token(ngx_conf_t *cf)
             if (len) {
                 ngx_memmove(b->start, start, len);
             }
-
+            // dyc: read size this time
             size = (ssize_t) (file_size - cf->conf_file->file.offset);
 
             if (size > b->end - (b->start + len)) {
@@ -521,17 +522,16 @@ ngx_conf_read_token(ngx_conf_t *cf)
                                    n, size);
                 return NGX_ERROR;
             }
-
-            b->pos = b->start + len;
+            b->pos = b->start + len; // dyc: continue parse token
             b->last = b->pos + n;
             start = b->start;
         } // dyc: if (b->pos >= b->last)
 
         ch = *b->pos++;
-
+        // dyc: ch == '\n'
         if (ch == LF) {
             cf->conf_file->line++;
-
+            // dyc: finish read a single line comment begin with a '#'
             if (sharp_comment) {
                 sharp_comment = 0;
             }
@@ -573,12 +573,12 @@ ngx_conf_read_token(ngx_conf_t *cf)
                  return NGX_ERROR;
             }
         }
-
+        // dyc: the last char we parsed is a space, chars and \ ' " are treated as non-blank
         if (last_space) {
             if (ch == ' ' || ch == '\t' || ch == CR || ch == LF) {
                 continue;
             }
-
+            // dyc: last char is a space and current char is not, so it is a start of a token
             start = b->pos - 1;
             start_line = cf->conf_file->line;
 

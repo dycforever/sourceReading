@@ -160,6 +160,12 @@ static ngx_command_t  ngx_core_commands[] = {
       ngx_null_command
 };
 
+// dyc: 
+// typedef struct {
+//     ngx_str_t             name;
+//     void               *(*create_conf)(ngx_cycle_t *cycle);
+//     char               *(*init_conf)(ngx_cycle_t *cycle, void *conf);
+// } ngx_core_module_t;
 
 static ngx_core_module_t  ngx_core_module_ctx = {
     ngx_string("core"),
@@ -169,6 +175,7 @@ static ngx_core_module_t  ngx_core_module_ctx = {
 
 
 ngx_module_t  ngx_core_module = {
+    // dyc: index = 0
     NGX_MODULE_V1,
     &ngx_core_module_ctx,                  /* module context */
     ngx_core_commands,                     /* module directives */
@@ -197,7 +204,7 @@ static char        *ngx_signal;
 
 static char **ngx_os_environ;
 
-
+#ifndef TEST
 int ngx_cdecl
 main(int argc, char *const *argv)
 {
@@ -209,6 +216,7 @@ main(int argc, char *const *argv)
     // dyc: void in linux
     ngx_debug_init();
 
+    // dyc: malloc and init ngx_sys_errlist for log
     if (ngx_strerror_init() != NGX_OK) {
         return 1;
     }
@@ -420,6 +428,7 @@ main(int argc, char *const *argv)
 
     return 0;
 }
+#endif
 
 // dyc: we may pass a list of fd sperated by : and ;
 //      push them into cycle->listening, set some options such as
