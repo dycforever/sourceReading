@@ -91,6 +91,7 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
     ngx_pid_t  pid;
     ngx_int_t  s;
 
+    // dyc: find a empty process slot in ngx_processes[]
     if (respawn >= 0) {
         s = respawn;
 
@@ -195,6 +196,7 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
 
     case 0:
         ngx_pid = ngx_getpid();
+        // dyc: for example, ngx_worker_process_cycle()
         proc(cycle, data);
         break;
 
@@ -605,6 +607,7 @@ ngx_debug_point(void)
 }
 
 
+    // dyc: send specific signal of @name to specific process of @pid
 ngx_int_t
 ngx_os_signal_process(ngx_cycle_t *cycle, char *name, ngx_int_t pid)
 {

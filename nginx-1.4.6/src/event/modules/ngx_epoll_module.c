@@ -155,6 +155,7 @@ ngx_event_module_t  ngx_epoll_module_ctx = {
     ngx_epoll_create_conf,               /* create configuration */
     ngx_epoll_init_conf,                 /* init configuration */
 
+    // dyc: define a struct ngx_event_actions_t
     {
         ngx_epoll_add_event,             /* add an event */
         ngx_epoll_del_event,             /* delete an event */
@@ -618,6 +619,7 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
         instance = (uintptr_t) c & 1;
         c = (ngx_connection_t *) ((uintptr_t) c & (uintptr_t) ~1);
 
+        // dyc: read is a ngx_event_t*
         rev = c->read;
 
         if (c->fd == -1 || rev->instance != instance) {
@@ -714,7 +716,7 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
                 wev->handler(wev);
             }
         }
-    }
+    } // for all events
 
     ngx_mutex_unlock(ngx_posted_events_mutex);
 

@@ -29,6 +29,7 @@ ngx_os_io_t ngx_os_io = {
 };
 
 
+// dyc: get some system info
 ngx_int_t
 ngx_os_init(ngx_log_t *log)
 {

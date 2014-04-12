@@ -118,9 +118,7 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
 #endif
 
     if (filename) {
-
         /* open configuration file */
-
         fd = ngx_open_file(filename->data, NGX_FILE_RDONLY, NGX_FILE_OPEN, 0);
         if (fd == NGX_INVALID_FILE) {
             ngx_conf_log_error(NGX_LOG_EMERG, cf, ngx_errno,
@@ -218,6 +216,7 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
 
         /* rc == NGX_OK || rc == NGX_CONF_BLOCK_START */
 
+        // dyc: use customized parser
         if (cf->handler) {
 
             /*
@@ -239,7 +238,7 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
             goto failed;
         }
 
-
+        // dyc: parse build-in cmd
         rc = ngx_conf_handler(cf, rc);
 
         if (rc == NGX_ERROR) {
@@ -447,6 +446,7 @@ ngx_conf_read_token(ngx_conf_t *cf)
     cf->args->nelts = 0;
     b = cf->conf_file->buffer;
     start = b->pos;
+    // dyc: line was init to 1
     start_line = cf->conf_file->line;
 
     file_size = ngx_file_size(&cf->conf_file->file.info);
@@ -456,9 +456,7 @@ ngx_conf_read_token(ngx_conf_t *cf)
         if (b->pos >= b->last) {
 
             if (cf->conf_file->file.offset >= file_size) {
-
                 if (cf->args->nelts > 0 || !last_space) {
-
                     if (cf->conf_file->file.fd == NGX_INVALID_FILE) {
                         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                            "unexpected end of parameter, "
@@ -471,12 +469,12 @@ ngx_conf_read_token(ngx_conf_t *cf)
                                   "expecting \";\" or \"}\"");
                     return NGX_ERROR;
                 }
-
                 return NGX_CONF_FILE_DONE;
             }
 
             len = b->pos - start;
 
+            // dyc: NGX_CONF_BUFFER = 4096
             if (len == NGX_CONF_BUFFER) {
                 cf->conf_file->line = start_line;
 
@@ -527,7 +525,7 @@ ngx_conf_read_token(ngx_conf_t *cf)
             b->pos = b->start + len;
             b->last = b->pos + n;
             start = b->start;
-        }
+        } // dyc: if (b->pos >= b->last)
 
         ch = *b->pos++;
 
@@ -539,10 +537,12 @@ ngx_conf_read_token(ngx_conf_t *cf)
             }
         }
 
+        // dyc: in a sharp_comment line, so skip rest chars in this line
         if (sharp_comment) {
             continue;
         }
 
+        // dyc: quoted by '\', deal next char
         if (quoted) {
             quoted = 0;
             continue;
@@ -632,7 +632,7 @@ ngx_conf_read_token(ngx_conf_t *cf)
                 last_space = 0;
             }
 
-        } else {
+        } else { // else if (!last_space)
             if (ch == '{' && variable) {
                 continue;
             }
@@ -686,6 +686,7 @@ ngx_conf_read_token(ngx_conf_t *cf)
                      len++)
                 {
                     if (*src == '\\') {
+                        // dyc: de-quoted 
                         switch (src[1]) {
                         case '"':
                         case '\'':
@@ -708,7 +709,6 @@ ngx_conf_read_token(ngx_conf_t *cf)
                             src += 2;
                             continue;
                         }
-
                     }
                     *dst++ = *src++;
                 }
@@ -724,9 +724,9 @@ ngx_conf_read_token(ngx_conf_t *cf)
                 }
 
                 found = 0;
-            }
-        }
-    }
+            } // if (found)
+        } // if (last_space) ... else ...
+    } // for(;;)
 }
 
 

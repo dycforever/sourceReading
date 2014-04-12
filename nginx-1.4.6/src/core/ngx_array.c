@@ -44,6 +44,7 @@ ngx_array_destroy(ngx_array_t *a)
 }
 
 
+// dyc: array->nelts++ and return an available slot
 void *
 ngx_array_push(ngx_array_t *a)
 {
@@ -52,13 +53,10 @@ ngx_array_push(ngx_array_t *a)
     ngx_pool_t  *p;
 
     if (a->nelts == a->nalloc) {
-
         /* the array is full */
-
         size = a->size * a->nalloc;
 
         p = a->pool;
-
         if ((u_char *) a->elts + size == p->d.last
             && p->d.last + a->size <= p->d.end)
         {

@@ -206,6 +206,7 @@ main(int argc, char *const *argv)
     ngx_cycle_t      *cycle, init_cycle;
     ngx_core_conf_t  *ccf;
 
+    // dyc: void in linux
     ngx_debug_init();
 
     if (ngx_strerror_init() != NGX_OK) {
@@ -277,6 +278,7 @@ main(int argc, char *const *argv)
 
     ngx_pid = ngx_getpid();
 
+    // dyc: open log file in prefix path
     log = ngx_log_init(ngx_prefix);
     if (log == NULL) {
         return 1;
@@ -309,6 +311,7 @@ main(int argc, char *const *argv)
         return 1;
     }
 
+    // dyc: get some system info
     if (ngx_os_init(log) != NGX_OK) {
         return 1;
     }
@@ -349,6 +352,8 @@ main(int argc, char *const *argv)
         return 0;
     }
 
+    // dyc: ngx_signal is a char* of signal name
+    //      send specific signal of @ngx_signal to specific process read from cycle's pid file
     if (ngx_signal) {
         return ngx_signal_process(cycle, ngx_signal);
     }
@@ -364,7 +369,7 @@ main(int argc, char *const *argv)
     }
 
 #if !(NGX_WIN32)
-
+    // dyc: register signal handlers
     if (ngx_init_signals(cycle->log) != NGX_OK) {
         return 1;
     }
@@ -383,6 +388,7 @@ main(int argc, char *const *argv)
 
 #endif
 
+    // dyc: create pid file specified by pid file in configuration
     if (ngx_create_pidfile(&ccf->pid, cycle->log) != NGX_OK) {
         return 1;
     }
@@ -415,7 +421,9 @@ main(int argc, char *const *argv)
     return 0;
 }
 
-
+// dyc: we may pass a list of fd sperated by : and ;
+//      push them into cycle->listening, set some options such as
+//      SNDBUF/RECVBUF/TCP_DEFER_ACCEPT
 static ngx_int_t
 ngx_add_inherited_sockets(ngx_cycle_t *cycle)
 {
@@ -439,6 +447,7 @@ ngx_add_inherited_sockets(ngx_cycle_t *cycle)
         return NGX_ERROR;
     }
 
+    // dyc: @v point to the start of a variable
     for (p = inherited, v = p; *p; p++) {
         if (*p == ':' || *p == ';') {
             s = ngx_atoi(v, p - v);
@@ -459,6 +468,7 @@ ngx_add_inherited_sockets(ngx_cycle_t *cycle)
 
             ngx_memzero(ls, sizeof(ngx_listening_t));
 
+            // dyc: typedef int  ngx_socket_t;
             ls->fd = (ngx_socket_t) s;
         }
     }

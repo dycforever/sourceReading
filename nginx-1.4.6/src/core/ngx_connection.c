@@ -206,6 +206,7 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
 #endif
 #endif
 
+        // dyc: for freebsd
 #if (NGX_HAVE_DEFERRED_ACCEPT && defined SO_ACCEPTFILTER)
 
         ngx_memzero(&af, sizeof(struct accept_filter_arg));
@@ -239,6 +240,7 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
                            (u_char *) af.af_name, 16);
 #endif
 
+        // dyc: for linux
 #if (NGX_HAVE_DEFERRED_ACCEPT && defined TCP_DEFER_ACCEPT)
 
         timeout = 0;

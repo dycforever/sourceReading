@@ -62,6 +62,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
 
     /* force localtime update with a new timezone */
 
+    // dyc: run ngx_cached_time()
     tp = ngx_timeofday();
     tp->sec = 0;
 
@@ -88,6 +89,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     cycle->old_cycle = old_cycle;
 
     cycle->conf_prefix.len = old_cycle->conf_prefix.len;
+    // dyc: alloc from pool and copy
     cycle->conf_prefix.data = ngx_pstrdup(pool, &old_cycle->conf_prefix);
     if (cycle->conf_prefix.data == NULL) {
         ngx_destroy_pool(pool);
@@ -132,6 +134,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     cycle->paths.pool = pool;
 
 
+    // dyc: open_files.part.next construct a list of open files
     if (old_cycle->open_files.part.nelts) {
         n = old_cycle->open_files.part.nelts;
         for (part = old_cycle->open_files.part.next; part; part = part->next) {
@@ -142,6 +145,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         n = 20;
     }
 
+    // dyc: alloc memory from poll to init first item in open_files list
     if (ngx_list_init(&cycle->open_files, pool, n, sizeof(ngx_open_file_t))
         != NGX_OK)
     {
@@ -209,9 +213,11 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         return NULL;
     }
 
+    // dyc: copy and low
     ngx_strlow(cycle->hostname.data, (u_char *) hostname, cycle->hostname.len);
 
 
+    // dyc: create conf for every modules
     for (i = 0; ngx_modules[i]; i++) {
         if (ngx_modules[i]->type != NGX_CORE_MODULE) {
             continue;
@@ -276,6 +282,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
                        cycle->conf_file.data);
     }
 
+    // dyc: init conf for every modules
     for (i = 0; ngx_modules[i]; i++) {
         if (ngx_modules[i]->type != NGX_CORE_MODULE) {
             continue;
@@ -554,7 +561,8 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
             }
         }
 
-    } else {
+    } else { 
+        // dyc: if (! old_cycle->listening.nelts)
         ls = cycle->listening.elts;
         for (i = 0; i < cycle->listening.nelts; i++) {
             ls[i].open = 1;
@@ -571,6 +579,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         }
     }
 
+    // dyc: open a socket ls[i].fd = s, bind and listen
     if (ngx_open_listening_sockets(cycle) != NGX_OK) {
         goto failed;
     }
@@ -738,6 +747,7 @@ old_shm_zone_done:
     }
 
 
+    // dyc: here means NGX_PROCESS_MASTER AND isn't init_cycle()
     if (ngx_temp_pool == NULL) {
         ngx_temp_pool = ngx_create_pool(128, cycle->log);
         if (ngx_temp_pool == NULL) {
@@ -1027,6 +1037,8 @@ ngx_delete_pidfile(ngx_cycle_t *cycle)
 }
 
 
+// dyc: open pid file and read pid, then
+//      send specific signal of @sig to specific process of @pid
 ngx_int_t
 ngx_signal_process(ngx_cycle_t *cycle, char *sig)
 {

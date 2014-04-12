@@ -718,6 +718,10 @@ ngx_master_process_exit(ngx_cycle_t *cycle)
 }
 
 
+// dyc: use a for(;;) to change state or 
+//      call ngx_process_events_and_timers()->
+//           ngx_epoll_process_events()->
+//           epoll_wait()
 static void
 ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
 {
@@ -804,6 +808,7 @@ ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
 
         ngx_log_debug0(NGX_LOG_DEBUG_EVENT, cycle->log, 0, "worker cycle");
 
+        // dyc: call epoll_wait here
         ngx_process_events_and_timers(cycle);
 
         if (ngx_terminate) {
