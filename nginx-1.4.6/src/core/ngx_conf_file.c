@@ -244,7 +244,7 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
         if (rc == NGX_ERROR) {
             goto failed;
         }
-    }
+    } // for(;;)
 
 failed:
 
@@ -284,6 +284,8 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
     ngx_str_t      *name;
     ngx_command_t  *cmd;
 
+    // dyc: cf->args pushed in ngx_conf_read_token() and consumed in
+    //      cmd->set(cf, cmd, conf) below
     name = cf->args->elts;
 
     found = 0;
@@ -382,7 +384,7 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
                     conf = confp[ngx_modules[i]->ctx_index];
                 }
             }
-
+            // dyc: call ngx_http_block() for http block
             rv = cmd->set(cf, cmd, conf);
             // dyc: if rv == 0
             if (rv == NGX_CONF_OK) {
@@ -421,7 +423,7 @@ invalid:
     return NGX_ERROR;
 }
 
-
+// dyc: only return occur these three chars: ; { }
 static ngx_int_t
 ngx_conf_read_token(ngx_conf_t *cf)
 {
@@ -566,7 +568,6 @@ ngx_conf_read_token(ngx_conf_t *cf)
             if (ch == ')') {
                 last_space = 1;
                 need_space = 0;
-
             } else {
                  ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                     "unexpected \"%c\"", ch);
@@ -579,6 +580,7 @@ ngx_conf_read_token(ngx_conf_t *cf)
                 continue;
             }
             // dyc: last char is a space and current char is not, so it is a start of a token
+            //      b->pos++ above so need decrease by 1 here
             start = b->pos - 1;
             start_line = cf->conf_file->line;
 
@@ -586,6 +588,7 @@ ngx_conf_read_token(ngx_conf_t *cf)
 
             case ';':
             case '{':
+                // dyc: if has no token before {
                 if (cf->args->nelts == 0) {
                     ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                        "unexpected \"%c\"", ch);
@@ -599,6 +602,7 @@ ngx_conf_read_token(ngx_conf_t *cf)
                 return NGX_OK;
 
             case '}':
+                // dyc: if has no token before }
                 if (cf->args->nelts != 0) {
                     ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                        "unexpected \"}\"");
@@ -669,7 +673,10 @@ ngx_conf_read_token(ngx_conf_t *cf)
                 last_space = 1;
                 found = 1;
             }
-
+            // dyc: here mean last parsed char is not a space, 
+            //      while current char is a space, or closing quote
+            //      so push token into cf->args, which is an array of ngx_str_t*
+            //      cf->args will be consumed in cmd->set(cf, cmd, conf) later
             if (found) {
                 word = ngx_array_push(cf->args);
                 if (word == NULL) {
@@ -747,6 +754,8 @@ ngx_conf_include(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return NGX_CONF_ERROR;
     }
 
+    // dyc: no *?] these chars in string file.data
+    //      so don't need to glob
     if (strpbrk((char *) file.data, "*?[") == NULL) {
 
         ngx_log_debug1(NGX_LOG_DEBUG_CORE, cf->log, 0, "include %s", file.data);
@@ -760,6 +769,7 @@ ngx_conf_include(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     gl.log = cf->log;
     gl.test = 1;
 
+    // dyc: call C-lib function to expand glob
     if (ngx_open_glob(&gl) != NGX_OK) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, ngx_errno,
                            ngx_open_glob_n " \"%s\" failed", file.data);
@@ -769,6 +779,7 @@ ngx_conf_include(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     rv = NGX_CONF_OK;
 
     for ( ;; ) {
+        // dyc: retrieve next path into name
         n = ngx_read_glob(&gl, &name);
 
         if (n != NGX_OK) {

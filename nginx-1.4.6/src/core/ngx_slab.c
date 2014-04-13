@@ -641,7 +641,7 @@ ngx_slab_alloc_pages(ngx_slab_pool_t *pool, ngx_uint_t pages)
             page->slab = pages | NGX_SLAB_PAGE_START;
             page->next = NULL;
             page->prev = NGX_SLAB_PAGE;
-
+            // dyc: alloc only one page ?
             if (--pages == 0) {
                 return page;
             }

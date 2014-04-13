@@ -40,11 +40,11 @@ ngx_event_accept(ngx_event_t *ev)
         ev->timedout = 0;
     }
 
+    // dyc: return ngx_cycle->conf_ctx[ngx_events_module.index][ngx_event_core_module.ctx_index]
     ecf = ngx_event_get_conf(ngx_cycle->conf_ctx, ngx_event_core_module);
 
     if (ngx_event_flags & NGX_USE_RTSIG_EVENT) {
         ev->available = 1;
-
     } else if (!(ngx_event_flags & NGX_USE_KQUEUE_EVENT)) {
         ev->available = ecf->multi_accept;
     }
@@ -58,7 +58,6 @@ ngx_event_accept(ngx_event_t *ev)
 
     do {
         socklen = NGX_SOCKADDRLEN;
-
 #if (NGX_HAVE_ACCEPT4)
         if (use_accept4) {
             s = accept4(lc->fd, (struct sockaddr *) sa, &socklen,
@@ -72,26 +71,20 @@ ngx_event_accept(ngx_event_t *ev)
 
         if (s == -1) {
             err = ngx_socket_errno;
-
             if (err == NGX_EAGAIN) {
                 ngx_log_debug0(NGX_LOG_DEBUG_EVENT, ev->log, err,
                                "accept() not ready");
                 return;
             }
-
             level = NGX_LOG_ALERT;
-
             if (err == NGX_ECONNABORTED) {
                 level = NGX_LOG_ERR;
-
             } else if (err == NGX_EMFILE || err == NGX_ENFILE) {
                 level = NGX_LOG_CRIT;
             }
-
 #if (NGX_HAVE_ACCEPT4)
             ngx_log_error(level, ev->log, err,
                           use_accept4 ? "accept4() failed" : "accept() failed");
-
             if (use_accept4 && err == NGX_ENOSYS) {
                 use_accept4 = 0;
                 ngx_inherited_nonblocking = 0;
@@ -100,39 +93,31 @@ ngx_event_accept(ngx_event_t *ev)
 #else
             ngx_log_error(level, ev->log, err, "accept() failed");
 #endif
-
             if (err == NGX_ECONNABORTED) {
                 if (ngx_event_flags & NGX_USE_KQUEUE_EVENT) {
                     ev->available--;
                 }
-
                 if (ev->available) {
                     continue;
                 }
             }
-
             if (err == NGX_EMFILE || err == NGX_ENFILE) {
                 if (ngx_disable_accept_events((ngx_cycle_t *) ngx_cycle)
-                    != NGX_OK)
-                {
+                    != NGX_OK) {
                     return;
                 }
-
                 if (ngx_use_accept_mutex) {
                     if (ngx_accept_mutex_held) {
                         ngx_shmtx_unlock(&ngx_accept_mutex);
                         ngx_accept_mutex_held = 0;
                     }
-
                     ngx_accept_disabled = 1;
-
                 } else {
                     ngx_add_timer(ev, ecf->accept_mutex_delay);
                 }
-            }
-
+            } // if (err == NGX_EMFILE || err == NGX_ENFILE)
             return;
-        }
+        } // if (s == -1) {
 
 #if (NGX_STAT_STUB)
         (void) ngx_atomic_fetch_add(ngx_stat_accepted, 1);
@@ -141,14 +126,13 @@ ngx_event_accept(ngx_event_t *ev)
         ngx_accept_disabled = ngx_cycle->connection_n / 8
                               - ngx_cycle->free_connection_n;
 
+        // dyc: get a free_connection from ngx_cycle->free_connections and initialize it
         c = ngx_get_connection(s, ev->log);
-
         if (c == NULL) {
             if (ngx_close_socket(s) == -1) {
                 ngx_log_error(NGX_LOG_ALERT, ev->log, ngx_socket_errno,
                               ngx_close_socket_n " failed");
             }
-
             return;
         }
 
@@ -161,15 +145,12 @@ ngx_event_accept(ngx_event_t *ev)
             ngx_close_accepted_connection(c);
             return;
         }
-
         c->sockaddr = ngx_palloc(c->pool, socklen);
         if (c->sockaddr == NULL) {
             ngx_close_accepted_connection(c);
             return;
         }
-
         ngx_memcpy(c->sockaddr, sa, socklen);
-
         log = ngx_palloc(c->pool, sizeof(ngx_log_t));
         if (log == NULL) {
             ngx_close_accepted_connection(c);
@@ -177,7 +158,6 @@ ngx_event_accept(ngx_event_t *ev)
         }
 
         /* set a blocking mode for aio and non-blocking mode for others */
-
         if (ngx_inherited_nonblocking) {
             if (ngx_event_flags & NGX_USE_AIO_EVENT) {
                 if (ngx_blocking(s) == -1) {
@@ -187,8 +167,8 @@ ngx_event_accept(ngx_event_t *ev)
                     return;
                 }
             }
-
         } else {
+            // dyc: set non-blocking 
             if (!(ngx_event_flags & (NGX_USE_AIO_EVENT|NGX_USE_RTSIG_EVENT))) {
                 if (ngx_nonblocking(s) == -1) {
                     ngx_log_error(NGX_LOG_ALERT, ev->log, ngx_socket_errno,
@@ -228,9 +208,7 @@ ngx_event_accept(ngx_event_t *ev)
 
         rev = c->read;
         wev = c->write;
-
         wev->ready = 1;
-
         if (ngx_event_flags & (NGX_USE_AIO_EVENT|NGX_USE_RTSIG_EVENT)) {
             /* rtsig, aio, iocp */
             rev->ready = 1;
@@ -267,7 +245,6 @@ ngx_event_accept(ngx_event_t *ev)
         rev->own_lock = &c->lock;
         wev->own_lock = &c->lock;
 #endif
-
         if (ls->addr_ntop) {
             c->addr_text.data = ngx_pnalloc(c->pool, ls->addr_text_max_len);
             if (c->addr_text.data == NULL) {
@@ -338,7 +315,7 @@ ngx_event_accept(ngx_event_t *ev)
             continue;
         }
 
-        }
+        } // dyc: MACRO #if (NGX_DEBUG)
 #endif
 
         ngx_log_debug3(NGX_LOG_DEBUG_EVENT, log, 0,
@@ -353,7 +330,7 @@ ngx_event_accept(ngx_event_t *ev)
 
         log->data = NULL;
         log->handler = NULL;
-
+        // dyc: ls is a pointer of type ngx_listening_t*
         ls->handler(c);
 
         if (ngx_event_flags & NGX_USE_KQUEUE_EVENT) {

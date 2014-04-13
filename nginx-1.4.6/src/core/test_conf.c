@@ -69,6 +69,10 @@ void* parse_conf () {
         return NULL;
     }
 
+    ngx_max_module = 0;
+    for (i = 0; ngx_modules[i]; i++) {
+        ngx_modules[i]->index = ngx_max_module++;
+    }
     cycle->conf_ctx = ngx_pcalloc(pool, ngx_max_module * sizeof(void *));
     if (cycle->conf_ctx == NULL) {
         ngx_destroy_pool(pool);

@@ -761,7 +761,7 @@ ngx_close_listening_sockets(ngx_cycle_t *cycle)
     cycle->listening.nelts = 0;
 }
 
-
+// dyc: get a free_connection from ngx_cycle->free_connections and initialize it
 ngx_connection_t *
 ngx_get_connection(ngx_socket_t s, ngx_log_t *log)
 {
@@ -780,7 +780,6 @@ ngx_get_connection(ngx_socket_t s, ngx_log_t *log)
     }
 
     /* ngx_mutex_lock */
-
     c = ngx_cycle->free_connections;
 
     if (c == NULL) {
@@ -797,12 +796,11 @@ ngx_get_connection(ngx_socket_t s, ngx_log_t *log)
 
         return NULL;
     }
-
+    // dyc: c->data point to next free_connections ??
     ngx_cycle->free_connections = c->data;
     ngx_cycle->free_connection_n--;
 
     /* ngx_mutex_unlock */
-
     if (ngx_cycle->files) {
         ngx_cycle->files[s] = c;
     }

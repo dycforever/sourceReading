@@ -1979,6 +1979,7 @@ ngx_http_types_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     value = cf->args->elts;
 
+    // dyc: value[0] is the command
     for (i = 1; i < cf->args->nelts; i++) {
 
         if (value[i].len == 1 && value[i].data[0] == '*') {

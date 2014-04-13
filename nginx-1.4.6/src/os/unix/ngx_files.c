@@ -362,7 +362,7 @@ ngx_int_t
 ngx_open_glob(ngx_glob_t *gl)
 {
     int  n;
-
+    // dyc: call C-lib function
     n = glob((char *) gl->pattern, 0, NULL, &gl->pglob);
 
     if (n == 0) {
@@ -380,7 +380,7 @@ ngx_open_glob(ngx_glob_t *gl)
     return NGX_ERROR;
 }
 
-
+// dyc: retrieve next path into name
 ngx_int_t
 ngx_read_glob(ngx_glob_t *gl, ngx_str_t *name)
 {

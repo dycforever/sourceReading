@@ -571,32 +571,24 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
     ngx_connection_t  *c;
 
     /* NGX_TIMER_INFINITE == INFTIM */
-
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                    "epoll timer: %M", timer);
-
     events = epoll_wait(ep, event_list, (int) nevents, timer);
 
     err = (events == -1) ? ngx_errno : 0;
-
     if (flags & NGX_UPDATE_TIME || ngx_event_timer_alarm) {
         ngx_time_update();
     }
-
     if (err) {
         if (err == NGX_EINTR) {
-
             if (ngx_event_timer_alarm) {
                 ngx_event_timer_alarm = 0;
                 return NGX_OK;
             }
-
             level = NGX_LOG_INFO;
-
         } else {
             level = NGX_LOG_ALERT;
         }
-
         ngx_log_error(level, cycle->log, err, "epoll_wait() failed");
         return NGX_ERROR;
     }
@@ -605,7 +597,6 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
         if (timer != NGX_TIMER_INFINITE) {
             return NGX_OK;
         }
-
         ngx_log_error(NGX_LOG_ALERT, cycle->log, 0,
                       "epoll_wait() returned no events without timeout");
         return NGX_ERROR;
@@ -615,107 +606,82 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
 
     for (i = 0; i < events; i++) {
         c = event_list[i].data.ptr;
-
         instance = (uintptr_t) c & 1;
         c = (ngx_connection_t *) ((uintptr_t) c & (uintptr_t) ~1);
-
-        // dyc: read is a ngx_event_t*
+        // dyc: read is a pointer of type: ngx_event_t*
         rev = c->read;
-
         if (c->fd == -1 || rev->instance != instance) {
-
             /*
              * the stale event from a file descriptor
              * that was just closed in this iteration
              */
-
             ngx_log_debug1(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                            "epoll: stale event %p", c);
             continue;
         }
-
         revents = event_list[i].events;
 
         ngx_log_debug3(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                        "epoll: fd:%d ev:%04XD d:%p",
                        c->fd, revents, event_list[i].data.ptr);
-
         if (revents & (EPOLLERR|EPOLLHUP)) {
             ngx_log_debug2(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                            "epoll_wait() error on fd:%d ev:%04XD",
                            c->fd, revents);
         }
-
-#if 0
-        if (revents & ~(EPOLLIN|EPOLLOUT|EPOLLERR|EPOLLHUP)) {
-            ngx_log_error(NGX_LOG_ALERT, cycle->log, 0,
-                          "strange epoll_wait() events fd:%d ev:%04XD",
-                          c->fd, revents);
-        }
-#endif
-
+        /*
+         * if the error events were returned without EPOLLIN or EPOLLOUT,
+         * then add these flags to handle the events at least in one
+         * active handler
+         */
         if ((revents & (EPOLLERR|EPOLLHUP))
              && (revents & (EPOLLIN|EPOLLOUT)) == 0)
         {
-            /*
-             * if the error events were returned without EPOLLIN or EPOLLOUT,
-             * then add these flags to handle the events at least in one
-             * active handler
-             */
-
             revents |= EPOLLIN|EPOLLOUT;
         }
 
+        // dyc: deal read event
         if ((revents & EPOLLIN) && rev->active) {
-
+            // dyc: if not a listen socket
             if ((flags & NGX_POST_THREAD_EVENTS) && !rev->accept) {
                 rev->posted_ready = 1;
-
             } else {
                 rev->ready = 1;
             }
-
             if (flags & NGX_POST_EVENTS) {
                 queue = (ngx_event_t **) (rev->accept ?
                                &ngx_posted_accept_events : &ngx_posted_events);
 
                 ngx_locked_post_event(rev, queue);
-
             } else {
                 rev->handler(rev);
             }
         }
 
+        // dyc: deal write event
         wev = c->write;
-
         if ((revents & EPOLLOUT) && wev->active) {
-
             if (c->fd == -1 || wev->instance != instance) {
-
                 /*
                  * the stale event from a file descriptor
                  * that was just closed in this iteration
                  */
-
                 ngx_log_debug1(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                                "epoll: stale event %p", c);
                 continue;
             }
-
             if (flags & NGX_POST_THREAD_EVENTS) {
                 wev->posted_ready = 1;
-
             } else {
                 wev->ready = 1;
             }
-
             if (flags & NGX_POST_EVENTS) {
                 ngx_locked_post_event(wev, &ngx_posted_events);
-
             } else {
                 wev->handler(wev);
             }
         }
+
     } // for all events
 
     ngx_mutex_unlock(ngx_posted_events_mutex);

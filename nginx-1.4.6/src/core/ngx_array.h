@@ -15,8 +15,11 @@
 
 typedef struct {
     void        *elts;
+    // dyc: items available
     ngx_uint_t   nelts;
+    // dyc: size of each item
     size_t       size;
+    // dyc: items has alloced
     ngx_uint_t   nalloc;
     ngx_pool_t  *pool;
 } ngx_array_t;

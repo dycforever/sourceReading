@@ -526,7 +526,7 @@ extern ngx_uint_t             ngx_event_flags;
 extern ngx_module_t           ngx_events_module;
 extern ngx_module_t           ngx_event_core_module;
 
-
+// dyc: conf_ctx[ngx_events_module.index][module.ctx_index]
 #define ngx_event_get_conf(conf_ctx, module)                                  \
              (*(ngx_get_conf(conf_ctx, ngx_events_module))) [module.ctx_index];
 
