@@ -354,12 +354,10 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     }
 
     /* open the new files */
-
+    // dyc: the file name of files in open_files list is assigned when parsing configuration
     part = &cycle->open_files.part;
     file = part->elts;
-
     for (i = 0; /* void */ ; i++) {
-
         if (i >= part->nelts) {
             if (part->next == NULL) {
                 break;

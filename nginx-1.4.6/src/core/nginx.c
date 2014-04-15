@@ -31,7 +31,7 @@ static ngx_conf_enum_t  ngx_debug_points[] = {
     { ngx_null_string, 0 }
 };
 
-
+// dyc: these commands will be executed when parsing configure file, by calling set(...)
 static ngx_command_t  ngx_core_commands[] = {
 
     { ngx_string("daemon"),
@@ -166,6 +166,8 @@ static ngx_command_t  ngx_core_commands[] = {
 //     void               *(*create_conf)(ngx_cycle_t *cycle);
 //     char               *(*init_conf)(ngx_cycle_t *cycle, void *conf);
 // } ngx_core_module_t;
+//
+// always call create_conf() first and then create_conf()
 
 static ngx_core_module_t  ngx_core_module_ctx = {
     ngx_string("core"),
@@ -310,7 +312,7 @@ main(int argc, char *const *argv)
     if (init_cycle.pool == NULL) {
         return 1;
     }
-
+    // dyc: save argv[] into ngx_argc, ngx_os_argv[] and ngx_argv[] 
     if (ngx_save_argv(&init_cycle, argc, argv) != NGX_OK) {
         return 1;
     }
@@ -327,7 +329,6 @@ main(int argc, char *const *argv)
     /*
      * ngx_crc32_table_init() requires ngx_cacheline_size set in ngx_os_init()
      */
-
     if (ngx_crc32_table_init() != NGX_OK) {
         return 1;
     }
@@ -483,7 +484,7 @@ ngx_add_inherited_sockets(ngx_cycle_t *cycle)
     }
 
     ngx_inherited = 1;
-
+    // dyc: set some socket options
     return ngx_set_inherited_sockets(cycle);
 }
 
@@ -811,6 +812,8 @@ ngx_get_options(int argc, char *const *argv)
 }
 
 
+// dyc: save argv[] into ngx_argc, ngx_os_argv[] and ngx_argv[] 
+//      ngx_os_argv[] is argv[], while ngx_argv[] copys argv[]
 static ngx_int_t
 ngx_save_argv(ngx_cycle_t *cycle, int argc, char *const *argv)
 {

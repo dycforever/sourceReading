@@ -113,26 +113,21 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
 
     sigemptyset(&set);
 
-
+    // dyc: title is "master process" + argv[]
     size = sizeof(master_process);
-
     for (i = 0; i < ngx_argc; i++) {
         size += ngx_strlen(ngx_argv[i]) + 1;
     }
-
     title = ngx_pnalloc(cycle->pool, size);
-
     p = ngx_cpymem(title, master_process, sizeof(master_process) - 1);
     for (i = 0; i < ngx_argc; i++) {
         *p++ = ' ';
         p = ngx_cpystrn(p, (u_char *) ngx_argv[i], size);
     }
-
     ngx_setproctitle(title);
 
 
     ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
-
     ngx_start_worker_processes(cycle, ccf->worker_processes,
                                NGX_PROCESS_RESPAWN);
     ngx_start_cache_manager_processes(cycle, 0);
@@ -166,6 +161,8 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
 
         ngx_log_debug0(NGX_LOG_DEBUG_EVENT, cycle->log, 0, "sigsuspend");
 
+        // dyc: every time a signal received, this function returned.
+        //      all kinds of global variables will be set in ngx_signal_handler()
         sigsuspend(&set);
 
         ngx_time_update();
@@ -358,7 +355,8 @@ ngx_start_worker_processes(ngx_cycle_t *cycle, ngx_int_t n, ngx_int_t type)
     ch.command = NGX_CMD_OPEN_CHANNEL;
 
     for (i = 0; i < n; i++) {
-
+        // dyc: ngx_process_slot is a global variable set in ngx_spawn_process(),
+        //      equals to current worker's id
         ngx_spawn_process(cycle, ngx_worker_process_cycle,
                           (void *) (intptr_t) i, "worker process", type);
 
@@ -366,6 +364,7 @@ ngx_start_worker_processes(ngx_cycle_t *cycle, ngx_int_t n, ngx_int_t type)
         ch.slot = ngx_process_slot;
         ch.fd = ngx_processes[ngx_process_slot].channel[0];
 
+        // dyc: tell others workers about this new one's information ?
         ngx_pass_open_channel(cycle, &ch);
     }
 }
@@ -431,14 +430,12 @@ ngx_pass_open_channel(ngx_cycle_t *cycle, ngx_channel_t *ch)
     ngx_int_t  i;
 
     for (i = 0; i < ngx_last_process; i++) {
-
         if (i == ngx_process_slot
             || ngx_processes[i].pid == -1
             || ngx_processes[i].channel[0] == -1)
         {
             continue;
         }
-
         ngx_log_debug6(NGX_LOG_DEBUG_CORE, cycle->log, 0,
                       "pass channel s:%d pid:%P fd:%d to s:%i pid:%P fd:%d",
                       ch->slot, ch->pid, ch->fd,
@@ -446,7 +443,6 @@ ngx_pass_open_channel(ngx_cycle_t *cycle, ngx_channel_t *ch)
                       ngx_processes[i].channel[0]);
 
         /* TODO: NGX_AGAIN */
-
         ngx_write_channel(ngx_processes[i].channel[0],
                           ch, sizeof(ngx_channel_t), cycle->log);
     }
@@ -784,14 +780,12 @@ ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
 
     for ( ;; ) {
 
+        // dyc: ngx_exiting will be set by the code below, if SIGQUIT received
         if (ngx_exiting) {
-
             c = cycle->connections;
-
+            // dyc: finish all read events before exit
             for (i = 0; i < cycle->connection_n; i++) {
-
                 /* THREAD: lock */
-
                 if (c[i].fd != -1 && c[i].idle) {
                     c[i].close = 1;
                     c[i].read->handler(c[i].read);
@@ -801,7 +795,6 @@ ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
             if (ngx_event_timer_rbtree.root == ngx_event_timer_rbtree.sentinel)
             {
                 ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "exiting");
-
                 ngx_worker_process_exit(cycle);
             }
         }
@@ -813,7 +806,6 @@ ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
 
         if (ngx_terminate) {
             ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "exiting");
-
             ngx_worker_process_exit(cycle);
         }
 
@@ -834,7 +826,7 @@ ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
             ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "reopening logs");
             ngx_reopen_files(cycle, -1);
         }
-    }
+    } // for(;;)
 }
 
 
@@ -973,16 +965,16 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
         }
     }
 
+    // dyc: close others worker processes' channels inherited from master
     for (n = 0; n < ngx_last_process; n++) {
-
+        // dyc: skip empty worker and myself
         if (ngx_processes[n].pid == -1) {
             continue;
         }
-
         if (n == ngx_process_slot) {
             continue;
         }
-
+        // dyc: has no channel
         if (ngx_processes[n].channel[1] == -1) {
             continue;
         }
@@ -993,6 +985,7 @@ ngx_worker_process_init(ngx_cycle_t *cycle, ngx_int_t worker)
         }
     }
 
+    // dyc: close write part, so worker only can read from master
     if (close(ngx_processes[ngx_process_slot].channel[0]) == -1) {
         ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
                       "close() channel failed");

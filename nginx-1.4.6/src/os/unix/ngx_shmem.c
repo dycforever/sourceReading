@@ -8,7 +8,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 
-
+// dyc: different implementation of alloc shared memory
 #if (NGX_HAVE_MAP_ANON)
 
 ngx_int_t

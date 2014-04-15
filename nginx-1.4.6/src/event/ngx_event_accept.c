@@ -117,7 +117,7 @@ ngx_event_accept(ngx_event_t *ev)
                 }
             } // if (err == NGX_EMFILE || err == NGX_ENFILE)
             return;
-        } // if (s == -1) {
+        } // if (s == -1), means accept() failed
 
 #if (NGX_STAT_STUB)
         (void) ngx_atomic_fetch_add(ngx_stat_accepted, 1);
@@ -381,7 +381,7 @@ ngx_trylock_accept_mutex(ngx_cycle_t *cycle)
     return NGX_OK;
 }
 
-
+// dyc: add listen socket to epoll
 static ngx_int_t
 ngx_enable_accept_events(ngx_cycle_t *cycle)
 {
@@ -391,19 +391,15 @@ ngx_enable_accept_events(ngx_cycle_t *cycle)
 
     ls = cycle->listening.elts;
     for (i = 0; i < cycle->listening.nelts; i++) {
-
         c = ls[i].connection;
-
         if (c->read->active) {
             continue;
         }
 
         if (ngx_event_flags & NGX_USE_RTSIG_EVENT) {
-
             if (ngx_add_conn(c) == NGX_ERROR) {
                 return NGX_ERROR;
             }
-
         } else {
             if (ngx_add_event(c->read, NGX_READ_EVENT, 0) == NGX_ERROR) {
                 return NGX_ERROR;

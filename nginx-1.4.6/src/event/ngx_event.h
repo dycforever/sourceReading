@@ -165,6 +165,7 @@ struct ngx_event_s {
 
     /* the links of the posted queue */
     ngx_event_t     *next;
+    // dyc: prev point to previous item's next field
     ngx_event_t    **prev;
 
 

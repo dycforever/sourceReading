@@ -215,17 +215,14 @@ ngx_http_init_connection(ngx_connection_t *c)
     c->data = hc;
 
     /* find the server configuration for the address:port */
-
     port = c->listening->servers;
 
     if (port->naddrs > 1) {
-
         /*
          * there are several addresses on this port and one of them
          * is an "*:port" wildcard so getsockname() in ngx_http_server_addr()
          * is required to determine a server address
          */
-
         if (ngx_connection_local_sockaddr(c, NULL, 0) != NGX_OK) {
             ngx_http_close_connection(c);
             return;
@@ -236,42 +233,30 @@ ngx_http_init_connection(ngx_connection_t *c)
 #if (NGX_HAVE_INET6)
         case AF_INET6:
             sin6 = (struct sockaddr_in6 *) c->local_sockaddr;
-
             addr6 = port->addrs;
-
             /* the last address is "*" */
-
             for (i = 0; i < port->naddrs - 1; i++) {
                 if (ngx_memcmp(&addr6[i].addr6, &sin6->sin6_addr, 16) == 0) {
                     break;
                 }
             }
-
             hc->addr_conf = &addr6[i].conf;
-
             break;
 #endif
 
         default: /* AF_INET */
             sin = (struct sockaddr_in *) c->local_sockaddr;
-
             addr = port->addrs;
-
             /* the last address is "*" */
-
             for (i = 0; i < port->naddrs - 1; i++) {
                 if (addr[i].addr == sin->sin_addr.s_addr) {
                     break;
                 }
             }
-
             hc->addr_conf = &addr[i].conf;
-
             break;
         }
-
-    } else {
-
+    } else { // if (port->naddrs <= 1)
         switch (c->local_sockaddr->sa_family) {
 
 #if (NGX_HAVE_INET6)
@@ -321,13 +306,9 @@ ngx_http_init_connection(ngx_connection_t *c)
 #if (NGX_HTTP_SSL)
     {
     ngx_http_ssl_srv_conf_t  *sscf;
-
     sscf = ngx_http_get_module_srv_conf(hc->conf_ctx, ngx_http_ssl_module);
-
     if (sscf->enable || hc->addr_conf->ssl) {
-
         c->log->action = "SSL handshaking";
-
         if (hc->addr_conf->ssl && sscf->ssl.ctx == NULL) {
             ngx_log_error(NGX_LOG_ERR, c->log, 0,
                           "no \"ssl_certificate\" is defined "
@@ -335,9 +316,7 @@ ngx_http_init_connection(ngx_connection_t *c)
             ngx_http_close_connection(c);
             return;
         }
-
         hc->ssl = 1;
-
         rev->handler = ngx_http_ssl_handshake;
     }
     }
@@ -345,12 +324,10 @@ ngx_http_init_connection(ngx_connection_t *c)
 
     if (rev->ready) {
         /* the deferred accept(), rtsig, aio, iocp */
-
         if (ngx_use_accept_mutex) {
             ngx_post_event(rev, &ngx_posted_events);
             return;
         }
-
         rev->handler(rev);
         return;
     }
@@ -358,6 +335,7 @@ ngx_http_init_connection(ngx_connection_t *c)
     ngx_add_timer(rev, c->listening->post_accept_timeout);
     ngx_reusable_connection(c, 1);
 
+    // dyc: add event to epoll
     if (ngx_handle_read_event(rev, 0) != NGX_OK) {
         ngx_http_close_connection(c);
         return;
@@ -391,6 +369,7 @@ ngx_http_wait_request_handler(ngx_event_t *rev)
     }
 
     hc = c->data;
+    // dyc: hc->conf_ctx->srv_conf[module.ctx_index]
     cscf = ngx_http_get_module_srv_conf(hc->conf_ctx, ngx_http_core_module);
 
     size = cscf->client_header_buffer_size;
@@ -422,7 +401,6 @@ ngx_http_wait_request_handler(ngx_event_t *rev)
     n = c->recv(c, b->last, size);
 
     if (n == NGX_AGAIN) {
-
         if (!rev->timer_set) {
             ngx_add_timer(rev, c->listening->post_accept_timeout);
             ngx_reusable_connection(c, 1);
@@ -436,11 +414,9 @@ ngx_http_wait_request_handler(ngx_event_t *rev)
         /*
          * We are trying to not hold c->buffer's memory for an idle connection.
          */
-
         if (ngx_pfree(c->pool, b->start) == NGX_OK) {
             b->start = NULL;
         }
-
         return;
     }
 
@@ -472,7 +448,7 @@ ngx_http_wait_request_handler(ngx_event_t *rev)
     ngx_http_process_request_line(rev);
 }
 
-
+// dyc: alloc and init a ngx_http_request_t, return it
 ngx_http_request_t *
 ngx_http_create_request(ngx_connection_t *c)
 {
@@ -940,7 +916,7 @@ ngx_http_process_request_line(ngx_event_t *rev)
             ngx_http_process_request_headers(rev);
 
             return;
-        }
+        } // dyc: if (rc == NGX_OK);
 
         if (rc != NGX_AGAIN) {
 
@@ -973,7 +949,7 @@ ngx_http_process_request_line(ngx_event_t *rev)
                 return;
             }
         }
-    }
+    } // for(;;)
 }
 
 

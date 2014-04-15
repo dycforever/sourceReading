@@ -32,7 +32,10 @@ char           **ngx_os_argv;
 
 ngx_int_t        ngx_process_slot;
 ngx_socket_t     ngx_channel;
+// dyc: ngx_last_process is a global variable means to worker's id, it is assigned to different values in master and inherited by each workers
 ngx_int_t        ngx_last_process;
+
+// dyc: a array used by master to record all workers' information
 ngx_process_t    ngx_processes[NGX_MAX_PROCESSES];
 
 
@@ -83,6 +86,7 @@ ngx_signal_t  signals[] = {
 };
 
 
+// dyc: this function is called $WORKER_COUNT times in ngx_start_worker_processes()
 ngx_pid_t
 ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
     char *name, ngx_int_t respawn)
@@ -96,6 +100,7 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
         s = respawn;
 
     } else {
+        // dyc: s is the available slot number for worker process, such as worker id?
         for (s = 0; s < ngx_last_process; s++) {
             if (ngx_processes[s].pid == -1) {
                 break;
@@ -110,11 +115,8 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
         }
     }
 
-
     if (respawn != NGX_PROCESS_DETACHED) {
-
         /* Solaris 9 still has no AF_LOCAL */
-
         if (socketpair(AF_UNIX, SOCK_STREAM, 0, ngx_processes[s].channel) == -1)
         {
             ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
@@ -181,11 +183,10 @@ ngx_spawn_process(ngx_cycle_t *cycle, ngx_spawn_proc_pt proc, void *data,
         ngx_processes[s].channel[1] = -1;
     }
 
+    // dyc: s is current worker's id, and ngx_process_slot's value will be
+    //      inherited by worker process
     ngx_process_slot = s;
-
-
     pid = fork();
-
     switch (pid) {
 
     case -1:

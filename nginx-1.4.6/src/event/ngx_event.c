@@ -35,7 +35,7 @@ static char *ngx_event_debug_connection(ngx_conf_t *cf, ngx_command_t *cmd,
 static void *ngx_event_core_create_conf(ngx_cycle_t *cycle);
 static char *ngx_event_core_init_conf(ngx_cycle_t *cycle, void *conf);
 
-
+// dyc: if set, a SIGALRAM signal will be generated every ngx_timer_resolution ms
 static ngx_uint_t     ngx_timer_resolution;
 sig_atomic_t          ngx_event_timer_alarm;
 
@@ -206,36 +206,36 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
     ngx_uint_t  flags;
     ngx_msec_t  timer, delta;
 
+    // dyc: if set, a SIGALRAM signal will be generated every ngx_timer_resolution ms
     if (ngx_timer_resolution) {
         timer = NGX_TIMER_INFINITE;
         flags = 0;
-
     } else {
         timer = ngx_event_find_timer();
         flags = NGX_UPDATE_TIME;
-
 #if (NGX_THREADS)
-
         if (timer == NGX_TIMER_INFINITE || timer > 500) {
             timer = 500;
         }
-
 #endif
     }
 
     if (ngx_use_accept_mutex) {
+        // dyc: if ngx_accept_disabled > 0, this process accepts too many connections
         if (ngx_accept_disabled > 0) {
             ngx_accept_disabled--;
-
         } else {
+            // dyc: this function will add listen socket into epoll
             if (ngx_trylock_accept_mutex(cycle) == NGX_ERROR) {
                 return;
             }
 
+            // dyc: if hold the mutex, all events should put in a queue and deal later
+            //      so we can go through the critical section as quick as possible
             if (ngx_accept_mutex_held) {
                 flags |= NGX_POST_EVENTS;
-
             } else {
+                // dyc: after some time, try to get the mutex again
                 if (timer == NGX_TIMER_INFINITE
                     || timer > ngx_accept_mutex_delay)
                 {
@@ -256,6 +256,7 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                    "timer delta: %M", delta);
 
+    // dyc: deal posted accept events
     if (ngx_posted_accept_events) {
         ngx_event_process_posted(cycle, &ngx_posted_accept_events);
     }
@@ -264,6 +265,7 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
         ngx_shmtx_unlock(&ngx_accept_mutex);
     }
 
+    // dyc: delete expired timer from rbtree
     if (delta) {
         ngx_event_expire_timers();
     }
@@ -274,45 +276,42 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
     if (ngx_posted_events) {
         if (ngx_threaded) {
             ngx_wakeup_worker_thread(cycle);
-
         } else {
             ngx_event_process_posted(cycle, &ngx_posted_events);
         }
     }
 }
 
-
+// dyc: add event to epoll
 ngx_int_t
 ngx_handle_read_event(ngx_event_t *rev, ngx_uint_t flags)
 {
+    // dyc: NGX_USE_LEVEL_EVENT = 0x00000001
+    //      NGX_USE_CLEAR_EVENT = 0x00000004
+    //      NGX_USE_EVENTPORT_EVENT = 0x00001000
     if (ngx_event_flags & NGX_USE_CLEAR_EVENT) {
-
+        // dyc: edge trigger
         /* kqueue, epoll */
-
         if (!rev->active && !rev->ready) {
+            // dyc: NGX_CLEAR_EVENT = EPOLLET
             if (ngx_add_event(rev, NGX_READ_EVENT, NGX_CLEAR_EVENT)
                 == NGX_ERROR)
             {
                 return NGX_ERROR;
             }
         }
-
         return NGX_OK;
-
     } else if (ngx_event_flags & NGX_USE_LEVEL_EVENT) {
-
         /* select, poll, /dev/poll */
-
         if (!rev->active && !rev->ready) {
+            // dyc: NGX_CLEAR_EVENT = 0 
             if (ngx_add_event(rev, NGX_READ_EVENT, NGX_LEVEL_EVENT)
                 == NGX_ERROR)
             {
                 return NGX_ERROR;
             }
-
             return NGX_OK;
         }
-
         if (rev->active && (rev->ready || (flags & NGX_CLOSE_EVENT))) {
             if (ngx_del_event(rev, NGX_READ_EVENT, NGX_LEVEL_EVENT | flags)
                 == NGX_ERROR)
@@ -324,22 +323,17 @@ ngx_handle_read_event(ngx_event_t *rev, ngx_uint_t flags)
         }
 
     } else if (ngx_event_flags & NGX_USE_EVENTPORT_EVENT) {
-
         /* event ports */
-
         if (!rev->active && !rev->ready) {
             if (ngx_add_event(rev, NGX_READ_EVENT, 0) == NGX_ERROR) {
                 return NGX_ERROR;
             }
-
             return NGX_OK;
         }
-
         if (rev->oneshot && !rev->ready) {
             if (ngx_del_event(rev, NGX_READ_EVENT, 0) == NGX_ERROR) {
                 return NGX_ERROR;
             }
-
             return NGX_OK;
         }
     }
@@ -363,10 +357,12 @@ ngx_handle_write_event(ngx_event_t *wev, size_t lowat)
         }
     }
 
+    // dyc: NGX_USE_LEVEL_EVENT = 0x00000001
+    //      NGX_USE_CLEAR_EVENT = 0x00000004
+    //      NGX_USE_EVENTPORT_EVENT = 0x00001000
     if (ngx_event_flags & NGX_USE_CLEAR_EVENT) {
-
         /* kqueue, epoll */
-
+        // dyc: edge trigger
         if (!wev->active && !wev->ready) {
             if (ngx_add_event(wev, NGX_WRITE_EVENT,
                               NGX_CLEAR_EVENT | (lowat ? NGX_LOWAT_EVENT : 0))
@@ -441,7 +437,7 @@ ngx_event_init_conf(ngx_cycle_t *cycle, void *conf)
     return NGX_CONF_OK;
 }
 
-
+// dyc: called when execute ngx_event_core_module's init_module() in ngx_init_cycle()
 static ngx_int_t
 ngx_event_module_init(ngx_cycle_t *cycle)
 {
@@ -491,7 +487,7 @@ ngx_event_module_init(ngx_cycle_t *cycle)
     }
 #endif /* !(NGX_WIN32) */
 
-
+    // dyc: if no master, it is in single mode
     if (ccf->master == 0) {
         return NGX_OK;
     }
@@ -500,17 +496,14 @@ ngx_event_module_init(ngx_cycle_t *cycle)
         return NGX_OK;
     }
 
-
+    // dyc: shared memory has three parts:
     /* cl should be equal to or greater than cache line size */
-
     cl = 128;
-
     size = cl            /* ngx_accept_mutex */
            + cl          /* ngx_connection_counter */
            + cl;         /* ngx_temp_number */
 
 #if (NGX_STAT_STUB)
-
     size += cl           /* ngx_stat_accepted */
            + cl          /* ngx_stat_handled */
            + cl          /* ngx_stat_requests */
@@ -518,7 +511,6 @@ ngx_event_module_init(ngx_cycle_t *cycle)
            + cl          /* ngx_stat_reading */
            + cl          /* ngx_stat_writing */
            + cl;         /* ngx_stat_waiting */
-
 #endif
 
     shm.size = size;
@@ -534,7 +526,7 @@ ngx_event_module_init(ngx_cycle_t *cycle)
 
     ngx_accept_mutex_ptr = (ngx_atomic_t *) shared;
     ngx_accept_mutex.spin = (ngx_uint_t) -1;
-
+    // dyc: create shared mutex
     if (ngx_shmtx_create(&ngx_accept_mutex, (ngx_shmtx_sh_t *) shared,
                          cycle->lock_file.data)
         != NGX_OK)
@@ -543,9 +535,7 @@ ngx_event_module_init(ngx_cycle_t *cycle)
     }
 
     ngx_connection_counter = (ngx_atomic_t *) (shared + 1 * cl);
-
     (void) ngx_atomic_cmp_set(ngx_connection_counter, 0, 1);
-
     ngx_log_debug2(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                    "counter: %p, %d",
                    ngx_connection_counter, *ngx_connection_counter);
@@ -587,6 +577,7 @@ ngx_timer_signal_handler(int signo)
 #endif
 
 
+// dyc: called by init_process() in ngx_worker_process_init() or ngx_single_process_cycle()
 static ngx_int_t
 ngx_event_process_init(ngx_cycle_t *cycle)
 {
@@ -628,6 +619,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
     }
 #endif
 
+    // dyc: init red-black tree of timer
     if (ngx_event_timer_init(cycle->log) == NGX_ERROR) {
         return NGX_ERROR;
     }
@@ -697,21 +689,18 @@ ngx_event_process_init(ngx_cycle_t *cycle)
     }
 
 #endif
-
+    // dyc: create connection array, each connection has a associated read event struct and write event struct
     cycle->connections =
         ngx_alloc(sizeof(ngx_connection_t) * cycle->connection_n, cycle->log);
     if (cycle->connections == NULL) {
         return NGX_ERROR;
     }
-
     c = cycle->connections;
 
-    cycle->read_events = ngx_alloc(sizeof(ngx_event_t) * cycle->connection_n,
-                                   cycle->log);
+    cycle->read_events = ngx_alloc(sizeof(ngx_event_t) * cycle->connection_n, cycle->log);
     if (cycle->read_events == NULL) {
         return NGX_ERROR;
     }
-
     rev = cycle->read_events;
     for (i = 0; i < cycle->connection_n; i++) {
         rev[i].closed = 1;
@@ -722,12 +711,10 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 #endif
     }
 
-    cycle->write_events = ngx_alloc(sizeof(ngx_event_t) * cycle->connection_n,
-                                    cycle->log);
+    cycle->write_events = ngx_alloc(sizeof(ngx_event_t) * cycle->connection_n, cycle->log);
     if (cycle->write_events == NULL) {
         return NGX_ERROR;
     }
-
     wev = cycle->write_events;
     for (i = 0; i < cycle->connection_n; i++) {
         wev[i].closed = 1;
@@ -742,14 +729,11 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 
     do {
         i--;
-
         c[i].data = next;
         c[i].read = &cycle->read_events[i];
         c[i].write = &cycle->write_events[i];
         c[i].fd = (ngx_socket_t) -1;
-
         next = &c[i];
-
 #if (NGX_THREADS)
         c[i].lock = 0;
 #endif
@@ -759,10 +743,9 @@ ngx_event_process_init(ngx_cycle_t *cycle)
     cycle->free_connection_n = cycle->connection_n;
 
     /* for each listening socket */
-
     ls = cycle->listening.elts;
     for (i = 0; i < cycle->listening.nelts; i++) {
-
+        // dyc: get a new connection and initialize it
         c = ngx_get_connection(ls[i].fd, cycle->log);
 
         if (c == NULL) {
@@ -775,8 +758,8 @@ ngx_event_process_init(ngx_cycle_t *cycle)
         ls[i].connection = c;
 
         rev = c->read;
-
         rev->log = c->log;
+        // dyc: this is a accept event
         rev->accept = 1;
 
 #if (NGX_HAVE_DEFERRED_ACCEPT)
@@ -785,12 +768,10 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 
         if (!(ngx_event_flags & NGX_USE_IOCP_EVENT)) {
             if (ls[i].previous) {
-
                 /*
                  * delete the old accept events that were bound to
                  * the old cycle read events array
                  */
-
                 old = ls[i].previous->connection;
 
                 if (ngx_del_event(old->read, NGX_READ_EVENT, NGX_CLOSE_EVENT)
@@ -798,18 +779,14 @@ ngx_event_process_init(ngx_cycle_t *cycle)
                 {
                     return NGX_ERROR;
                 }
-
                 old->fd = (ngx_socket_t) -1;
             }
         }
 
 #if (NGX_WIN32)
-
         if (ngx_event_flags & NGX_USE_IOCP_EVENT) {
             ngx_iocp_conf_t  *iocpcf;
-
             rev->handler = ngx_event_acceptex;
-
             if (ngx_use_accept_mutex) {
                 continue;
             }
@@ -817,32 +794,24 @@ ngx_event_process_init(ngx_cycle_t *cycle)
             if (ngx_add_event(rev, 0, NGX_IOCP_ACCEPT) == NGX_ERROR) {
                 return NGX_ERROR;
             }
-
             ls[i].log.handler = ngx_acceptex_log_error;
-
             iocpcf = ngx_event_get_conf(cycle->conf_ctx, ngx_iocp_module);
             if (ngx_event_post_acceptex(&ls[i], iocpcf->post_acceptex)
-                == NGX_ERROR)
-            {
+                == NGX_ERROR) {
                 return NGX_ERROR;
             }
-
         } else {
             rev->handler = ngx_event_accept;
-
             if (ngx_use_accept_mutex) {
                 continue;
             }
-
             if (ngx_add_event(rev, NGX_READ_EVENT, 0) == NGX_ERROR) {
                 return NGX_ERROR;
             }
         }
-
 #else
-
+        // dyc: set in-event handler function
         rev->handler = ngx_event_accept;
-
         if (ngx_use_accept_mutex) {
             continue;
         }
@@ -851,16 +820,14 @@ ngx_event_process_init(ngx_cycle_t *cycle)
             if (ngx_add_conn(c) == NGX_ERROR) {
                 return NGX_ERROR;
             }
-
         } else {
+            // dyc: for epoll, call ngx_epoll_add_event()
             if (ngx_add_event(rev, NGX_READ_EVENT, 0) == NGX_ERROR) {
                 return NGX_ERROR;
             }
         }
-
 #endif
-
-    }
+    } // dyc: for each listening socket
 
     return NGX_OK;
 }

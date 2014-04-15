@@ -155,7 +155,7 @@ ngx_event_module_t  ngx_epoll_module_ctx = {
     ngx_epoll_create_conf,               /* create configuration */
     ngx_epoll_init_conf,                 /* init configuration */
 
-    // dyc: define a struct ngx_event_actions_t
+    // dyc: here define a struct ngx_event_actions_t
     {
         ngx_epoll_add_event,             /* add an event */
         ngx_epoll_del_event,             /* delete an event */
@@ -329,9 +329,11 @@ ngx_epoll_init(ngx_cycle_t *cycle, ngx_msec_t timer)
 
     ngx_io = ngx_os_io;
 
+    // dyc: actions is the struct defined in struct ngx_epoll_module_ctx{}
     ngx_event_actions = ngx_epoll_module_ctx.actions;
 
 #if (NGX_HAVE_CLEAR_EVENT)
+    // dyc: use edge trigger
     ngx_event_flags = NGX_USE_CLEAR_EVENT
 #else
     ngx_event_flags = NGX_USE_LEVEL_EVENT
@@ -416,7 +418,6 @@ ngx_epoll_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
     } else {
         op = EPOLL_CTL_ADD;
     }
-
     ee.events = events | (uint32_t) flags;
     ee.data.ptr = (void *) ((uintptr_t) c | ev->instance);
 
@@ -558,7 +559,7 @@ ngx_epoll_del_connection(ngx_connection_t *c, ngx_uint_t flags)
     return NGX_OK;
 }
 
-
+// dyc: called by ngx_process_events_and_timers()
 static ngx_int_t
 ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
 {
@@ -648,10 +649,11 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
             } else {
                 rev->ready = 1;
             }
+            // dyc: NGX_POST_EVENTS means hold a accept mutex
             if (flags & NGX_POST_EVENTS) {
                 queue = (ngx_event_t **) (rev->accept ?
                                &ngx_posted_accept_events : &ngx_posted_events);
-
+                // dyc: insert rev into queue
                 ngx_locked_post_event(rev, queue);
             } else {
                 rev->handler(rev);
@@ -675,7 +677,9 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
             } else {
                 wev->ready = 1;
             }
+            // dyc: NGX_POST_EVENTS means hold a accept mutex
             if (flags & NGX_POST_EVENTS) {
+                // dyc: insert wev into queue
                 ngx_locked_post_event(wev, &ngx_posted_events);
             } else {
                 wev->handler(wev);

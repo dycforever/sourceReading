@@ -25,7 +25,7 @@ ngx_read_file(ngx_file_t *file, u_char *buf, size_t size, off_t offset)
                    "read: %d, %p, %uz, %O", file->fd, buf, size, offset);
 
 #if (NGX_HAVE_PREAD)
-
+    // dyc: write @buf to @file->fd's @offset position
     n = pread(file->fd, buf, size, offset);
 
     if (n == -1) {
@@ -35,7 +35,7 @@ ngx_read_file(ngx_file_t *file, u_char *buf, size_t size, off_t offset)
     }
 
 #else
-
+    // dyc: don't need a lock here ??
     if (file->sys_offset != offset) {
         if (lseek(file->fd, offset, SEEK_SET) == -1) {
             ngx_log_error(NGX_LOG_CRIT, file->log, ngx_errno,
@@ -417,10 +417,14 @@ ngx_trylock_fd(ngx_fd_t fd)
 {
     struct flock  fl;
 
+    // dyc: set fl.l_len to 0, so we will lock the file to its end
     ngx_memzero(&fl, sizeof(struct flock));
+    // dyc: set a exclusive write lock
     fl.l_type = F_WRLCK;
+    // dyc: lock file from start to end
     fl.l_whence = SEEK_SET;
 
+    // dyc: non-blocking lock
     if (fcntl(fd, F_SETLK, &fl) == -1) {
         return ngx_errno;
     }
@@ -434,10 +438,12 @@ ngx_lock_fd(ngx_fd_t fd)
 {
     struct flock  fl;
 
+    // dyc: see comments in ngx_trylock_fd()
     ngx_memzero(&fl, sizeof(struct flock));
     fl.l_type = F_WRLCK;
     fl.l_whence = SEEK_SET;
 
+    // dyc: W means wait, so this function may be blocked
     if (fcntl(fd, F_SETLKW, &fl) == -1) {
         return ngx_errno;
     }

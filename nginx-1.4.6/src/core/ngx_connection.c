@@ -186,60 +186,32 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
 
             ls[i].sndbuf = -1;
         }
-
-#if 0
-        /* SO_SETFIB is currently a set only option */
-
-#if (NGX_HAVE_SETFIB)
-
-        if (getsockopt(ls[i].setfib, SOL_SOCKET, SO_SETFIB,
-                       (void *) &ls[i].setfib, &olen)
-            == -1)
-        {
-            ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_socket_errno,
-                          "getsockopt(SO_SETFIB) %V failed, ignored",
-                          &ls[i].addr_text);
-
-            ls[i].setfib = -1;
-        }
-
-#endif
-#endif
-
         // dyc: for freebsd
 #if (NGX_HAVE_DEFERRED_ACCEPT && defined SO_ACCEPTFILTER)
-
         ngx_memzero(&af, sizeof(struct accept_filter_arg));
         olen = sizeof(struct accept_filter_arg);
-
         if (getsockopt(ls[i].fd, SOL_SOCKET, SO_ACCEPTFILTER, &af, &olen)
             == -1)
         {
             err = ngx_errno;
-
             if (err == NGX_EINVAL) {
                 continue;
             }
-
             ngx_log_error(NGX_LOG_NOTICE, cycle->log, err,
                           "getsockopt(SO_ACCEPTFILTER) for %V failed, ignored",
                           &ls[i].addr_text);
             continue;
         }
-
         if (olen < sizeof(struct accept_filter_arg) || af.af_name[0] == '\0') {
             continue;
         }
-
         ls[i].accept_filter = ngx_palloc(cycle->pool, 16);
         if (ls[i].accept_filter == NULL) {
             return NGX_ERROR;
         }
-
         (void) ngx_cpystrn((u_char *) ls[i].accept_filter,
                            (u_char *) af.af_name, 16);
 #endif
-
         // dyc: for linux
 #if (NGX_HAVE_DEFERRED_ACCEPT && defined TCP_DEFER_ACCEPT)
 
@@ -1020,7 +992,8 @@ ngx_drain_connections(void)
     }
 }
 
-
+// dyc: if connection's sin->sin_addr.s_addr == 0
+//      use getsockname(c->fd) to get a name.
 ngx_int_t
 ngx_connection_local_sockaddr(ngx_connection_t *c, ngx_str_t *s,
     ngx_uint_t port)
@@ -1035,18 +1008,14 @@ ngx_connection_local_sockaddr(ngx_connection_t *c, ngx_str_t *s,
 #endif
 
     switch (c->local_sockaddr->sa_family) {
-
 #if (NGX_HAVE_INET6)
     case AF_INET6:
         sin6 = (struct sockaddr_in6 *) c->local_sockaddr;
-
         for (addr = 0, i = 0; addr == 0 && i < 16; i++) {
             addr |= sin6->sin6_addr.s6_addr[i];
         }
-
         break;
 #endif
-
     default: /* AF_INET */
         sin = (struct sockaddr_in *) c->local_sockaddr;
         addr = sin->sin_addr.s_addr;

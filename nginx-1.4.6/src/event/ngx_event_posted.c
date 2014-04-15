@@ -48,29 +48,6 @@ void
 ngx_wakeup_worker_thread(ngx_cycle_t *cycle)
 {
     ngx_int_t     i;
-#if 0
-    ngx_uint_t    busy;
-    ngx_event_t  *ev;
-
-    busy = 1;
-
-    if (ngx_mutex_lock(ngx_posted_events_mutex) == NGX_ERROR) {
-        return;
-    }
-
-    for (ev = (ngx_event_t *) ngx_posted_events; ev; ev = ev->next) {
-        if (*(ev->lock) == 0) {
-            busy = 0;
-            break;
-        }
-    }
-
-    ngx_mutex_unlock(ngx_posted_events_mutex);
-
-    if (busy) {
-        return;
-    }
-#endif
 
     for (i = 0; i < ngx_threads_n; i++) {
         if (ngx_threads[i].state == NGX_THREAD_FREE) {
