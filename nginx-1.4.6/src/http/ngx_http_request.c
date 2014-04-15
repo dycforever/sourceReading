@@ -211,18 +211,18 @@ ngx_http_init_connection(ngx_connection_t *c)
         ngx_http_close_connection(c);
         return;
     }
-
     c->data = hc;
 
+    // dyc: assign hc->addr_conf
     /* find the server configuration for the address:port */
     port = c->listening->servers;
-
     if (port->naddrs > 1) {
         /*
          * there are several addresses on this port and one of them
          * is an "*:port" wildcard so getsockname() in ngx_http_server_addr()
          * is required to determine a server address
          */
+        // dyc: iterate all address to find the right one
         if (ngx_connection_local_sockaddr(c, NULL, 0) != NGX_OK) {
             ngx_http_close_connection(c);
             return;
@@ -272,10 +272,10 @@ ngx_http_init_connection(ngx_connection_t *c)
             break;
         }
     }
-
     /* the default server configuration for the address:port */
     hc->conf_ctx = hc->addr_conf->default_server->ctx;
 
+    // dyc: alloc and init ctx, then c->log->data = ctx;
     ctx = ngx_palloc(c->pool, sizeof(ngx_http_log_ctx_t));
     if (ctx == NULL) {
         ngx_http_close_connection(c);
@@ -290,7 +290,6 @@ ngx_http_init_connection(ngx_connection_t *c)
     c->log->handler = ngx_http_log_error;
     c->log->data = ctx;
     c->log->action = "waiting for request";
-
     c->log_error = NGX_ERROR_INFO;
 
     rev = c->read;
@@ -322,12 +321,14 @@ ngx_http_init_connection(ngx_connection_t *c)
     }
 #endif
 
+    // dyc: set rev->ready=1 in ngx_event_accept() if deferred_accept
     if (rev->ready) {
         /* the deferred accept(), rtsig, aio, iocp */
         if (ngx_use_accept_mutex) {
             ngx_post_event(rev, &ngx_posted_events);
             return;
         }
+        // dyc: ngx_http_wait_request_handler()
         rev->handler(rev);
         return;
     }
@@ -353,6 +354,8 @@ ngx_http_wait_request_handler(ngx_event_t *rev)
     ngx_http_connection_t     *hc;
     ngx_http_core_srv_conf_t  *cscf;
 
+    // dyc: rev is this http connection's read event
+    //      rev->data is set in ngx_get_connection() when accept this connection
     c = rev->data;
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, c->log, 0, "http wait request handler");
@@ -438,6 +441,7 @@ ngx_http_wait_request_handler(ngx_event_t *rev)
 
     ngx_reusable_connection(c, 0);
 
+    // dyc: in this function, r->http_connection = hc
     c->data = ngx_http_create_request(c);
     if (c->data == NULL) {
         ngx_http_close_connection(c);
@@ -448,7 +452,7 @@ ngx_http_wait_request_handler(ngx_event_t *rev)
     ngx_http_process_request_line(rev);
 }
 
-// dyc: alloc and init a ngx_http_request_t, return it
+// dyc: alloc a ngx_http_request_t, create a mempool for it, set its header buffer and so on
 ngx_http_request_t *
 ngx_http_create_request(ngx_connection_t *c)
 {
@@ -488,6 +492,7 @@ ngx_http_create_request(ngx_connection_t *c)
     r->srv_conf = hc->conf_ctx->srv_conf;
     r->loc_conf = hc->conf_ctx->loc_conf;
 
+    // dyc: ngx_http_block_reading() this function do nothing
     r->read_event_handler = ngx_http_block_reading;
 
     clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
@@ -496,6 +501,7 @@ ngx_http_create_request(ngx_connection_t *c)
 
     r->header_in = hc->nbusy ? hc->busy[0] : c->buffer;
 
+    // dyc: headers list for response
     if (ngx_list_init(&r->headers_out.headers, r->pool, 20,
                       sizeof(ngx_table_elt_t))
         != NGX_OK)
@@ -814,6 +820,7 @@ ngx_http_process_request_line(ngx_event_t *rev)
     ngx_http_request_t  *r;
 
     c = rev->data;
+    // dyc: set in ngx_http_wait_request_handler(): c->data = ngx_http_create_request(c)
     r = c->data;
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, rev->log, 0,
@@ -919,21 +926,19 @@ ngx_http_process_request_line(ngx_event_t *rev)
         } // dyc: if (rc == NGX_OK);
 
         if (rc != NGX_AGAIN) {
-
             /* there was error while a request line parsing */
-
             ngx_log_error(NGX_LOG_INFO, c->log, 0,
                           ngx_http_client_errors[rc - NGX_HTTP_CLIENT_ERROR]);
             ngx_http_finalize_request(r, NGX_HTTP_BAD_REQUEST);
             return;
         }
 
+        // dyc: here means rc == NGX_AGAIN
+
         /* NGX_AGAIN: a request line parsing is still incomplete */
-
+        // dyc: maybe because buffer is not enough, alloc a bigger one
         if (r->header_in->pos == r->header_in->end) {
-
             rv = ngx_http_alloc_large_header_buffer(r, 1);
-
             if (rv == NGX_ERROR) {
                 ngx_http_close_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
                 return;
@@ -942,7 +947,6 @@ ngx_http_process_request_line(ngx_event_t *rev)
             if (rv == NGX_DECLINED) {
                 r->request_line.len = r->header_in->end - r->request_start;
                 r->request_line.data = r->request_start;
-
                 ngx_log_error(NGX_LOG_INFO, c->log, 0,
                               "client sent too long URI");
                 ngx_http_finalize_request(r, NGX_HTTP_REQUEST_URI_TOO_LARGE);
@@ -1147,7 +1151,7 @@ ngx_http_process_request_headers(ngx_event_t *rev)
             if (n == NGX_AGAIN || n == NGX_ERROR) {
                 return;
             }
-        }
+        } // if (rc == NGX_AGAIN) 
 
         /* the host header could change the server configuration context */
         cscf = ngx_http_get_module_srv_conf(r, ngx_http_core_module);
@@ -1156,13 +1160,10 @@ ngx_http_process_request_headers(ngx_event_t *rev)
                                         cscf->underscores_in_headers);
 
         if (rc == NGX_OK) {
-
             r->request_length += r->header_in->pos - r->header_name_start;
 
             if (r->invalid_header && cscf->ignore_invalid_headers) {
-
                 /* there was error while a header line parsing */
-
                 ngx_log_error(NGX_LOG_INFO, c->log, 0,
                               "client sent invalid header line: \"%*s\"",
                               r->header_end - r->header_name_start,
@@ -1171,7 +1172,6 @@ ngx_http_process_request_headers(ngx_event_t *rev)
             }
 
             /* a header line has been parsed successfully */
-
             h = ngx_list_push(&r->headers_in.headers);
             if (h == NULL) {
                 ngx_http_close_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
@@ -1196,14 +1196,13 @@ ngx_http_process_request_headers(ngx_event_t *rev)
 
             if (h->key.len == r->lowcase_index) {
                 ngx_memcpy(h->lowcase_key, r->lowcase_header, h->key.len);
-
             } else {
                 ngx_strlow(h->lowcase_key, h->key.data, h->key.len);
             }
 
             hh = ngx_hash_find(&cmcf->headers_in_hash, h->hash,
                                h->lowcase_key, h->key.len);
-
+            // dyc: all commands in http header and its handler are defined in array ngx_http_headers_in[]
             if (hh && hh->handler(r, h, hh->offset) != NGX_OK) {
                 return;
             }
@@ -1211,48 +1210,39 @@ ngx_http_process_request_headers(ngx_event_t *rev)
             ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                            "http header: \"%V: %V\"",
                            &h->key, &h->value);
-
+            // dyc: parse next header
             continue;
         }
 
         if (rc == NGX_HTTP_PARSE_HEADER_DONE) {
-
             /* a whole header has been parsed successfully */
-
             ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                            "http header done");
 
             r->request_length += r->header_in->pos - r->header_name_start;
 
             r->http_state = NGX_HTTP_PROCESS_REQUEST_STATE;
-
             rc = ngx_http_process_request_header(r);
-
             if (rc != NGX_OK) {
                 return;
             }
-
             ngx_http_process_request(r);
-
             return;
         }
 
         if (rc == NGX_AGAIN) {
-
             /* a header line parsing is still not complete */
-
             continue;
         }
 
         /* rc == NGX_HTTP_PARSE_INVALID_HEADER: "\r" is not followed by "\n" */
-
         ngx_log_error(NGX_LOG_INFO, c->log, 0,
                       "client sent invalid header line: \"%*s\\r...\"",
                       r->header_end - r->header_name_start,
                       r->header_name_start);
         ngx_http_finalize_request(r, NGX_HTTP_BAD_REQUEST);
         return;
-    }
+    } // for (;;)
 }
 
 
@@ -1268,7 +1258,7 @@ ngx_http_read_request_header(ngx_http_request_t *r)
     rev = c->read;
 
     n = r->header_in->last - r->header_in->pos;
-
+    // dyc: if there is data in header_in, return
     if (n > 0) {
         return n;
     }
@@ -1281,11 +1271,12 @@ ngx_http_read_request_header(ngx_http_request_t *r)
     }
 
     if (n == NGX_AGAIN) {
+        // dyc: set a timer, if timeout but no more data comes, close it
         if (!rev->timer_set) {
             cscf = ngx_http_get_module_srv_conf(r, ngx_http_core_module);
             ngx_add_timer(rev, cscf->client_header_timeout);
         }
-
+        // dyc: add to epoll
         if (ngx_handle_read_event(rev, 0) != NGX_OK) {
             ngx_http_close_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
             return NGX_ERROR;
@@ -1302,7 +1293,7 @@ ngx_http_read_request_header(ngx_http_request_t *r)
     if (n == 0 || n == NGX_ERROR) {
         c->error = 1;
         c->log->action = "reading client request headers";
-
+        // dyc: return 400 error code
         ngx_http_finalize_request(r, NGX_HTTP_BAD_REQUEST);
         return NGX_ERROR;
     }
@@ -1456,7 +1447,8 @@ ngx_http_alloc_large_header_buffer(ngx_http_request_t *r,
     return NGX_OK;
 }
 
-
+// dyc: assign header @h to associating slot in array @r->headers_in
+//      if overlapped, use first one
 static ngx_int_t
 ngx_http_process_header_line(ngx_http_request_t *r, ngx_table_elt_t *h,
     ngx_uint_t offset)
@@ -2583,7 +2575,7 @@ ngx_http_request_finalizer(ngx_http_request_t *r)
     ngx_http_finalize_request(r, 0);
 }
 
-
+// dyc: do nothing
 void
 ngx_http_block_reading(ngx_http_request_t *r)
 {

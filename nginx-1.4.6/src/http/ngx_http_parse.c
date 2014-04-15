@@ -794,7 +794,7 @@ ngx_http_parse_request_line(ngx_http_request_t *r, ngx_buf_t *b)
                 return NGX_HTTP_PARSE_INVALID_REQUEST;
             }
         }
-    }
+    } // for
 
     b->pos = p;
     r->state = state;

@@ -214,6 +214,7 @@ ngx_event_accept(ngx_event_t *ev)
             rev->ready = 1;
         }
 
+        // dyc: deferred means if accept() return, there is some data available to read
         if (ev->deferred_accept) {
             rev->ready = 1;
 #if (NGX_HAVE_KQUEUE)
@@ -262,7 +263,6 @@ ngx_event_accept(ngx_event_t *ev)
 
 #if (NGX_DEBUG)
         {
-
         struct sockaddr_in   *sin;
         ngx_cidr_t           *cidr;
         ngx_uint_t            i;
@@ -270,7 +270,6 @@ ngx_event_accept(ngx_event_t *ev)
         struct sockaddr_in6  *sin6;
         ngx_uint_t            n;
 #endif
-
         cidr = ecf->debug_connection.elts;
         for (i = 0; i < ecf->debug_connection.nelts; i++) {
             if (cidr[i].family != c->sockaddr->sa_family) {
@@ -278,7 +277,6 @@ ngx_event_accept(ngx_event_t *ev)
             }
 
             switch (cidr[i].family) {
-
 #if (NGX_HAVE_INET6)
             case AF_INET6:
                 sin6 = (struct sockaddr_in6 *) c->sockaddr;
@@ -307,7 +305,6 @@ ngx_event_accept(ngx_event_t *ev)
                 }
                 break;
             }
-
             log->log_level = NGX_LOG_DEBUG_CONNECTION|NGX_LOG_DEBUG_ALL;
             break;
 
@@ -320,7 +317,7 @@ ngx_event_accept(ngx_event_t *ev)
 
         ngx_log_debug3(NGX_LOG_DEBUG_EVENT, log, 0,
                        "*%d accept: %V fd:%d", c->number, &c->addr_text, s);
-
+        // dyc: such as ngx_epoll_add_connection()
         if (ngx_add_conn && (ngx_event_flags & NGX_USE_EPOLL_EVENT) == 0) {
             if (ngx_add_conn(c) == NGX_ERROR) {
                 ngx_close_accepted_connection(c);
@@ -331,6 +328,7 @@ ngx_event_accept(ngx_event_t *ev)
         log->data = NULL;
         log->handler = NULL;
         // dyc: ls is a pointer of type ngx_listening_t*
+        //      for http connection, this ngx_http_init_connection()
         ls->handler(c);
 
         if (ngx_event_flags & NGX_USE_KQUEUE_EVENT) {

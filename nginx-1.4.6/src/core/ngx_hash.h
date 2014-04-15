@@ -88,7 +88,7 @@ typedef struct {
     ngx_array_t      *dns_wc_tail_hash;
 } ngx_hash_keys_arrays_t;
 
-
+// dyc: used to save a http header
 typedef struct {
     ngx_uint_t        hash;
     ngx_str_t         key;
