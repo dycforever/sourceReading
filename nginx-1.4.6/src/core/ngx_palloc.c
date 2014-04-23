@@ -258,6 +258,7 @@ ngx_pmemalign(ngx_pool_t *pool, size_t size, size_t alignment)
     void              *p;
     ngx_pool_large_t  *large;
 
+    // dyc: alloc memory from system
     p = ngx_memalign(alignment, size, pool->log);
     if (p == NULL) {
         return NULL;
@@ -269,6 +270,7 @@ ngx_pmemalign(ngx_pool_t *pool, size_t size, size_t alignment)
         return NULL;
     }
 
+    // dyc: alloc point to the memory block
     large->alloc = p;
     large->next = pool->large;
     pool->large = large;

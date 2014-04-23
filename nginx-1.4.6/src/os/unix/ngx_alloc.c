@@ -48,6 +48,7 @@ ngx_calloc(size_t size, ngx_log_t *log)
 
 #if (NGX_HAVE_POSIX_MEMALIGN)
 
+// dyc: alloc memory from system
 void *
 ngx_memalign(size_t alignment, size_t size, ngx_log_t *log)
 {

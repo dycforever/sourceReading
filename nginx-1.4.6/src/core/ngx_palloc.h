@@ -40,6 +40,7 @@ struct ngx_pool_cleanup_s {
 
 typedef struct ngx_pool_large_s  ngx_pool_large_t;
 
+// dyc: alloc point to the memory block
 struct ngx_pool_large_s {
     ngx_pool_large_t     *next;
     void                 *alloc;
