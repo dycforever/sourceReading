@@ -637,17 +637,19 @@ ngx_http_script_done(ngx_http_script_compile_t *sc)
     return NGX_OK;
 }
 
-
+// dyc: create a new array and push [size] empty items
 void *
 ngx_http_script_start_code(ngx_pool_t *pool, ngx_array_t **codes, size_t size)
 {
     if (*codes == NULL) {
+        // dyc: create an array of 256 itme of size 1
         *codes = ngx_array_create(pool, 256, 1);
         if (*codes == NULL) {
             return NULL;
         }
     }
 
+    // dyc: push n empty items 
     return ngx_array_push_n(*codes, size);
 }
 
@@ -664,7 +666,7 @@ ngx_http_script_add_code(ngx_array_t *codes, size_t size, void *code)
     if (new == NULL) {
         return NULL;
     }
-
+    // dyc: if code and push success, increase *code of pushed in size
     if (code) {
         if (elts != codes->elts) {
             p = code;
@@ -930,7 +932,7 @@ ngx_http_script_regex_start_code(ngx_http_script_engine_t *e)
     }
 
     rc = ngx_http_regex_exec(r, code->regex, &e->line);
-
+    // dyc: if no matched, return NGX_DECLINED
     if (rc == NGX_DECLINED) {
         if (e->log || (r->connection->log->log_level & NGX_LOG_DEBUG_HTTP)) {
             ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,

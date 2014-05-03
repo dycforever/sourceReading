@@ -165,7 +165,7 @@ ngx_regex_compile(ngx_regex_compile_t *rc)
         elt->regex = rc->regex;
         elt->name = rc->pattern.data;
     }
-
+    // dyc: get Number of capturing subpatterns 
     n = pcre_fullinfo(re, NULL, PCRE_INFO_CAPTURECOUNT, &rc->captures);
     if (n < 0) {
         p = "pcre_fullinfo(\"%V\", PCRE_INFO_CAPTURECOUNT) failed: %d";
@@ -176,6 +176,7 @@ ngx_regex_compile(ngx_regex_compile_t *rc)
         return NGX_OK;
     }
 
+    // dyc: get Number of named subpatterns 
     n = pcre_fullinfo(re, NULL, PCRE_INFO_NAMECOUNT, &rc->named_captures);
     if (n < 0) {
         p = "pcre_fullinfo(\"%V\", PCRE_INFO_NAMECOUNT) failed: %d";
@@ -186,12 +187,14 @@ ngx_regex_compile(ngx_regex_compile_t *rc)
         return NGX_OK;
     }
 
+    // dyc: get Number of  Size of name table entry
     n = pcre_fullinfo(re, NULL, PCRE_INFO_NAMEENTRYSIZE, &rc->name_size);
     if (n < 0) {
         p = "pcre_fullinfo(\"%V\", PCRE_INFO_NAMEENTRYSIZE) failed: %d";
         goto failed;
     }
 
+    // dyc: get Number of Pointer to name table 
     n = pcre_fullinfo(re, NULL, PCRE_INFO_NAMETABLE, &rc->names);
     if (n < 0) {
         p = "pcre_fullinfo(\"%V\", PCRE_INFO_NAMETABLE) failed: %d";

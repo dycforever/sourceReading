@@ -74,13 +74,13 @@ static const char *debug_levels[] = {
 #if (NGX_HAVE_VARIADIC_MACROS)
 
 void
-ngx_log_error_core(ngx_uint_t level, ngx_log_t *log, ngx_err_t err,
+ngx_log_error_core(const char* belong_file, const char* belong_func, ngx_uint_t level, ngx_log_t *log, ngx_err_t err,
     const char *fmt, ...)
 
 #else
 
 void
-ngx_log_error_core(ngx_uint_t level, ngx_log_t *log, ngx_err_t err,
+ngx_log_error_core(const char* belong_file, const char* belong_func, ngx_uint_t level, ngx_log_t *log, ngx_err_t err,
     const char *fmt, va_list args)
 
 #endif
@@ -102,7 +102,7 @@ ngx_log_error_core(ngx_uint_t level, ngx_log_t *log, ngx_err_t err,
 
     p = errstr + ngx_cached_err_log_time.len;
 
-    p = ngx_slprintf(p, last, " [%V] ", &err_levels[level]);
+    p = ngx_slprintf(p, last, " [%s]:[%s] [%V] ", belong_file, belong_func, &err_levels[level]);
 
     /* pid#tid */
     p = ngx_slprintf(p, last, "%P#" NGX_TID_T_FMT ": ",

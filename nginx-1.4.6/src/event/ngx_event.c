@@ -727,6 +727,8 @@ ngx_event_process_init(ngx_cycle_t *cycle)
     i = cycle->connection_n;
     next = NULL;
 
+    ngx_log_error(NGX_LOG_EMERG, cycle->log, 0, "cycle->connection_n: %lu", i);
+
     do {
         i--;
         c[i].data = next;

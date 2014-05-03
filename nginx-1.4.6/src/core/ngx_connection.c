@@ -85,7 +85,7 @@ ngx_create_listening(ngx_conf_t *cf, void *sockaddr, socklen_t socklen)
     return ls;
 }
 
-
+// dyc: set listen socket's address and some sockopts
 ngx_int_t
 ngx_set_inherited_sockets(ngx_cycle_t *cycle)
 {
