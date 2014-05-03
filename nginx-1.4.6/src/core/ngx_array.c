@@ -88,7 +88,7 @@ ngx_array_push(ngx_array_t *a)
     return elt;
 }
 
-
+// dyc: push n empty items ?
 void *
 ngx_array_push_n(ngx_array_t *a, ngx_uint_t n)
 {
@@ -108,14 +108,13 @@ ngx_array_push_n(ngx_array_t *a, ngx_uint_t n)
         if ((u_char *) a->elts + a->size * a->nalloc == p->d.last
             && p->d.last + size <= p->d.end)
         {
+            // dyc: alloc memory from mempool fast
             /*
              * the array allocation is the last in the pool
              * and there is space for new allocation
              */
-
             p->d.last += size;
             a->nalloc += n;
-
         } else {
             /* allocate a new array */
 

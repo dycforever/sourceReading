@@ -175,6 +175,7 @@ ngx_http_rewrite_handler(ngx_http_request_t *r)
     e->log = rlcf->log;
     e->status = NGX_DECLINED;
 
+    // dyc: call such as ngx_http_script_regex_start_code()
     while (*(uintptr_t *) e->ip) {
         code = *(ngx_http_script_code_pt *) e->ip;
         code(e);
@@ -316,6 +317,7 @@ ngx_http_rewrite(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_http_script_regex_end_code_t  *regex_end;
     u_char                             errstr[NGX_MAX_CONF_ERRSTR];
 
+    // dyc: alloc a new array to lcf->codes, which is size of sizeof(ngx_http_script_regex_code_t)
     regex = ngx_http_script_start_code(cf->pool, &lcf->codes,
                                        sizeof(ngx_http_script_regex_code_t));
     if (regex == NULL) {
@@ -334,6 +336,7 @@ ngx_http_rewrite(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     /* TODO: NGX_REGEX_CASELESS */
 
+    // dyc: compile regex, alloc memory for captured variables
     regex->regex = ngx_http_regex_compile(cf, &rc);
     if (regex->regex == NULL) {
         return NGX_CONF_ERROR;
@@ -425,12 +428,12 @@ ngx_http_rewrite(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     regex_end->add_args = regex->add_args;
     regex_end->redirect = regex->redirect;
 
+    // dyc: if last, add a null operation into array lcf->codes
     if (last) {
         code = ngx_http_script_add_code(lcf->codes, sizeof(uintptr_t), &regex);
         if (code == NULL) {
             return NGX_CONF_ERROR;
         }
-
         *code = NULL;
     }
 

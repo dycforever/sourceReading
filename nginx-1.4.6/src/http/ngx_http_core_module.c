@@ -893,7 +893,7 @@ ngx_http_core_run_phases(ngx_http_request_t *r)
     }
 }
 
-
+// dyc: handle post read, server rewrite, rewrite, and pre-access phases
 ngx_int_t
 ngx_http_core_generic_phase(ngx_http_request_t *r, ngx_http_phase_handler_t *ph)
 {
@@ -924,7 +924,7 @@ ngx_http_core_generic_phase(ngx_http_request_t *r, ngx_http_phase_handler_t *ph)
     }
 
     /* rc == NGX_ERROR || rc == NGX_HTTP_...  */
-
+    // dyc: free request
     ngx_http_finalize_request(r, rc);
 
     return NGX_OK;
@@ -1061,7 +1061,7 @@ ngx_http_core_post_rewrite_phase(ngx_http_request_t *r,
 
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "post rewrite phase: %ui", r->phase_handler);
-
+    // dyc: do next phase
     if (!r->uri_changed) {
         r->phase_handler++;
         return NGX_AGAIN;
@@ -1076,7 +1076,7 @@ ngx_http_core_post_rewrite_phase(ngx_http_request_t *r,
      * if the r->uri_changes is defined as
      *     unsigned  uri_changes:4
      */
-
+    // dyc: init to 11, so redirected 10 time at most
     r->uri_changes--;
 
     if (r->uri_changes == 0) {
@@ -1537,7 +1537,7 @@ ngx_http_update_location_config(ngx_http_request_t *r)
  * NGX_ERROR    - regex error
  * NGX_DECLINED - no match
  */
-
+// dyc: search location tree first the search with regex if necessary
 static ngx_int_t
 ngx_http_core_find_location(ngx_http_request_t *r)
 {
@@ -1554,7 +1554,7 @@ ngx_http_core_find_location(ngx_http_request_t *r)
     pclcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
 
     rc = ngx_http_core_find_static_location(r, pclcf->static_locations);
-
+    // dyc: NGX_AGAIN means inclusive match
     if (rc == NGX_AGAIN) {
 
 #if (NGX_PCRE)
@@ -1564,7 +1564,6 @@ ngx_http_core_find_location(ngx_http_request_t *r)
 #endif
 
         /* look up nested locations */
-
         rc = ngx_http_core_find_location(r);
     }
 
@@ -1614,7 +1613,7 @@ ngx_http_core_find_location(ngx_http_request_t *r)
  * NGX_AGAIN    - inclusive match
  * NGX_DECLINED - no match
  */
-
+// dyc: search uri in location tree
 static ngx_int_t
 ngx_http_core_find_static_location(ngx_http_request_t *r,
     ngx_http_location_tree_node_t *node)
@@ -1636,17 +1635,15 @@ ngx_http_core_find_static_location(ngx_http_request_t *r,
 
         ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                        "test location: \"%*s\"", node->len, node->name);
-
+        // dyc: choose less bytes and compare
         n = (len <= (size_t) node->len) ? len : node->len;
-
         rc = ngx_filename_cmp(uri, node->name, n);
 
         if (rc != 0) {
             node = (rc < 0) ? node->left : node->right;
-
             continue;
         }
-
+        // dyc: prefix match
         if (len > (size_t) node->len) {
 
             if (node->inclusive) {
@@ -1690,7 +1687,7 @@ ngx_http_core_find_static_location(ngx_http_request_t *r,
         }
 
         node = node->left;
-    }
+    } // for(;;)
 }
 
 

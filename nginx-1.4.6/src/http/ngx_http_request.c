@@ -213,8 +213,8 @@ ngx_http_init_connection(ngx_connection_t *c)
     }
     c->data = hc;
 
-    // dyc: assign hc->addr_conf
     /* find the server configuration for the address:port */
+    // dyc: assign hc->addr_conf
     port = c->listening->servers;
     if (port->naddrs > 1) {
         /*
@@ -244,6 +244,7 @@ ngx_http_init_connection(ngx_connection_t *c)
             break;
 #endif
 
+            // dyc: compare ip 
         default: /* AF_INET */
             sin = (struct sockaddr_in *) c->local_sockaddr;
             addr = port->addrs;
@@ -371,8 +372,9 @@ ngx_http_wait_request_handler(ngx_event_t *rev)
         return;
     }
 
+    // dyc: allocated in ngx_http_init_connection()
     hc = c->data;
-    // dyc: hc->conf_ctx->srv_conf[module.ctx_index]
+    // dyc: hc->conf_ctx->srv_conf[ngx_http_core_module.ctx_index]
     cscf = ngx_http_get_module_srv_conf(hc->conf_ctx, ngx_http_core_module);
 
     size = cscf->client_header_buffer_size;

@@ -2230,7 +2230,7 @@ ngx_http_variable_not_found(ngx_http_request_t *r, ngx_http_variable_value_t *v,
     return NGX_OK;
 }
 
-
+// dyc: compile regex, alloc memory for captured variables
 ngx_http_regex_t *
 ngx_http_regex_compile(ngx_conf_t *cf, ngx_regex_compile_t *rc)
 {
@@ -2245,6 +2245,7 @@ ngx_http_regex_compile(ngx_conf_t *cf, ngx_regex_compile_t *rc)
 
     rc->pool = cf->pool;
 
+    // dyc: alloc rc->regex and set rc->regex->code = pcre_compile(pattern);
     if (ngx_regex_compile(rc) != NGX_OK) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "%V", &rc->err);
         return NULL;
@@ -2266,7 +2267,7 @@ ngx_http_regex_compile(ngx_conf_t *cf, ngx_regex_compile_t *rc)
     if (n == 0) {
         return re;
     }
-
+    // dyc: alloc memory for variables
     rv = ngx_palloc(rc->pool, n * sizeof(ngx_http_regex_variable_t));
     if (rv == NULL) {
         return NULL;

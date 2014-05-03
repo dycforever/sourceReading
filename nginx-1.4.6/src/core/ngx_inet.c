@@ -629,6 +629,7 @@ ngx_parse_inet_url(ngx_pool_t *pool, ngx_url_t *u)
 
     last = host + u->url.len;
 
+    // dyc: if not found, return NULL
     port = ngx_strlchr(host, last, ':');
 
     uri = ngx_strlchr(host, last, '/');
@@ -656,7 +657,7 @@ ngx_parse_inet_url(ngx_pool_t *pool, ngx_url_t *u)
             port = NULL;
         }
     }
-
+    // dyc: if found
     if (port) {
         port++;
 

@@ -79,6 +79,14 @@ ngx_str_t  ngx_http_html_default_types[] = {
 };
 
 
+// struct ngx_command_s {
+//     ngx_str_t             name;
+//     ngx_uint_t            type;
+//     char               *(*set)(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+//     ngx_uint_t            conf;
+//     ngx_uint_t            offset;
+//     void                 *post;
+// };
 static ngx_command_t  ngx_http_commands[] = {
 
     { ngx_string("http"),
@@ -122,6 +130,7 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_uint_t                   mi, m, s;
     ngx_conf_t                   pcf;
     ngx_http_module_t           *module;
+
     ngx_http_conf_ctx_t         *ctx;
     ngx_http_core_loc_conf_t    *clcf;
     ngx_http_core_srv_conf_t   **cscfp;
@@ -133,47 +142,47 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     if (ctx == NULL) {
         return NGX_CONF_ERROR;
     }
-
     *(ngx_http_conf_ctx_t **) conf = ctx;
 
 
     /* count the number of the http modules and set up their indices */
-
+    // dyc: comments above
     ngx_http_max_module = 0;
     for (m = 0; ngx_modules[m]; m++) {
         if (ngx_modules[m]->type != NGX_HTTP_MODULE) {
             continue;
         }
-
         ngx_modules[m]->ctx_index = ngx_http_max_module++;
     }
 
 
     /* the http main_conf context, it is the same in the all http contexts */
 
+    // typedef struct {
+    //    void        **main_conf;
+    //    void        **srv_conf;
+    //    void        **loc_conf;
+    //} ngx_http_conf_ctx_t;
+    //  each *_conf point to an array of ngx_http_max_module elements
     ctx->main_conf = ngx_pcalloc(cf->pool,
                                  sizeof(void *) * ngx_http_max_module);
     if (ctx->main_conf == NULL) {
         return NGX_CONF_ERROR;
     }
 
-
     /*
      * the http null srv_conf context, it is used to merge
      * the server{}s' srv_conf's
      */
-
     ctx->srv_conf = ngx_pcalloc(cf->pool, sizeof(void *) * ngx_http_max_module);
     if (ctx->srv_conf == NULL) {
         return NGX_CONF_ERROR;
     }
 
-
     /*
      * the http null loc_conf context, it is used to merge
      * the server{}s' loc_conf's
      */
-
     ctx->loc_conf = ngx_pcalloc(cf->pool, sizeof(void *) * ngx_http_max_module);
     if (ctx->loc_conf == NULL) {
         return NGX_CONF_ERROR;
@@ -184,7 +193,6 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
      * create the main_conf's, the null srv_conf's, and the null loc_conf's
      * of the all http modules
      */
-
     for (m = 0; ngx_modules[m]; m++) {
         if (ngx_modules[m]->type != NGX_HTTP_MODULE) {
             continue;
@@ -345,7 +353,9 @@ failed:
     return rv;
 }
 
-
+// dyc: only phase below can be multiple handlers
+//      NGX_HTTP_FIND_CONFIG_PHASE/NGX_HTTP_POST_REWRITE_PHASE/NGX_HTTP_POST_ACCESS_PHASE/
+//      NGX_HTTP_TRY_FILES_PHASE can only be one handler
 static ngx_int_t
 ngx_http_init_phases(ngx_conf_t *cf, ngx_http_core_main_conf_t *cmcf)
 {
@@ -473,10 +483,10 @@ ngx_http_init_phase_handlers(ngx_conf_t *cf, ngx_http_core_main_conf_t *cmcf)
 
     cmcf->phase_engine.handlers = ph;
     n = 0;
-
+    // dyc: n is the index of ph(phase_engine.handlers)
     for (i = 0; i < NGX_HTTP_LOG_PHASE; i++) {
         h = cmcf->phases[i].handlers.elts;
-
+        // dyc: phases which can only be one handler, will continue in case XXX
         switch (i) {
 
         case NGX_HTTP_SERVER_REWRITE_PHASE:
@@ -541,10 +551,12 @@ ngx_http_init_phase_handlers(ngx_conf_t *cf, ngx_http_core_main_conf_t *cmcf)
             checker = ngx_http_core_content_phase;
             break;
 
+            // dyc: defaulte means:
+            //      NGX_HTTP_POST_READ_PHASE/ NGX_HTTP_PREACCESS_PHASE/ NGX_HTTP_LOG_PHASE
         default:
             checker = ngx_http_core_generic_phase;
         }
-
+        // dyc: here means switch break or default
         n += cmcf->phases[i].handlers.nelts;
 
         for (j = cmcf->phases[i].handlers.nelts - 1; j >=0; j--) {
@@ -553,7 +565,7 @@ ngx_http_init_phase_handlers(ngx_conf_t *cf, ngx_http_core_main_conf_t *cmcf)
             ph->next = n;
             ph++;
         }
-    }
+    } // for
 
     return NGX_OK;
 }
