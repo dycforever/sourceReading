@@ -68,7 +68,7 @@ static ngx_http_module_t  ngx_http_index_module_ctx = {
 
 
 ngx_module_t  ngx_http_index_module = {
-    NGX_MODULE_V1,
+    NGX_MODULE_V1, /*0, 0, 0, 0, 0, 0, 1*/
     &ngx_http_index_module_ctx,            /* module context */
     ngx_http_index_commands,               /* module directives */
     NGX_HTTP_MODULE,                       /* module type */
@@ -117,6 +117,7 @@ ngx_http_index_handler(ngx_http_request_t *r)
         return NGX_DECLINED;
     }
 
+    // dyc: (r)->loc_conf[0]
     ilcf = ngx_http_get_module_loc_conf(r, ngx_http_index_module);
     clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
 
