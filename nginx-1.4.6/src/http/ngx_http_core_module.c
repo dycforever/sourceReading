@@ -809,7 +809,7 @@ static ngx_http_module_t  ngx_http_core_module_ctx = {
 
 
 ngx_module_t  ngx_http_core_module = {
-    NGX_MODULE_V1,
+    NGX_MODULE_V1,   /*0, 0, 0, 0, 0, 0, 1*/
     &ngx_http_core_module_ctx,             /* module context */
     ngx_http_core_commands,                /* module directives */
     NGX_HTTP_MODULE,                       /* module type */
@@ -836,6 +836,7 @@ ngx_http_handler(ngx_http_request_t *r)
 
     r->connection->unexpected_eof = 0;
 
+    // dyc: set r->phase_handler to the index of first phase_handler
     if (!r->internal) {
         switch (r->headers_in.connection_type) {
         case 0:

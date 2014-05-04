@@ -18,7 +18,8 @@
 extern ngx_mutex_t  *ngx_posted_events_mutex;
 #endif
 
-// dyc: prev point to previous item's next field
+// dyc: insert ev into queue
+//      prev point to previous item's next field
 #define ngx_locked_post_event(ev, queue)                                      \
                                                                               \
     if (ev->prev == NULL) {                                                   \
