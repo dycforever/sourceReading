@@ -328,7 +328,7 @@ ngx_event_accept(ngx_event_t *ev)
         log->data = NULL;
         log->handler = NULL;
         // dyc: ls is a pointer of type ngx_listening_t*
-        //      for http connection, this ngx_http_init_connection()
+        //      for http connection, is ngx_http_init_connection()
         ls->handler(c);
 
         if (ngx_event_flags & NGX_USE_KQUEUE_EVENT) {

@@ -836,6 +836,7 @@ ngx_http_handler(ngx_http_request_t *r)
 
     r->connection->unexpected_eof = 0;
 
+    // dyc: set r->phase_handler to the index of first phase_handler
     if (!r->internal) {
         switch (r->headers_in.connection_type) {
         case 0:

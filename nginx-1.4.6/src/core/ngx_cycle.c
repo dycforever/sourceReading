@@ -319,7 +319,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
          * we do not create the pid file in the first ngx_init_cycle() call
          * because we need to write the demonized process pid
          */
-
+        // dyc: old_cycle->conf_ctx[ngx_core_module.index]
         old_ccf = (ngx_core_conf_t *) ngx_get_conf(old_cycle->conf_ctx,
                                                    ngx_core_module);
         if (ccf->pid.len != old_ccf->pid.len

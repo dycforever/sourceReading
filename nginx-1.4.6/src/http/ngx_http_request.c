@@ -190,7 +190,8 @@ ngx_http_header_t  ngx_http_headers_in[] = {
     { ngx_null_string, 0, NULL }
 };
 
-
+// dyc: this function is set as listening socket's read handler in ngx_http_add_listening()
+//      alloc ngx_http_connection_t and set ite log and read/write handler
 void
 ngx_http_init_connection(ngx_connection_t *c)
 {
@@ -293,6 +294,8 @@ ngx_http_init_connection(ngx_connection_t *c)
     c->log->action = "waiting for request";
     c->log_error = NGX_ERROR_INFO;
 
+    // dyc: c->read/write->handler will be set with ngx_http_request_handler() 
+    //      in ngx_http_process_request() later
     rev = c->read;
     rev->handler = ngx_http_wait_request_handler;
     c->write->handler = ngx_http_empty_handler;
@@ -326,10 +329,11 @@ ngx_http_init_connection(ngx_connection_t *c)
     if (rev->ready) {
         /* the deferred accept(), rtsig, aio, iocp */
         if (ngx_use_accept_mutex) {
+            // dyc: insert rev into queue &ngx_posted_events
             ngx_post_event(rev, &ngx_posted_events);
             return;
         }
-        // dyc: ngx_http_wait_request_handler()
+        // dyc: ngx_http_wait_request_handler(), named ngx_http_init_connection() before
         rev->handler(rev);
         return;
     }
@@ -344,7 +348,7 @@ ngx_http_init_connection(ngx_connection_t *c)
     }
 }
 
-
+// dyc: get cscf->client_header_buffer_size and begin to read/process http header
 static void
 ngx_http_wait_request_handler(ngx_event_t *rev)
 {
@@ -444,6 +448,7 @@ ngx_http_wait_request_handler(ngx_event_t *rev)
     ngx_reusable_connection(c, 0);
 
     // dyc: in this function, r->http_connection = hc
+    //      so don't need to free hc
     c->data = ngx_http_create_request(c);
     if (c->data == NULL) {
         ngx_http_close_connection(c);
@@ -846,7 +851,7 @@ ngx_http_process_request_line(ngx_event_t *rev)
                 return;
             }
         }
-
+        // dyc: use a DFA to parse request line
         rc = ngx_http_parse_request_line(r, r->header_in);
 
         if (rc == NGX_OK) {
@@ -922,6 +927,7 @@ ngx_http_process_request_line(ngx_event_t *rev)
             c->log->action = "reading client request headers";
 
             rev->handler = ngx_http_process_request_headers;
+            // dyc: next step, begin to parse headers
             ngx_http_process_request_headers(rev);
 
             return;
@@ -1157,7 +1163,6 @@ ngx_http_process_request_headers(ngx_event_t *rev)
 
         /* the host header could change the server configuration context */
         cscf = ngx_http_get_module_srv_conf(r, ngx_http_core_module);
-
         rc = ngx_http_parse_header_line(r, r->header_in,
                                         cscf->underscores_in_headers);
 
@@ -1224,10 +1229,12 @@ ngx_http_process_request_headers(ngx_event_t *rev)
             r->request_length += r->header_in->pos - r->header_name_start;
 
             r->http_state = NGX_HTTP_PROCESS_REQUEST_STATE;
+            // dyc: do some check
             rc = ngx_http_process_request_header(r);
             if (rc != NGX_OK) {
                 return;
             }
+            // dyc: next step
             ngx_http_process_request(r);
             return;
         }
@@ -1718,7 +1725,8 @@ ngx_http_process_request_header(ngx_http_request_t *r)
     return NGX_OK;
 }
 
-
+// dyc: set read/write handler for r and c, then
+//      call ngx_http_core_run_phases() in ngx_http_handler()
 void
 ngx_http_process_request(ngx_http_request_t *r)
 {
@@ -1727,7 +1735,6 @@ ngx_http_process_request(ngx_http_request_t *r)
     c = r->connection;
 
 #if (NGX_HTTP_SSL)
-
     if (r->http_connection->ssl) {
         long                      rc;
         X509                     *cert;
@@ -1777,7 +1784,6 @@ ngx_http_process_request(ngx_http_request_t *r)
             }
         }
     }
-
 #endif
 
     if (c->read->timer_set) {
@@ -1790,7 +1796,7 @@ ngx_http_process_request(ngx_http_request_t *r)
     (void) ngx_atomic_fetch_add(ngx_stat_writing, 1);
     r->stat_writing = 1;
 #endif
-
+    // dyc: c->read/write->handler was set in ngx_http_init_connection() before
     c->read->handler = ngx_http_request_handler;
     c->write->handler = ngx_http_request_handler;
     r->read_event_handler = ngx_http_block_reading;
