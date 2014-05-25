@@ -199,6 +199,7 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         }
 
         module = ngx_modules[m]->ctx;
+        // dyc: @mi means (mi)th HTTP module
         mi = ngx_modules[m]->ctx_index;
 
         if (module->create_main_conf) {
@@ -285,13 +286,12 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     /* create location trees */
 
     for (s = 0; s < cmcf->servers.nelts; s++) {
-
         clcf = cscfp[s]->ctx->loc_conf[ngx_http_core_module.ctx_index];
-
+        // dyc: iterate all location in this server, keep named and regex location in seperated array
         if (ngx_http_init_locations(cf, cscfp[s], clcf) != NGX_OK) {
             return NGX_CONF_ERROR;
         }
-
+        // dyc: build location tree for non-regex locations
         if (ngx_http_init_static_location_trees(cf, clcf) != NGX_OK) {
             return NGX_CONF_ERROR;
         }
@@ -678,6 +678,7 @@ ngx_http_merge_locations(ngx_conf_t *cf, ngx_queue_t *locations,
 }
 
 
+// dyc: iterate all location in this server, keep named and regex location in seperated array
 static ngx_int_t
 ngx_http_init_locations(ngx_conf_t *cf, ngx_http_core_srv_conf_t *cscf,
     ngx_http_core_loc_conf_t *pclcf)
@@ -697,7 +698,7 @@ ngx_http_init_locations(ngx_conf_t *cf, ngx_http_core_srv_conf_t *cscf,
     if (locations == NULL) {
         return NGX_OK;
     }
-
+    // dyc: sort locations, exact_match path will before inclusive path
     ngx_queue_sort(locations, ngx_http_cmp_locations);
 
     named = NULL;
@@ -714,39 +715,33 @@ ngx_http_init_locations(ngx_conf_t *cf, ngx_http_core_srv_conf_t *cscf,
         lq = (ngx_http_location_queue_t *) q;
 
         clcf = lq->exact ? lq->exact : lq->inclusive;
-
+        // dyc: deal nested locations
         if (ngx_http_init_locations(cf, NULL, clcf) != NGX_OK) {
             return NGX_ERROR;
         }
 
 #if (NGX_PCRE)
-
         if (clcf->regex) {
             r++;
-
             if (regex == NULL) {
                 regex = q;
             }
-
             continue;
         }
-
 #endif
-
         if (clcf->named) {
+            // dyc: count named location
             n++;
-
             if (named == NULL) {
                 named = q;
             }
-
             continue;
         }
 
         if (clcf->noname) {
             break;
         }
-    }
+    } // for location in queue
 
     if (q != ngx_queue_sentinel(locations)) {
         ngx_queue_split(locations, q, &tail);
@@ -806,7 +801,7 @@ ngx_http_init_locations(ngx_conf_t *cf, ngx_http_core_srv_conf_t *cscf,
     return NGX_OK;
 }
 
-
+// dyc: build location tree for non-regex locations
 static ngx_int_t
 ngx_http_init_static_location_trees(ngx_conf_t *cf,
     ngx_http_core_loc_conf_t *pclcf)
@@ -1753,7 +1748,7 @@ ngx_http_init_listening(ngx_conf_t *cf, ngx_http_conf_port_t *port)
     return NGX_OK;
 }
 
-
+// dyc: create and init ngx_listening_t, then return it
 static ngx_listening_t *
 ngx_http_add_listening(ngx_conf_t *cf, ngx_http_conf_addr_t *addr)
 {

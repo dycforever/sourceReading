@@ -46,17 +46,17 @@ ngx_output_chain(ngx_output_chain_ctx_t *ctx, ngx_chain_t *in)
     ngx_chain_t  *cl, *out, **last_out;
 
     if (ctx->in == NULL && ctx->busy == NULL) {
-
         /*
          * the short path for the case when the ctx->in and ctx->busy chains
          * are empty, the incoming chain is empty too or has the single buf
          * that does not require the copy
          */
 
+        // dyc: if don't need copy, call next body filter
         if (in == NULL) {
             return ctx->output_filter(ctx->filter_ctx, in);
         }
-
+        // dyc: only one chain not in file or exceed limit, and don't neet to copy
         if (in->next == NULL
 #if (NGX_SENDFILE_LIMIT)
             && !(in->buf->in_file && in->buf->file_last > NGX_SENDFILE_LIMIT)
@@ -68,7 +68,7 @@ ngx_output_chain(ngx_output_chain_ctx_t *ctx, ngx_chain_t *in)
     }
 
     /* add the incoming buf to the chain ctx->in */
-
+    // dyc: insert @in at the end of ctx->in
     if (in) {
         if (ngx_output_chain_add_copy(ctx->pool, &ctx->in, in) == NGX_ERROR) {
             return NGX_ERROR;
@@ -80,24 +80,20 @@ ngx_output_chain(ngx_output_chain_ctx_t *ctx, ngx_chain_t *in)
     last = NGX_NONE;
 
     for ( ;; ) {
-
 #if (NGX_HAVE_FILE_AIO)
         if (ctx->aio) {
             return NGX_AGAIN;
         }
 #endif
-
+        // dyc: iterate all send buffers
         while (ctx->in) {
-
             /*
              * cycle while there are the ctx->in bufs
              * and there are the free output bufs to copy in
              */
-
+            // dyc: buffer size == 0 is non-normal
             bsize = ngx_buf_size(ctx->in->buf);
-
             if (bsize == 0 && !ngx_buf_special(ctx->in->buf)) {
-
                 ngx_log_error(NGX_LOG_ALERT, ctx->pool->log, 0,
                               "zero size buf in output "
                               "t:%d r:%d f:%d %p %p-%p %p %O-%O",
@@ -110,101 +106,88 @@ ngx_output_chain(ngx_output_chain_ctx_t *ctx, ngx_chain_t *in)
                               ctx->in->buf->file,
                               ctx->in->buf->file_pos,
                               ctx->in->buf->file_last);
-
                 ngx_debug_point();
-
                 ctx->in = ctx->in->next;
-
                 continue;
             }
 
+            // dyc: return 1 means don't need copy
             if (ngx_output_chain_as_is(ctx, ctx->in->buf)) {
-
                 /* move the chain link to the output chain */
-
+                // dyc: last_out point to the last elem of the output chain
+                //      so take the chain elem from ctx->in to output chain
                 cl = ctx->in;
                 ctx->in = cl->next;
-
                 *last_out = cl;
                 last_out = &cl->next;
                 cl->next = NULL;
-
                 continue;
             }
 
+            // dyc: here means we need copy buffer to ctx->buf
             if (ctx->buf == NULL) {
-
+                // dyc: create a temp buffer with aligned size @bsize
                 rc = ngx_output_chain_align_file_buf(ctx, bsize);
-
                 if (rc == NGX_ERROR) {
                     return NGX_ERROR;
                 }
 
                 if (rc != NGX_OK) {
-
+                    // dyc: get the free buf from ctx->free
                     if (ctx->free) {
-
-                        /* get the free buf */
-
                         cl = ctx->free;
                         ctx->buf = cl->buf;
                         ctx->free = cl->next;
-
                         ngx_free_chain(ctx->pool, cl);
-
                     } else if (out || ctx->allocated == ctx->bufs.num) {
-
+                        // dyc: if out, means there is data available in output chain
                         break;
-
                     } else if (ngx_output_chain_get_buf(ctx, bsize) != NGX_OK) {
                         return NGX_ERROR;
                     }
                 }
             }
-
+            // dyc: copy data from ctx->in->buf to ctx->buf 
             rc = ngx_output_chain_copy_buf(ctx);
 
             if (rc == NGX_ERROR) {
                 return rc;
             }
-
             if (rc == NGX_AGAIN) {
                 if (out) {
                     break;
                 }
-
                 return rc;
             }
-
             /* delete the completed buf from the ctx->in chain */
-
             if (ngx_buf_size(ctx->in->buf) == 0) {
                 ctx->in = ctx->in->next;
             }
 
+            // dyc: fast way to get a ngx_chain_t from pool->chain
             cl = ngx_alloc_chain_link(ctx->pool);
             if (cl == NULL) {
                 return NGX_ERROR;
             }
-
+            
+            // dyc: last_out point to the last elem of the output chain
+            //      so take the chain elem from ctx->in to output chain
             cl->buf = ctx->buf;
             cl->next = NULL;
             *last_out = cl;
             last_out = &cl->next;
             ctx->buf = NULL;
-        }
+        } // while (ctx->in);
 
         if (out == NULL && last != NGX_NONE) {
-
             if (ctx->in) {
                 return NGX_AGAIN;
             }
-
             return last;
         }
 
+        // dyc: call next body filter
         last = ctx->output_filter(ctx->filter_ctx, out);
-
         if (last == NGX_ERROR || last == NGX_DONE) {
             return last;
         }
@@ -212,10 +195,11 @@ ngx_output_chain(ngx_output_chain_ctx_t *ctx, ngx_chain_t *in)
         ngx_chain_update_chains(ctx->pool, &ctx->free, &ctx->busy, &out,
                                 ctx->tag);
         last_out = &out;
-    }
+    } // for(;;)
 }
 
 
+// dyc: if need copy buffer, return 1 means no copy
 static ngx_inline ngx_int_t
 ngx_output_chain_as_is(ngx_output_chain_ctx_t *ctx, ngx_buf_t *buf)
 {
@@ -240,11 +224,10 @@ ngx_output_chain_as_is(ngx_output_chain_ctx_t *ctx, ngx_buf_t *buf)
 #endif
 
     if (!sendfile) {
-
         if (!ngx_buf_in_memory(buf)) {
             return 0;
         }
-
+        // dyc: here means buf in memory, so not in file
         buf->in_file = 0;
     }
 
@@ -259,7 +242,7 @@ ngx_output_chain_as_is(ngx_output_chain_ctx_t *ctx, ngx_buf_t *buf)
     return 1;
 }
 
-
+// dyc: copy in to ten end of chain
 static ngx_int_t
 ngx_output_chain_add_copy(ngx_pool_t *pool, ngx_chain_t **chain,
     ngx_chain_t *in)
@@ -271,12 +254,13 @@ ngx_output_chain_add_copy(ngx_pool_t *pool, ngx_chain_t **chain,
 
     ll = chain;
 
+    // dyc: ll point to last elem's next field
     for (cl = *chain; cl; cl = cl->next) {
         ll = &cl->next;
     }
 
+    // dyc: alloc a cl for each buf in @in, insert it into @chain
     while (in) {
-
         cl = ngx_alloc_chain_link(pool);
         if (cl == NULL) {
             return NGX_ERROR;
@@ -313,14 +297,13 @@ ngx_output_chain_add_copy(ngx_pool_t *pool, ngx_chain_t **chain,
             cl->buf = buf;
             in = in->next;
         }
-
 #else
         cl->buf = in->buf;
         in = in->next;
 
 #endif
-
         cl->next = NULL;
+        // dyc: insert cl into chain
         *ll = cl;
         ll = &cl->next;
     }
@@ -329,6 +312,7 @@ ngx_output_chain_add_copy(ngx_pool_t *pool, ngx_chain_t **chain,
 }
 
 
+// dyc: create a temp buffer with aligned size @bsize
 static ngx_int_t
 ngx_output_chain_align_file_buf(ngx_output_chain_ctx_t *ctx, off_t bsize)
 {
@@ -361,6 +345,7 @@ ngx_output_chain_align_file_buf(ngx_output_chain_ctx_t *ctx, off_t bsize)
         }
     }
 
+    // dyc: create a temp buffer with size @size
     ctx->buf = ngx_create_temp_buf(ctx->pool, size);
     if (ctx->buf == NULL) {
         return NGX_ERROR;
@@ -454,7 +439,7 @@ ngx_output_chain_get_buf(ngx_output_chain_ctx_t *ctx, off_t bsize)
     return NGX_OK;
 }
 
-
+// dyc: copy data from ctx->in->buf to ctx->buf 
 static ngx_int_t
 ngx_output_chain_copy_buf(ngx_output_chain_ctx_t *ctx)
 {
@@ -509,6 +494,7 @@ ngx_output_chain_copy_buf(ngx_output_chain_ctx_t *ctx)
         }
 
     } else {
+        // dyc: data in file
 
 #if (NGX_HAVE_ALIGNED_DIRECTIO)
 
@@ -592,7 +578,7 @@ ngx_output_chain_copy_buf(ngx_output_chain_ctx_t *ctx)
             dst->last_buf = src->last_buf;
             dst->last_in_chain = src->last_in_chain;
         }
-    }
+    } // if data in file
 
     return NGX_OK;
 }

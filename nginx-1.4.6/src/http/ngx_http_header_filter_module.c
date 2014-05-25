@@ -170,6 +170,7 @@ ngx_http_header_filter(ngx_http_request_t *r)
 #endif
     u_char                     addr[NGX_SOCKADDR_STRLEN];
 
+    // dyc: already sent headers
     if (r->header_sent) {
         return NGX_OK;
     }

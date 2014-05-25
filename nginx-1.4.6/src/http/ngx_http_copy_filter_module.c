@@ -140,6 +140,7 @@ ngx_http_copy_filter(ngx_http_request_t *r, ngx_chain_t *in)
 #endif
 
     for ( ;; ) {
+        // dyc: main operation
         rc = ngx_output_chain(ctx, in);
 
         if (ctx->in == NULL) {
@@ -202,7 +203,7 @@ ngx_http_copy_filter(ngx_http_request_t *r, ngx_chain_t *in)
 #endif
 
         return rc;
-    }
+    } // for(;;)
 }
 
 

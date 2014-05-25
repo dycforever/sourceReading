@@ -9,6 +9,7 @@
 #include <ngx_core.h>
 
 
+// dyc: create a temp buffer with size @size
 ngx_buf_t *
 ngx_create_temp_buf(ngx_pool_t *pool, size_t size)
 {
@@ -43,7 +44,7 @@ ngx_create_temp_buf(ngx_pool_t *pool, size_t size)
     return b;
 }
 
-
+// dyc: fast way to get a ngx_chain_t from pool->chain
 ngx_chain_t *
 ngx_alloc_chain_link(ngx_pool_t *pool)
 {

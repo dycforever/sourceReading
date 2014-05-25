@@ -191,7 +191,7 @@ ngx_http_header_t  ngx_http_headers_in[] = {
 };
 
 // dyc: this function is set as listening socket's read handler in ngx_http_add_listening()
-//      alloc ngx_http_connection_t and set ite log and read/write handler
+//      alloc ngx_http_connection_t and set its log and read/write handler
 void
 ngx_http_init_connection(ngx_connection_t *c)
 {
@@ -333,7 +333,8 @@ ngx_http_init_connection(ngx_connection_t *c)
             ngx_post_event(rev, &ngx_posted_events);
             return;
         }
-        // dyc: ngx_http_wait_request_handler(), named ngx_http_init_connection() before
+        // dyc: ngx_http_wait_request_handler(), 
+        //      named ngx_http_init_connection()/ ngx_http_init_request() in early version
         rev->handler(rev);
         return;
     }
@@ -473,7 +474,7 @@ ngx_http_create_request(ngx_connection_t *c)
     ngx_http_core_main_conf_t  *cmcf;
 
     c->requests++;
-
+// dyc: hc was alloced in ngx_http_init_connection()
     hc = c->data;
 
     cscf = ngx_http_get_module_srv_conf(hc->conf_ctx, ngx_http_core_module);
@@ -495,6 +496,7 @@ ngx_http_create_request(ngx_connection_t *c)
     r->signature = NGX_HTTP_MODULE;
     r->connection = c;
 
+    // dyc: in ngx_http_init_connection(), hc->conf_ctx = hc->addr_conf->default_server->ctx 
     r->main_conf = hc->conf_ctx->main_conf;
     r->srv_conf = hc->conf_ctx->srv_conf;
     r->loc_conf = hc->conf_ctx->loc_conf;
@@ -506,6 +508,7 @@ ngx_http_create_request(ngx_connection_t *c)
 
     ngx_http_set_connection_log(r->connection, clcf->error_log);
 
+    // dyc: hc->busy is allocated in ngx_http_alloc_large_header_buffer()
     r->header_in = hc->nbusy ? hc->busy[0] : c->buffer;
 
     // dyc: headers list for response
@@ -846,20 +849,17 @@ ngx_http_process_request_line(ngx_event_t *rev)
 
         if (rc == NGX_AGAIN) {
             n = ngx_http_read_request_header(r);
-
             if (n == NGX_AGAIN || n == NGX_ERROR) {
                 return;
             }
         }
         // dyc: use a DFA to parse request line
         rc = ngx_http_parse_request_line(r, r->header_in);
-
         if (rc == NGX_OK) {
-
             /* the request line has been parsed successfully */
-
             r->request_line.len = r->request_end - r->request_start;
             r->request_line.data = r->request_start;
+            // dyc: r->request_end = r->header_in->pos - 1
             r->request_length = r->header_in->pos - r->request_start;
 
             ngx_log_debug1(NGX_LOG_DEBUG_HTTP, c->log, 0,
@@ -881,6 +881,7 @@ ngx_http_process_request_line(ngx_event_t *rev)
                 host.len = r->host_end - r->host_start;
                 host.data = r->host_start;
 
+                // dyc: validate and translate host string to lower case
                 rc = ngx_http_validate_host(&host, r->pool, 0);
 
                 if (rc == NGX_DECLINED) {
@@ -902,15 +903,14 @@ ngx_http_process_request_line(ngx_event_t *rev)
                 r->headers_in.server = host;
             }
 
+            // dyc: there is no http headers in http 0.9, so just return
             if (r->http_version < NGX_HTTP_VERSION_10) {
-
                 if (r->headers_in.server.len == 0
                     && ngx_http_set_virtual_server(r, &r->headers_in.server)
                        == NGX_ERROR)
                 {
                     return;
                 }
-
                 ngx_http_process_request(r);
                 return;
             }
@@ -944,7 +944,8 @@ ngx_http_process_request_line(ngx_event_t *rev)
         // dyc: here means rc == NGX_AGAIN
 
         /* NGX_AGAIN: a request line parsing is still incomplete */
-        // dyc: maybe because buffer is not enough, alloc a bigger one
+        // dyc: header_in is a buf, headers_in is a complext struct
+        //      maybe because buffer is not enough, alloc a bigger one
         if (r->header_in->pos == r->header_in->end) {
             rv = ngx_http_alloc_large_header_buffer(r, 1);
             if (rv == NGX_ERROR) {
@@ -1807,6 +1808,7 @@ ngx_http_process_request(ngx_http_request_t *r)
 }
 
 
+// dyc: iterate host str, check if valid and translate to lower case if find upper case char
 static ngx_int_t
 ngx_http_validate_host(ngx_str_t *host, ngx_pool_t *pool, ngx_uint_t alloc)
 {
@@ -1825,13 +1827,13 @@ ngx_http_validate_host(ngx_str_t *host, ngx_pool_t *pool, ngx_uint_t alloc)
     h = host->data;
 
     state = sw_usual;
-
     for (i = 0; i < host->len; i++) {
         ch = h[i];
 
         switch (ch) {
 
         case '.':
+            // dyc: if two continuous dot
             if (dot_pos == i - 1) {
                 return NGX_DECLINED;
             }
@@ -1888,7 +1890,6 @@ ngx_http_validate_host(ngx_str_t *host, ngx_pool_t *pool, ngx_uint_t alloc)
         if (host->data == NULL) {
             return NGX_ERROR;
         }
-
         ngx_strlow(host->data, h, host_len);
     }
 

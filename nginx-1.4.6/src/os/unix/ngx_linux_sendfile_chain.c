@@ -37,6 +37,7 @@
 ngx_chain_t *
 ngx_linux_sendfile_chain(ngx_connection_t *c, ngx_chain_t *in, off_t limit)
 {
+    // dyc: send is want to send, sent is actually sent
     int            rc, tcp_nodelay;
     off_t          size, send, prev_send, aligned, sent, fprev;
     u_char        *prev;
@@ -75,6 +76,7 @@ ngx_linux_sendfile_chain(ngx_connection_t *c, ngx_chain_t *in, off_t limit)
     header.nalloc = NGX_HEADERS;
     header.pool = c->pool;
 
+    // dyc: coalesce buf and send until complete
     for ( ;; ) {
         file = NULL;
         file_size = 0;
@@ -88,13 +90,11 @@ ngx_linux_sendfile_chain(ngx_connection_t *c, ngx_chain_t *in, off_t limit)
         iov = NULL;
 
         /* create the iovec and coalesce the neighbouring bufs */
-
+        // dyc: deal in-memory data in this for loop
         for (cl = in; cl && send < limit; cl = cl->next) {
-
             if (ngx_buf_special(cl->buf)) {
                 continue;
             }
-
 #if 1
             if (!ngx_buf_in_memory(cl->buf) && !cl->buf->in_file) {
                 ngx_log_error(NGX_LOG_ALERT, c->log, 0,
@@ -109,23 +109,22 @@ ngx_linux_sendfile_chain(ngx_connection_t *c, ngx_chain_t *in, off_t limit)
                               cl->buf->file,
                               cl->buf->file_pos,
                               cl->buf->file_last);
-
                 ngx_debug_point();
-
                 return NGX_CHAIN_ERROR;
             }
 #endif
-
+            // dyc: may be in file
             if (!ngx_buf_in_memory_only(cl->buf)) {
                 break;
             }
 
             size = cl->buf->last - cl->buf->pos;
 
+            // dyc: in this function, data will be sent must less then @limit
             if (send + size > limit) {
                 size = limit - send;
             }
-
+            // dyc: merge buf if they are continuous, or add a iov
             if (prev == cl->buf->pos) {
                 iov->iov_len += (size_t) size;
 
@@ -145,32 +144,28 @@ ngx_linux_sendfile_chain(ngx_connection_t *c, ngx_chain_t *in, off_t limit)
 
             prev = cl->buf->pos + (size_t) size;
             send += size;
-        }
+        } // for() merge buffer
 
         /* set TCP_CORK if there is a header before a file */
-
+        // dyc: seems tcp_cork work only if use sendfile
+        //      if unset nopush, cancel tcp nodelay and set nopush, just let it delay
         if (c->tcp_nopush == NGX_TCP_NOPUSH_UNSET
             && header.nelts != 0
             && cl
             && cl->buf->in_file)
         {
             /* the TCP_CORK and TCP_NODELAY are mutually exclusive */
-
             if (c->tcp_nodelay == NGX_TCP_NODELAY_SET) {
-
                 tcp_nodelay = 0;
-
                 if (setsockopt(c->fd, IPPROTO_TCP, TCP_NODELAY,
                                (const void *) &tcp_nodelay, sizeof(int)) == -1)
                 {
                     err = ngx_errno;
-
                     /*
                      * there is a tiny chance to be interrupted, however,
                      * we continue a processing with the TCP_NODELAY
                      * and without the TCP_CORK
                      */
-
                     if (err != NGX_EINTR) {
                         wev->error = 1;
                         ngx_connection_error(c, err,
@@ -179,15 +174,15 @@ ngx_linux_sendfile_chain(ngx_connection_t *c, ngx_chain_t *in, off_t limit)
                     }
 
                 } else {
+                    // dyc: let it delay
                     c->tcp_nodelay = NGX_TCP_NODELAY_UNSET;
-
                     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, c->log, 0,
                                    "no tcp_nodelay");
                 }
             }
 
             if (c->tcp_nodelay == NGX_TCP_NODELAY_UNSET) {
-
+                // dyc: let it delay above
                 if (ngx_tcp_nopush(c->fd) == NGX_ERROR) {
                     err = ngx_errno;
 
@@ -195,49 +190,38 @@ ngx_linux_sendfile_chain(ngx_connection_t *c, ngx_chain_t *in, off_t limit)
                      * there is a tiny chance to be interrupted, however,
                      * we continue a processing without the TCP_CORK
                      */
-
                     if (err != NGX_EINTR) {
                         wev->error = 1;
                         ngx_connection_error(c, err,
                                              ngx_tcp_nopush_n " failed");
                         return NGX_CHAIN_ERROR;
                     }
-
                 } else {
                     c->tcp_nopush = NGX_TCP_NOPUSH_SET;
-
                     ngx_log_debug0(NGX_LOG_DEBUG_EVENT, c->log, 0,
                                    "tcp_nopush");
                 }
             }
-        }
+        } // if c->tcp_nopush == NGX_TCP_NOPUSH_UNSET
 
         /* get the file buf */
-
         if (header.nelts == 0 && cl && cl->buf->in_file && send < limit) {
             file = cl->buf;
-
             /* coalesce the neighbouring file bufs */
-
             do {
                 size = cl->buf->file_last - cl->buf->file_pos;
-
                 if (send + size > limit) {
                     size = limit - send;
-
                     aligned = (cl->buf->file_pos + size + ngx_pagesize - 1)
                                & ~((off_t) ngx_pagesize - 1);
-
                     if (aligned <= cl->buf->file_last) {
                         size = aligned - cl->buf->file_pos;
                     }
                 }
-
                 file_size += (size_t) size;
                 send += size;
                 fprev = cl->buf->file_pos + size;
                 cl = cl->next;
-
             } while (cl
                      && cl->buf->in_file
                      && send < limit
@@ -245,6 +229,8 @@ ngx_linux_sendfile_chain(ngx_connection_t *c, ngx_chain_t *in, off_t limit)
                      && fprev == cl->buf->file_pos);
         }
 
+        // dyc: send file buffer by sendfile(), memory buffer by writev()
+        //      file set above: file = cl->buf;
         if (file) {
 #if 1
             if (file_size == 0) {
@@ -283,9 +269,7 @@ ngx_linux_sendfile_chain(ngx_connection_t *c, ngx_chain_t *in, off_t limit)
                 ngx_log_debug0(NGX_LOG_DEBUG_EVENT, c->log, err,
                                "sendfile() is not ready");
             }
-
             sent = rc > 0 ? rc : 0;
-
             ngx_log_debug4(NGX_LOG_DEBUG_EVENT, c->log, 0,
                            "sendfile: %d, @%O %O:%uz",
                            rc, file->file_pos, sent, file_size);
@@ -319,12 +303,15 @@ ngx_linux_sendfile_chain(ngx_connection_t *c, ngx_chain_t *in, off_t limit)
             ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "writev: %O", sent);
         }
 
+        // dyc: @send is accumulative, if prev_send != 0, means previous sending is complete.
+        //      so send - prev_send is the mount of data need to be sent this time
         if (send - prev_send == sent) {
             complete = 1;
         }
 
         c->sent += sent;
 
+        // dyc: use sent to update buffers' pos
         for (cl = in; cl; cl = cl->next) {
 
             if (ngx_buf_special(cl->buf)) {
@@ -366,6 +353,7 @@ ngx_linux_sendfile_chain(ngx_connection_t *c, ngx_chain_t *in, off_t limit)
             continue;
         }
 
+        // dyc: send - prev_send != sent, so peer may not ready to receive all data
         if (!complete) {
             wev->ready = 0;
             return cl;
@@ -375,6 +363,7 @@ ngx_linux_sendfile_chain(ngx_connection_t *c, ngx_chain_t *in, off_t limit)
             return cl;
         }
 
+        // dyc: send next cl
         in = cl;
     }
 }

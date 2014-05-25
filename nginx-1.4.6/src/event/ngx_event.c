@@ -814,6 +814,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 #else
         // dyc: set in-event handler function
         rev->handler = ngx_event_accept;
+        // dyc: if use accept mutex, register read event handler after get the mutex
         if (ngx_use_accept_mutex) {
             continue;
         }

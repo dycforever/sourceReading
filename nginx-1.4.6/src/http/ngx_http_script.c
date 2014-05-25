@@ -637,7 +637,7 @@ ngx_http_script_done(ngx_http_script_compile_t *sc)
     return NGX_OK;
 }
 
-// dyc: create a new array and push [size] empty items
+// dyc: create a new array and push @size empty items of size 1
 void *
 ngx_http_script_start_code(ngx_pool_t *pool, ngx_array_t **codes, size_t size)
 {

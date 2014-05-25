@@ -167,7 +167,7 @@ static ngx_command_t  ngx_core_commands[] = {
 //     char               *(*init_conf)(ngx_cycle_t *cycle, void *conf);
 // } ngx_core_module_t;
 //
-// always call create_conf() first and then create_conf()
+// always call create_conf() first and then init_conf()
 
 static ngx_core_module_t  ngx_core_module_ctx = {
     ngx_string("core"),
