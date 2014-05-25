@@ -294,6 +294,7 @@ ngx_http_copy_filter_merge_conf(ngx_conf_t *cf, void *parent, void *child)
 static ngx_int_t
 ngx_http_copy_filter_init(ngx_conf_t *cf)
 {
+    // dyc: no header filter
     ngx_http_next_body_filter = ngx_http_top_body_filter;
     ngx_http_top_body_filter = ngx_http_copy_filter;
 

@@ -109,15 +109,14 @@ struct ngx_module_s {
     ngx_uint_t            spare3;
 
     ngx_uint_t            version;
+    // NGX_MODULE_V1 above
 
     void                 *ctx;
     ngx_command_t        *commands;
     ngx_uint_t            type;
 
     ngx_int_t           (*init_master)(ngx_log_t *log);
-
     ngx_int_t           (*init_module)(ngx_cycle_t *cycle);
-
     ngx_int_t           (*init_process)(ngx_cycle_t *cycle);
     ngx_int_t           (*init_thread)(ngx_cycle_t *cycle);
     void                (*exit_thread)(ngx_cycle_t *cycle);
@@ -125,6 +124,7 @@ struct ngx_module_s {
 
     void                (*exit_master)(ngx_cycle_t *cycle);
 
+    // NGX_MODULE_V1_PADDING below
     uintptr_t             spare_hook0;
     uintptr_t             spare_hook1;
     uintptr_t             spare_hook2;

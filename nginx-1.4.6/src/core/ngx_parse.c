@@ -8,7 +8,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 
-
+// dyc: parse xxM ..K
 ssize_t
 ngx_parse_size(ngx_str_t *line)
 {
