@@ -8,7 +8,8 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 
-
+// dyc: find elt in @hash by @key, compare @name and elt->name, 
+//      return elt->value if found, or return NULL
 void *
 ngx_hash_find(ngx_hash_t *hash, ngx_uint_t key, u_char *name, size_t len)
 {

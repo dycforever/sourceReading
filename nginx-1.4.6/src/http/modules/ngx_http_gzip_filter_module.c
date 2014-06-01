@@ -320,7 +320,7 @@ ngx_http_gzip_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
     ngx_http_gzip_ctx_t  *ctx;
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_gzip_filter_module);
-
+    // dyc: ctx is allocated in ngx_http_gzip_head_filter(), os if it is null, means conf->enable == false
     if (ctx == NULL || ctx->done || r->header_only) {
         return ngx_http_next_body_filter(r, in);
     }
@@ -329,7 +329,6 @@ ngx_http_gzip_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
                    "http gzip filter");
 
     if (ctx->buffering) {
-
         /*
          * With default memory settings zlib starts to output gzipped data
          * only after it has got about 90K, so it makes sense to allocate
@@ -340,12 +339,16 @@ ngx_http_gzip_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
          */
 
         if (in) {
+            // dyc: copy buf's content of chain-elem from @in to @ctx->in when buffer size < threshold
+            //      or just copy buffer pointer
             switch (ngx_http_gzip_filter_buffer(ctx, in)) {
 
             case NGX_OK:
+                // dyc: delay
                 return NGX_OK;
 
             case NGX_DONE:
+                // dyc: means ctx->buffering == 0
                 in = NULL;
                 break;
 
@@ -365,77 +368,73 @@ ngx_http_gzip_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
     }
 
     if (in) {
+        // dyc: here means ctx->buffering == 0 when calling this function
+        //      copy pointer of chain elem's buf from @in to the end of @ctx->in
         if (ngx_chain_add_copy(r->pool, &ctx->in, in) != NGX_OK) {
             goto failed;
         }
     }
 
     if (ctx->nomem) {
-
         /* flush busy buffers */
-
         if (ngx_http_next_body_filter(r, NULL) == NGX_ERROR) {
             goto failed;
         }
 
         cl = NULL;
-
+        // dyc: move @lc to the end of @ctx->busy, 
+        //      then free(move to @free) empty busy buffers until whose size != 0
         ngx_chain_update_chains(r->pool, &ctx->free, &ctx->busy, &cl,
                                 (ngx_buf_tag_t) &ngx_http_gzip_filter_module);
         ctx->nomem = 0;
     }
 
     for ( ;; ) {
-
         /* cycle while we can write to a client */
-
         for ( ;; ) {
-
             /* cycle while there is data to feed zlib and ... */
-
+            // dyc: get next buf in @ctx->in as input data.
+            //      if ctx->redo which means no enough output memory for deflate, 
+            //      so don't need add new data, just return NGX_OK
             rc = ngx_http_gzip_filter_add_data(r, ctx);
-
             if (rc == NGX_DECLINED) {
                 break;
             }
-
             if (rc == NGX_AGAIN) {
+                // dyc: means ctx->flush == Z_NO_FLUSH
                 continue;
             }
 
-
             /* ... there are buffers to write zlib output */
-
+            // dyc: get output buf from ctx->free or create a temp buf, or set nomem=1
+            //      if (ctx->zstream.avail_out), return NGX_OK
             rc = ngx_http_gzip_filter_get_buf(r, ctx);
-
             if (rc == NGX_DECLINED) {
+                // dyc: here means no memory
                 break;
             }
-
             if (rc == NGX_ERROR) {
                 goto failed;
             }
+            // dyc: rc == NGX_OK
 
-
+            // dyc: do defalte
             rc = ngx_http_gzip_filter_deflate(r, ctx);
-
             if (rc == NGX_OK) {
+                // dyc: here means flush = SYNC_FLUSH or return STREAM_END
                 break;
             }
-
             if (rc == NGX_ERROR) {
                 goto failed;
             }
-
-            /* rc == NGX_AGAIN */
-        }
+            // dyc: deflate return NGX_AGAIN, means no enough memory or just deflate again(redo = 0)
+        } // for(;;)
 
         if (ctx->out == NULL) {
             ngx_http_gzip_filter_free_copy_buf(r, ctx);
-
             return ctx->busy ? NGX_AGAIN : NGX_OK;
         }
-
+        // dyc: make gzip header, add to the head of ctx->out
         if (!ctx->gzheader) {
             if (ngx_http_gzip_filter_gzheader(r, ctx) != NGX_OK) {
                 goto failed;
@@ -443,23 +442,27 @@ ngx_http_gzip_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
         }
 
         rc = ngx_http_next_body_filter(r, ctx->out);
-
         if (rc == NGX_ERROR) {
             goto failed;
         }
 
         ngx_http_gzip_filter_free_copy_buf(r, ctx);
 
+        // dyc: ctx->out for this module is output, but for next module is input and buffers will be consumed
+        //      such as we consume(move ctx->in_buf->pos) in ngx_http_gzip_filter_deflate()
         ngx_chain_update_chains(r->pool, &ctx->free, &ctx->busy, &ctx->out,
                                 (ngx_buf_tag_t) &ngx_http_gzip_filter_module);
+        // dyc: here ctx->out == NULL
         ctx->last_out = &ctx->out;
 
         ctx->nomem = 0;
 
         if (ctx->done) {
+            // dyc: here means ngx_http_gzip_filter_deflate_end() be called in ngx_http_gzip_filter_deflate()
+            //      so deflate all data successfully
             return rc;
         }
-    }
+    } // for(;;)
 
     /* unreachable */
 
@@ -478,7 +481,7 @@ failed:
     return NGX_ERROR;
 }
 
-
+// dyc: calculate size of pre-allocated through r->headers_out.content_length_n and wbits/memlevel
 static void
 ngx_http_gzip_filter_memory(ngx_http_request_t *r, ngx_http_gzip_ctx_t *ctx)
 {
@@ -486,14 +489,11 @@ ngx_http_gzip_filter_memory(ngx_http_request_t *r, ngx_http_gzip_ctx_t *ctx)
     ngx_http_gzip_conf_t  *conf;
 
     conf = ngx_http_get_module_loc_conf(r, ngx_http_gzip_filter_module);
-
     wbits = conf->wbits;
     memlevel = conf->memlevel;
 
     if (r->headers_out.content_length_n > 0) {
-
         /* the actual zlib window size is smaller by 262 bytes */
-
         while (r->headers_out.content_length_n < ((1 << (wbits - 1)) - 262)) {
             wbits--;
             memlevel--;
@@ -522,7 +522,8 @@ ngx_http_gzip_filter_memory(ngx_http_request_t *r, ngx_http_gzip_ctx_t *ctx)
     ctx->allocated = 8192 + (1 << (wbits + 2)) + (1 << (memlevel + 9));
 }
 
-
+// dyc: move chain-elem from @in to @ctx->in
+//      called when ctx->buffering is set
 static ngx_int_t
 ngx_http_gzip_filter_buffer(ngx_http_gzip_ctx_t *ctx, ngx_chain_t *in)
 {
@@ -537,15 +538,16 @@ ngx_http_gzip_filter_buffer(ngx_http_gzip_ctx_t *ctx, ngx_chain_t *in)
     r->connection->buffered |= NGX_HTTP_GZIP_BUFFERED;
 
     buffered = 0;
-    ll = &ctx->in;
 
+    // dyc: ll point to last chain
+    ll = &ctx->in;
     for (cl = ctx->in; cl; cl = cl->next) {
         buffered += cl->buf->last - cl->buf->pos;
         ll = &cl->next;
     }
 
     conf = ngx_http_get_module_loc_conf(r, ngx_http_gzip_filter_module);
-
+    // dyc: copy chain-elem from in @in to @ll, which is the end of @ctx->in
     while (in) {
         cl = ngx_alloc_chain_link(r->pool);
         if (cl == NULL) {
@@ -569,6 +571,7 @@ ngx_http_gzip_filter_buffer(ngx_http_gzip_ctx_t *ctx, ngx_chain_t *in)
             }
 
             buf->last = ngx_cpymem(buf->pos, b->pos, size);
+            // dyc: clear in's buffer
             b->pos = b->last;
 
             buf->last_buf = b->last_buf;
@@ -590,7 +593,7 @@ ngx_http_gzip_filter_buffer(ngx_http_gzip_ctx_t *ctx, ngx_chain_t *in)
     return ctx->buffering ? NGX_OK : NGX_DONE;
 }
 
-
+// if ctx->preallocated == NULL, alloc with size of ctx->allocated, for zlib's internal buffer
 static ngx_int_t
 ngx_http_gzip_filter_deflate_start(ngx_http_request_t *r,
     ngx_http_gzip_ctx_t *ctx)
@@ -629,7 +632,7 @@ ngx_http_gzip_filter_deflate_start(ngx_http_request_t *r,
     return NGX_OK;
 }
 
-
+// dyc: alloc buffer for headers, add to the head of ctx->out
 static ngx_int_t
 ngx_http_gzip_filter_gzheader(ngx_http_request_t *r, ngx_http_gzip_ctx_t *ctx)
 {
@@ -661,7 +664,8 @@ ngx_http_gzip_filter_gzheader(ngx_http_request_t *r, ngx_http_gzip_ctx_t *ctx)
     return NGX_OK;
 }
 
-
+// dyc: set next_in for input string and avail_in for input length
+//      and calculate CRC32
 static ngx_int_t
 ngx_http_gzip_filter_add_data(ngx_http_request_t *r, ngx_http_gzip_ctx_t *ctx)
 {
@@ -677,12 +681,11 @@ ngx_http_gzip_filter_add_data(ngx_http_request_t *r, ngx_http_gzip_ctx_t *ctx)
     }
 
     if (ctx->copy_buf) {
-
         /*
          * to avoid CPU cache trashing we do not free() just quit buf,
          * but postpone free()ing after zlib compressing and data output
          */
-
+        // dyc: copied is delayed free buffer
         ctx->copy_buf->next = ctx->copied;
         ctx->copied = ctx->copy_buf;
         ctx->copy_buf = NULL;
@@ -690,6 +693,7 @@ ngx_http_gzip_filter_add_data(ngx_http_request_t *r, ngx_http_gzip_ctx_t *ctx)
 
     ctx->in_buf = ctx->in->buf;
 
+    // dyc: these buffers are allocated in ngx_http_gzip_filter_get_buf() or ngx_http_gzip_filter_buffer()
     if (ctx->in_buf->tag == (ngx_buf_tag_t) &ngx_http_gzip_filter_module) {
         ctx->copy_buf = ctx->in;
     }
@@ -706,16 +710,13 @@ ngx_http_gzip_filter_add_data(ngx_http_request_t *r, ngx_http_gzip_ctx_t *ctx)
 
     if (ctx->in_buf->last_buf) {
         ctx->flush = Z_FINISH;
-
     } else if (ctx->in_buf->flush) {
         ctx->flush = Z_SYNC_FLUSH;
     }
 
     if (ctx->zstream.avail_in) {
-
         ctx->crc32 = crc32(ctx->crc32, ctx->zstream.next_in,
                            ctx->zstream.avail_in);
-
     } else if (ctx->flush == Z_NO_FLUSH) {
         return NGX_AGAIN;
     }
@@ -728,13 +729,14 @@ static ngx_int_t
 ngx_http_gzip_filter_get_buf(ngx_http_request_t *r, ngx_http_gzip_ctx_t *ctx)
 {
     ngx_http_gzip_conf_t  *conf;
-
+    // dyc: memory for output is enough
     if (ctx->zstream.avail_out) {
         return NGX_OK;
     }
 
     conf = ngx_http_get_module_loc_conf(r, ngx_http_gzip_filter_module);
 
+    // dyc: ctx->free's buffer is fiiled when calling ngx_chain_update_chains()
     if (ctx->free) {
         ctx->out_buf = ctx->free->buf;
         ctx->free = ctx->free->next;
@@ -759,9 +761,9 @@ ngx_http_gzip_filter_get_buf(ngx_http_request_t *r, ngx_http_gzip_ctx_t *ctx)
     ctx->zstream.avail_out = conf->bufs.size;
 
     return NGX_OK;
-}
+} // ngx_http_gzip_filter_get_buf()
 
-
+// dyc: do deflate
 static ngx_int_t
 ngx_http_gzip_filter_deflate(ngx_http_request_t *r, ngx_http_gzip_ctx_t *ctx)
 {
@@ -804,10 +806,9 @@ ngx_http_gzip_filter_deflate(ngx_http_request_t *r, ngx_http_gzip_ctx_t *ctx)
 
     ctx->out_buf->last = ctx->zstream.next_out;
 
+    // dyc: not enough memory for output
     if (ctx->zstream.avail_out == 0) {
-
         /* zlib wants to output some more gzipped data */
-
         cl = ngx_alloc_chain_link(r->pool);
         if (cl == NULL) {
             return NGX_ERROR;
@@ -826,9 +827,7 @@ ngx_http_gzip_filter_deflate(ngx_http_request_t *r, ngx_http_gzip_ctx_t *ctx)
     ctx->redo = 0;
 
     if (ctx->flush == Z_SYNC_FLUSH) {
-
         ctx->flush = Z_NO_FLUSH;
-
         cl = ngx_alloc_chain_link(r->pool);
         if (cl == NULL) {
             return NGX_ERROR;
@@ -868,6 +867,7 @@ ngx_http_gzip_filter_deflate(ngx_http_request_t *r, ngx_http_gzip_ctx_t *ctx)
 
     conf = ngx_http_get_module_loc_conf(r, ngx_http_gzip_filter_module);
 
+    // dyc: no_buffer is not used, so ignore
     if (conf->no_buffer && ctx->in == NULL) {
 
         cl = ngx_alloc_chain_link(r->pool);
@@ -882,7 +882,10 @@ ngx_http_gzip_filter_deflate(ngx_http_request_t *r, ngx_http_gzip_ctx_t *ctx)
 
         return NGX_OK;
     }
-
+    // dyc: rc != STREAM_END and ctx->flush != Z_SYNC_FLUSH and avail_out != 0
+    //      rc == OK or ERROR(also OK), but avail_out != 0(means not redo)
+    //      And output buffer should add to ctx->last_out, so here means output defalte has not fill output buffer yet, 
+    //      just call with more input data
     return NGX_AGAIN;
 }
 

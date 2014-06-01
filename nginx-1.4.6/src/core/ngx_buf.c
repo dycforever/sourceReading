@@ -123,7 +123,7 @@ ngx_create_chain_of_bufs(ngx_pool_t *pool, ngx_bufs_t *bufs)
     return chain;
 }
 
-
+// dyc: copy pointer of chain elem's buf from @in to the end of @chain
 ngx_int_t
 ngx_chain_add_copy(ngx_pool_t *pool, ngx_chain_t **chain, ngx_chain_t *in)
 {
@@ -152,7 +152,7 @@ ngx_chain_add_copy(ngx_pool_t *pool, ngx_chain_t **chain, ngx_chain_t *in)
     return NGX_OK;
 }
 
-
+// dyc: get a chain struct and buffer struct
 ngx_chain_t *
 ngx_chain_get_free_buf(ngx_pool_t *p, ngx_chain_t **free)
 {
@@ -180,19 +180,18 @@ ngx_chain_get_free_buf(ngx_pool_t *p, ngx_chain_t **free)
     return cl;
 }
 
-
+// dyc: move @out to the end of busy, then free(move to @free) empty busy buffers until whose size != 0
 void
 ngx_chain_update_chains(ngx_pool_t *p, ngx_chain_t **free, ngx_chain_t **busy,
     ngx_chain_t **out, ngx_buf_tag_t tag)
 {
     ngx_chain_t  *cl;
 
+    // dyc: move out to the end of busy
     if (*busy == NULL) {
         *busy = *out;
-
     } else {
         for (cl = *busy; cl->next; cl = cl->next) { /* void */ }
-
         cl->next = *out;
     }
 
@@ -211,9 +210,11 @@ ngx_chain_update_chains(ngx_pool_t *p, ngx_chain_t **free, ngx_chain_t **busy,
             continue;
         }
 
+        // dyc: (cl->buf->tag == tag)
         cl->buf->pos = cl->buf->start;
         cl->buf->last = cl->buf->start;
 
+        // dyc: move from busy to free
         *busy = cl->next;
         cl->next = *free;
         *free = cl;

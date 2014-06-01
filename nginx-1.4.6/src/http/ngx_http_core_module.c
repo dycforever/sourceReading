@@ -1702,30 +1702,24 @@ ngx_http_test_content_type(ngx_http_request_t *r, ngx_hash_t *types_hash)
     if (types_hash->size == 0) {
         return (void *) 4;
     }
-
     if (r->headers_out.content_type.len == 0) {
         return NULL;
     }
 
+    // dyc: allocate memory and init content_type_lowcase/content_type_hash
     len = r->headers_out.content_type_len;
-
     if (r->headers_out.content_type_lowcase == NULL) {
-
         lowcase = ngx_pnalloc(r->pool, len);
         if (lowcase == NULL) {
             return NULL;
         }
-
         r->headers_out.content_type_lowcase = lowcase;
-
         hash = 0;
-
         for (i = 0; i < len; i++) {
             c = ngx_tolower(r->headers_out.content_type.data[i]);
             hash = ngx_hash(hash, c);
             lowcase[i] = c;
         }
-
         r->headers_out.content_type_hash = hash;
     }
 
@@ -2169,10 +2163,12 @@ ngx_http_gzip_ok(ngx_http_request_t *r)
         return NGX_DECLINED;
     }
 
+    // dyc: no Via header, so it is not a proxied request
     if (r->headers_in.via == NULL) {
         goto ok;
     }
 
+    // dyc: gzip_proxied works only about proxied request
     p = clcf->gzip_proxied;
 
     if (p & NGX_HTTP_GZIP_PROXIED_OFF) {
@@ -2211,7 +2207,7 @@ ngx_http_gzip_ok(ngx_http_request_t *r)
         } else {
             date = ngx_time();
         }
-
+        // dyc: out of date, so need compress and send 
         if (expires < date) {
             goto ok;
         }

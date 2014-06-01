@@ -204,23 +204,19 @@ ngx_http_header_filter(ngx_http_request_t *r)
           + sizeof(CRLF) - 1;
 
     /* status line */
-
     if (r->headers_out.status_line.len) {
         len += r->headers_out.status_line.len;
         status_line = &r->headers_out.status_line;
 #if (NGX_SUPPRESS_WARN)
         status = 0;
 #endif
-
     } else {
-
         status = r->headers_out.status;
 
         if (status >= NGX_HTTP_OK
             && status < NGX_HTTP_LAST_2XX)
         {
             /* 2XX */
-
             if (status == NGX_HTTP_NO_CONTENT) {
                 r->header_only = 1;
                 ngx_str_null(&r->headers_out.content_type);

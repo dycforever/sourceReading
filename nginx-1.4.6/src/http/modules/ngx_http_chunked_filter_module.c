@@ -69,25 +69,22 @@ ngx_http_chunked_header_filter(ngx_http_request_t *r)
         return ngx_http_next_header_filter(r);
     }
 
+    // dyc: if no content-length
     if (r->headers_out.content_length_n == -1) {
         if (r->http_version < NGX_HTTP_VERSION_11) {
             r->keepalive = 0;
-
         } else {
             clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
-
             if (clcf->chunked_transfer_encoding) {
                 r->chunked = 1;
-
                 ctx = ngx_pcalloc(r->pool,
                                   sizeof(ngx_http_chunked_filter_ctx_t));
                 if (ctx == NULL) {
                     return NGX_ERROR;
                 }
-
                 ngx_http_set_ctx(r, ctx, ngx_http_chunked_filter_module);
-
             } else {
+                // dyc: no chunk and no content-length, no keepalive
                 r->keepalive = 0;
             }
         }
@@ -119,6 +116,7 @@ ngx_http_chunked_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
     size = 0;
     cl = in;
 
+    // dyc: copy buf pointer in @in to end of @out
     for ( ;; ) {
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                        "http chunk: %d", ngx_buf_size(cl->buf));
@@ -178,7 +176,9 @@ ngx_http_chunked_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
         out = tl;
     }
 
+    // dyc: add a tailer chunk, or just add a chunk whit buf of content: "CRLF" 
     if (cl->buf->last_buf) {
+        // dyc: get a chain struct and buffer struct, no buffer content
         tl = ngx_chain_get_free_buf(r->pool, &ctx->free);
         if (tl == NULL) {
             return NGX_ERROR;
@@ -200,7 +200,6 @@ ngx_http_chunked_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
         if (size == 0) {
             b->pos += 2;
         }
-
     } else if (size > 0) {
         tl = ngx_chain_get_free_buf(r->pool, &ctx->free);
         if (tl == NULL) {
