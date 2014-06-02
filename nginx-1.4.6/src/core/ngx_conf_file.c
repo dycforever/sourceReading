@@ -129,6 +129,7 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
 
         prev = cf->conf_file;
 
+
         cf->conf_file = &conf_file;
 
         if (ngx_fd_info(fd, &cf->conf_file->file.info) == NGX_FILE_ERROR) {
@@ -274,7 +275,7 @@ done:
     return NGX_CONF_OK;
 }
 
-
+// dyc: iterate all cmds in all modules looking for the specific cmd's set function
 static ngx_int_t
 ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
 {
@@ -385,6 +386,7 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
                 }
             }
             // dyc: call ngx_http_block() for http block
+            //      @cf is input, @conf is output
             rv = cmd->set(cf, cmd, conf);
             // dyc: if rv == 0
             if (rv == NGX_CONF_OK) {
@@ -399,8 +401,8 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
                                "\"%s\" directive %s", name->data, rv);
 
             return NGX_ERROR;
-        }
-    }
+        } // for all cmds in a module
+    } // for all modules
 
     if (found) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
@@ -454,11 +456,11 @@ ngx_conf_read_token(ngx_conf_t *cf)
     file_size = ngx_file_size(&cf->conf_file->file.info);
 
     for ( ;; ) {
-
+        // dyc: reach end of buffer, move the tailing data of buffer to its head, 
+        //      so the rest can be used to read new data
         if (b->pos >= b->last) {
-
             if (cf->conf_file->file.offset >= file_size) {
-                if (cf->args->nelts > 0 || !last_space) {
+                if (cf->args->nelts > 0 || !last_space) {  // error
                     if (cf->conf_file->file.fd == NGX_INVALID_FILE) {
                         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                            "unexpected end of parameter, "
@@ -472,7 +474,7 @@ ngx_conf_read_token(ngx_conf_t *cf)
                     return NGX_ERROR;
                 }
                 return NGX_CONF_FILE_DONE;
-            }
+            } // file end
             // dyc: start is the start position of a token
             //      so len is the length of the parsed part of this token
             len = b->pos - start;
@@ -550,6 +552,7 @@ ngx_conf_read_token(ngx_conf_t *cf)
             continue;
         }
 
+        // dyc: previous char is " or ', so a space char is needed
         if (need_space) {
             if (ch == ' ' || ch == '\t' || ch == CR || ch == LF) {
                 last_space = 1;
@@ -574,7 +577,8 @@ ngx_conf_read_token(ngx_conf_t *cf)
                  return NGX_ERROR;
             }
         }
-        // dyc: the last char we parsed is a space, chars and \ ' " are treated as non-blank
+        // dyc: the last char we parsed is a space; chars and \ ' " are treated as non-blank
+        //      in this block, means the start of a token
         if (last_space) {
             if (ch == ' ' || ch == '\t' || ch == CR || ch == LF) {
                 continue;
@@ -602,7 +606,7 @@ ngx_conf_read_token(ngx_conf_t *cf)
                 return NGX_OK;
 
             case '}':
-                // dyc: if has no token before }
+                // dyc: if has some tokens before }
                 if (cf->args->nelts != 0) {
                     ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                        "unexpected \"}\"");
@@ -611,6 +615,7 @@ ngx_conf_read_token(ngx_conf_t *cf)
 
                 return NGX_CONF_BLOCK_DONE;
 
+                // dyc: # can start at the middle of line
             case '#':
                 sharp_comment = 1;
                 continue;
@@ -653,6 +658,7 @@ ngx_conf_read_token(ngx_conf_t *cf)
                 continue;
             }
 
+            // dyc: a token found
             if (d_quoted) {
                 if (ch == '"') {
                     d_quoted = 0;
@@ -674,8 +680,8 @@ ngx_conf_read_token(ngx_conf_t *cf)
                 found = 1;
             }
             // dyc: here mean last parsed char is not a space, 
-            //      while current char is a space, or closing quote
-            //      so push token into cf->args, which is an array of ngx_str_t*
+            //      while current char is a space, or closing quote, so a token found !
+            //      push token into cf->args, which is an array of ngx_str_t*
             //      cf->args will be consumed in cmd->set(cf, cmd, conf) later
             if (found) {
                 word = ngx_array_push(cf->args);

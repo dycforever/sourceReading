@@ -127,6 +127,15 @@ static ngx_conf_post_handler_pt  ngx_http_gzip_window_p = ngx_http_gzip_window;
 static ngx_conf_post_handler_pt  ngx_http_gzip_hash_p = ngx_http_gzip_hash;
 
 
+// 
+// struct ngx_command_s {
+//     ngx_str_t             name;
+//     ngx_uint_t            type;
+//     char               *(*set)(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+//     ngx_uint_t            conf;
+//     ngx_uint_t            offset;
+//     void                 *post;
+// };
 static ngx_command_t  ngx_http_gzip_filter_commands[] = {
 
     { ngx_string("gzip"),

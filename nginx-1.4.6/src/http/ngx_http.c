@@ -257,6 +257,7 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
      */
 
     cmcf = ctx->main_conf[ngx_http_core_module.ctx_index];
+    // dyc: init in ngx_http_core_module's create_main_conf()
     cscfp = cmcf->servers.elts;
 
     for (m = 0; ngx_modules[m]; m++) {
@@ -282,9 +283,7 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         }
     }
 
-
     /* create location trees */
-
     for (s = 0; s < cmcf->servers.nelts; s++) {
         clcf = cscfp[s]->ctx->loc_conf[ngx_http_core_module.ctx_index];
         // dyc: iterate all location in this server, keep named and regex location in seperated array

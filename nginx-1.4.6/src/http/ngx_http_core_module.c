@@ -2983,7 +2983,7 @@ ngx_http_core_server(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
     cscf = ctx->srv_conf[ngx_http_core_module.ctx_index];
     cscf->ctx = ctx;
 
-
+    // dyc: main_conf is allocated in ngx_http_block() and inited my module->create_main_conf()
     cmcf = ctx->main_conf[ngx_http_core_module.ctx_index];
 
     cscfp = ngx_array_push(&cmcf->servers);
