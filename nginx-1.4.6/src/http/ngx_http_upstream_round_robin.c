@@ -476,7 +476,7 @@ ngx_http_upstream_get_peer(ngx_http_upstream_rr_peer_data_t *rrp)
     total = 0;
 
     for (i = 0; i < rrp->peers->number; i++) {
-
+        // dyc: each bit in tried array represent a peer
         n = i / (8 * sizeof(uintptr_t));
         m = (uintptr_t) 1 << i % (8 * sizeof(uintptr_t));
 
@@ -504,6 +504,7 @@ ngx_http_upstream_get_peer(ngx_http_upstream_rr_peer_data_t *rrp)
             peer->effective_weight++;
         }
 
+        // dyc: choose peer with largest weight as best
         if (best == NULL || peer->current_weight > best->current_weight) {
             best = peer;
         }
