@@ -10,7 +10,7 @@
 #include <ngx_event.h>
 #include <ngx_event_connect.h>
 
-
+// dyc: create a socket and connection to upstream server
 ngx_int_t
 ngx_event_connect_peer(ngx_peer_connection_t *pc)
 {
@@ -21,7 +21,7 @@ ngx_event_connect_peer(ngx_peer_connection_t *pc)
     ngx_socket_t       s;
     ngx_event_t       *rev, *wev;
     ngx_connection_t  *c;
-
+    // dyc: for example, call ngx_http_upstream_get_round_robin_peer()
     rc = pc->get(pc, pc->data);
     if (rc != NGX_OK) {
         return rc;
@@ -37,7 +37,7 @@ ngx_event_connect_peer(ngx_peer_connection_t *pc)
         return NGX_ERROR;
     }
 
-
+    // dyc: get connection
     c = ngx_get_connection(s, pc->log);
 
     if (c == NULL) {
@@ -164,14 +164,13 @@ ngx_event_connect_peer(ngx_peer_connection_t *pc)
             pc->connection = NULL;
 
             return NGX_DECLINED;
-        }
-    }
-
+        } // if (err != EINPROGRESS)
+    } // if connect() == -1
+    
+    // dyc: here means connect() == OK || EINPROGRESS
     if (ngx_add_conn) {
         if (rc == -1) {
-
             /* NGX_EINPROGRESS */
-
             return NGX_AGAIN;
         }
 

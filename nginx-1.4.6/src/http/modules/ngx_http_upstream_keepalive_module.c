@@ -503,9 +503,10 @@ ngx_http_upstream_keepalive(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     uscf->peer.init_upstream = ngx_http_upstream_init_keepalive;
 
     /* read options */
-
     value = cf->args->elts;
 
+    // dyc: maximum number of idle keepalive connections to upstream servers
+    //      that are preserved in the cache of each worker process.
     n = ngx_atoi(value[1].data, value[1].len);
 
     if (n == NGX_ERROR || n == 0) {

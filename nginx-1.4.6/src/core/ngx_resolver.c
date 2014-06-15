@@ -314,6 +314,7 @@ ngx_resolve_name(ngx_resolver_ctx_t *ctx)
                    "resolve: \"%V\"", &ctx->name);
 
     if (ctx->quick) {
+        // dyc: set in ngx_http_upstream_init_request()
         ctx->handler(ctx);
         return NGX_OK;
     }

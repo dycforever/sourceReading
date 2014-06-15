@@ -163,6 +163,7 @@ ngx_http_memcached_handler(ngx_http_request_t *r)
         return NGX_HTTP_NOT_ALLOWED;
     }
 
+    // dyc: if request body has not read and parsed, discard this request
     rc = ngx_http_discard_request_body(r);
 
     if (rc != NGX_OK) {
@@ -184,6 +185,7 @@ ngx_http_memcached_handler(ngx_http_request_t *r)
 
     mlcf = ngx_http_get_module_loc_conf(r, ngx_http_memcached_module);
 
+    // dyc: create by ngx_http_upstream_add() in ngx_http_memcached_pass()
     u->conf = &mlcf->upstream;
 
     u->create_request = ngx_http_memcached_create_request;
@@ -662,8 +664,9 @@ ngx_http_memcached_pass(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return "is duplicate";
     }
 
+    // dyc: value is the tokens of the line "memcached_pass ip:port xxx"
+    //      so value[1] is address
     value = cf->args->elts;
-
     ngx_memzero(&u, sizeof(ngx_url_t));
 
     u.url = value[1];

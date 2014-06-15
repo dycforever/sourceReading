@@ -487,7 +487,7 @@ ngx_http_write_request_body(ngx_http_request_t *r)
     return NGX_OK;
 }
 
-
+// dyc: drain this request from connection and discard(do nothing)
 ngx_int_t
 ngx_http_discard_request_body(ngx_http_request_t *r)
 {
@@ -501,11 +501,11 @@ ngx_http_discard_request_body(ngx_http_request_t *r)
         return NGX_OK;
     }
 #endif
-
+    // dyc: if no main request || has already discarded || request body has read and parsed
     if (r != r->main || r->discard_body || r->request_body) {
         return NGX_OK;
     }
-
+    // dyc: deal HTTP/1.1 EXPECT
     if (ngx_http_test_expect(r) != NGX_OK) {
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
@@ -513,7 +513,7 @@ ngx_http_discard_request_body(ngx_http_request_t *r)
     rev = r->connection->read;
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, rev->log, 0, "http set discard body");
-
+    // dyc: timer is useless if no body
     if (rev->timer_set) {
         ngx_del_timer(rev);
     }
@@ -522,9 +522,10 @@ ngx_http_discard_request_body(ngx_http_request_t *r)
         return NGX_OK;
     }
 
+    // dyc: drain this request's header data
     size = r->header_in->last - r->header_in->pos;
-
     if (size || r->headers_in.chunked) {
+        // dyc: adjust @b->pos, modify r->headers_in.content_length_n
         rc = ngx_http_discard_request_body_filter(r, r->header_in);
 
         if (rc != NGX_OK) {
@@ -536,6 +537,7 @@ ngx_http_discard_request_body(ngx_http_request_t *r)
         }
     }
 
+    // dyc: read and discard data from connection, drain this request's body
     rc = ngx_http_read_discarded_request_body(r);
 
     if (rc == NGX_OK) {
@@ -632,7 +634,7 @@ ngx_http_discarded_request_body_handler(ngx_http_request_t *r)
     }
 }
 
-
+// dyc: read and discard data from connection, drain this request's body
 static ngx_int_t
 ngx_http_read_discarded_request_body(ngx_http_request_t *r)
 {
@@ -648,7 +650,7 @@ ngx_http_read_discarded_request_body(ngx_http_request_t *r)
     ngx_memzero(&b, sizeof(ngx_buf_t));
 
     b.temporary = 1;
-
+    // dyc: read all data into buffer[] and do nothing with these data
     for ( ;; ) {
         if (r->headers_in.content_length_n == 0) {
             r->read_event_handler = ngx_http_block_reading;
@@ -679,7 +681,7 @@ ngx_http_read_discarded_request_body(ngx_http_request_t *r)
 
         b.pos = buffer;
         b.last = buffer + n;
-
+        // dyc: just for modifying r->headers_in.content_length_n
         rc = ngx_http_discard_request_body_filter(r, &b);
 
         if (rc != NGX_OK) {
@@ -688,7 +690,7 @@ ngx_http_read_discarded_request_body(ngx_http_request_t *r)
     }
 }
 
-
+// dyc: adjust @b->pos, modify r->headers_in.content_length_n
 static ngx_int_t
 ngx_http_discard_request_body_filter(ngx_http_request_t *r, ngx_buf_t *b)
 {
@@ -761,7 +763,7 @@ ngx_http_discard_request_body_filter(ngx_http_request_t *r, ngx_buf_t *b)
             return NGX_HTTP_BAD_REQUEST;
         }
 
-    } else {
+    } else { // if not chunk
         size = b->last - b->pos;
 
         if ((off_t) size > r->headers_in.content_length_n) {
@@ -777,7 +779,7 @@ ngx_http_discard_request_body_filter(ngx_http_request_t *r, ngx_buf_t *b)
     return NGX_OK;
 }
 
-
+// dyc: deal HTTP/1.1 EXPECT
 static ngx_int_t
 ngx_http_test_expect(ngx_http_request_t *r)
 {

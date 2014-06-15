@@ -39,7 +39,7 @@ ngx_http_upstream_init_round_robin(ngx_conf_t *cf,
 
         n = 0;
         w = 0;
-
+        // dyc: a server name may have multiple ip addresses
         for (i = 0; i < us->servers->nelts; i++) {
             if (server[i].backup) {
                 continue;
@@ -146,7 +146,7 @@ ngx_http_upstream_init_round_robin(ngx_conf_t *cf,
         peers->next = backup;
 
         return NGX_OK;
-    }
+    } // if (us->servers)
 
 
     /* an upstream implicitly defined by proxy_pass, etc. */
@@ -227,8 +227,8 @@ ngx_http_upstream_init_round_robin_peer(ngx_http_request_t *r,
     rrp->peers = us->peer.data;
     rrp->current = 0;
 
+    // dyc: n = max(server_count, backup_server_count)
     n = rrp->peers->number;
-
     if (rrp->peers->next && rrp->peers->next->number > n) {
         n = rrp->peers->next->number;
     }
@@ -421,7 +421,7 @@ ngx_http_upstream_get_round_robin_peer(ngx_peer_connection_t *pc, void *data)
 failed:
 
     peers = rrp->peers;
-
+    // dyc: if has backup servers
     if (peers->next) {
 
         /* ngx_unlock_mutex(peers->mutex); */
@@ -531,7 +531,7 @@ ngx_http_upstream_get_peer(ngx_http_upstream_rr_peer_data_t *rrp)
     return best;
 }
 
-
+// dyc: called in ngx_http_upstream_finalize_request() or ngx_http_upstream_send_response()
 void
 ngx_http_upstream_free_round_robin_peer(ngx_peer_connection_t *pc, void *data,
     ngx_uint_t state)

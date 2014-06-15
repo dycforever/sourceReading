@@ -450,9 +450,10 @@ ngx_http_upstream_init(ngx_http_request_t *r)
     if (c->read->timer_set) {
         ngx_del_timer(c->read);
     }
-
+    // dyc: if edge trigger, add write event.
+    //      because ngx_http_upstream_connect(), which may return EINPROGRESS, 
+    //      will add write event only it connect success
     if (ngx_event_flags & NGX_USE_CLEAR_EVENT) {
-
         if (!c->write->active) {
             if (ngx_add_event(c->write, NGX_WRITE_EVENT, NGX_CLEAR_EVENT)
                 == NGX_ERROR)
@@ -482,11 +483,10 @@ ngx_http_upstream_init_request(ngx_http_request_t *r)
     if (r->aio) {
         return;
     }
-
+    // dyc: set in ngx_http_upstream_create() in such as ngx_http_memcached_handler()
     u = r->upstream;
 
 #if (NGX_HTTP_CACHE)
-
     if (u->conf->cache) {
         ngx_int_t  rc;
 
@@ -508,9 +508,10 @@ ngx_http_upstream_init_request(ngx_http_request_t *r)
             return;
         }
     }
-
 #endif
 
+    // dyc: u->conf = &mlcf->upstream set in ngx_http_memcached_handler()
+    //      store is set in fastcgi/wusgi ... modules
     u->store = (u->conf->store || u->conf->store_lengths);
 
     if (!u->store && !r->post_action && !u->conf->ignore_client_abort) {
@@ -518,6 +519,7 @@ ngx_http_upstream_init_request(ngx_http_request_t *r)
         r->write_event_handler = ngx_http_upstream_wr_check_broken_connection;
     }
 
+    // dyc: if request body has parsed
     if (r->request_body) {
         u->request_bufs = r->request_body->bufs;
     }
@@ -571,12 +573,12 @@ ngx_http_upstream_init_request(ngx_http_request_t *r)
     cln->data = r;
     u->cleanup = &cln->handler;
 
+    // dyc: u->resolved is allocated in fastcgi/wusgi ... modules
     if (u->resolved == NULL) {
-
         uscf = u->conf->upstream;
 
     } else {
-
+        // dyc: host has been resolved to ip
         if (u->resolved->sockaddr) {
 
             if (ngx_http_upstream_create_round_robin_peer(r, u->resolved)
@@ -638,6 +640,7 @@ ngx_http_upstream_init_request(ngx_http_request_t *r)
 
         ctx->name = *host;
         ctx->type = NGX_RESOLVE_A;
+        // dyc: will be called in ngx_resolve_name()
         ctx->handler = ngx_http_upstream_resolve_handler;
         ctx->data = r;
         ctx->timeout = clcf->resolver_timeout;
@@ -652,7 +655,7 @@ ngx_http_upstream_init_request(ngx_http_request_t *r)
         }
 
         return;
-    }
+    } // u->resolved != NULL
 
 found:
 
@@ -1005,6 +1008,7 @@ ngx_http_upstream_check_broken_connection(ngx_http_request_t *r,
     c = r->connection;
     u = r->upstream;
 
+    // dyc: already has error
     if (c->error) {
         if ((ngx_event_flags & NGX_USE_LEVEL_EVENT) && ev->active) {
 
@@ -1068,14 +1072,14 @@ ngx_http_upstream_check_broken_connection(ngx_http_request_t *r,
     }
 
 #endif
-
+    // dyc: read 1 byte to sure if the connection is closed
     n = recv(c->fd, buf, 1, MSG_PEEK);
 
     err = ngx_socket_errno;
 
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, ev->log, err,
                    "http upstream recv(): %d", n);
-
+    // dyc: normal connection
     if (ev->write && (n >= 0 || err == NGX_EAGAIN)) {
         return;
     }
@@ -1105,7 +1109,7 @@ ngx_http_upstream_check_broken_connection(ngx_http_request_t *r,
     } else { /* n == 0 */
         err = 0;
     }
-
+    // dyc: here means error occurred
     ev->eof = 1;
     c->error = 1;
 
@@ -1151,11 +1155,11 @@ ngx_http_upstream_connect(ngx_http_request_t *r, ngx_http_upstream_t *u)
     }
 
     ngx_memzero(u->state, sizeof(ngx_http_upstream_state_t));
-
+    // dyc: init time
     tp = ngx_timeofday();
     u->state->response_sec = tp->sec;
     u->state->response_msec = tp->msec;
-
+    // dyc: connect upstream server
     rc = ngx_event_connect_peer(&u->peer);
 
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
@@ -1181,7 +1185,7 @@ ngx_http_upstream_connect(ngx_http_request_t *r, ngx_http_upstream_t *u)
     }
 
     /* rc == NGX_OK || rc == NGX_AGAIN */
-
+    // dyc: peer.connection set in ngx_event_connect_peer()
     c = u->peer.connection;
 
     c->data = r;
@@ -1213,12 +1217,12 @@ ngx_http_upstream_connect(ngx_http_request_t *r, ngx_http_upstream_t *u)
     c->write->log = c->log;
 
     /* init or reinit the ngx_output_chain() and ngx_chain_writer() contexts */
-
     u->writer.out = NULL;
     u->writer.last = &u->writer.out;
     u->writer.connection = c;
     u->writer.limit = 0;
 
+    // dyc: has already send some data before
     if (u->request_sent) {
         if (ngx_http_upstream_reinit(r, u) != NGX_OK) {
             ngx_http_upstream_finalize_request(r, u,
@@ -1243,11 +1247,11 @@ ngx_http_upstream_connect(ngx_http_request_t *r, ngx_http_upstream_t *u)
                                                NGX_HTTP_INTERNAL_SERVER_ERROR);
             return;
         }
-
+        // dyc: save u->request_body to u->output
         u->output.free->buf = r->request_body->buf;
         u->output.free->next = NULL;
         u->output.allocated = 1;
-
+        // dyc: reset request_body
         r->request_body->buf->pos = r->request_body->buf->start;
         r->request_body->buf->last = r->request_body->buf->start;
         r->request_body->buf->tag = u->output.tag;
@@ -1422,7 +1426,7 @@ ngx_http_upstream_send_request(ngx_http_request_t *r, ngx_http_upstream_t *u)
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, c->log, 0,
                    "http upstream send request");
-
+    // dyc; if test failed, use next upstream
     if (!u->request_sent && ngx_http_upstream_test_connect(c) != NGX_OK) {
         ngx_http_upstream_next(r, u, NGX_HTTP_UPSTREAM_FT_ERROR);
         return;
@@ -4656,7 +4660,8 @@ invalid:
     return NGX_CONF_ERROR;
 }
 
-
+// dyc: find uscf in umcf->upstreams by host&&flags&&port saved in @u
+//      if not found, create new one and push in umcf->upstreams array
 ngx_http_upstream_srv_conf_t *
 ngx_http_upstream_add(ngx_conf_t *cf, ngx_url_t *u, ngx_uint_t flags)
 {
