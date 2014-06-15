@@ -174,10 +174,10 @@ ngx_http_memcached_handler(ngx_http_request_t *r)
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
+    // dyc: create r->upstream
     if (ngx_http_upstream_create(r) != NGX_OK) {
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
-
     u = r->upstream;
 
     ngx_str_set(&u->schema, "memcached://");
@@ -187,7 +187,6 @@ ngx_http_memcached_handler(ngx_http_request_t *r)
 
     // dyc: create by ngx_http_upstream_add() in ngx_http_memcached_pass()
     u->conf = &mlcf->upstream;
-
     u->create_request = ngx_http_memcached_create_request;
     u->reinit_request = ngx_http_memcached_reinit_request;
     u->process_header = ngx_http_memcached_process_header;
