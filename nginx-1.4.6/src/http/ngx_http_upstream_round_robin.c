@@ -205,7 +205,7 @@ ngx_http_upstream_init_round_robin(ngx_conf_t *cf,
     return NGX_OK;
 }
 
-
+// dyc: alloc rrp, clear peer->tried array and set callback functions
 ngx_int_t
 ngx_http_upstream_init_round_robin_peer(ngx_http_request_t *r,
     ngx_http_upstream_srv_conf_t *us)
@@ -365,7 +365,7 @@ ngx_http_upstream_create_round_robin_peer(ngx_http_request_t *r,
     return NGX_OK;
 }
 
-
+// dyc: @pc used for return result
 ngx_int_t
 ngx_http_upstream_get_round_robin_peer(ngx_peer_connection_t *pc, void *data)
 {
@@ -524,7 +524,7 @@ ngx_http_upstream_get_peer(ngx_http_upstream_rr_peer_data_t *rrp)
     rrp->tried[n] |= m;
 
     best->current_weight -= total;
-
+    // dyc: checked is assigned when NGX_PEER_FAILED
     if (now - best->checked > best->fail_timeout) {
         best->checked = now;
     }
@@ -561,6 +561,7 @@ ngx_http_upstream_free_round_robin_peer(ngx_peer_connection_t *pc, void *data,
 
         peer->fails++;
         peer->accessed = now;
+        // dyc: checked field is used to mark if this peer is failed
         peer->checked = now;
 
         if (peer->max_fails) {
@@ -578,9 +579,8 @@ ngx_http_upstream_free_round_robin_peer(ngx_peer_connection_t *pc, void *data,
         /* ngx_unlock_mutex(rrp->peers->mutex); */
 
     } else {
-
         /* mark peer live if check passed */
-
+        // dyc: means peer has been choosed as best in ngx_http_upstream_get_round_robin_peer()
         if (peer->accessed < peer->checked) {
             peer->fails = 0;
         }
