@@ -87,12 +87,13 @@ ngx_slab_init(ngx_slab_pool_t *pool)
         }
     }
     /**/
-
+    // dyc: min_shift = 3 in ngx_init_cycle()
+    pool->min_shift = 3;
     pool->min_size = 1 << pool->min_shift;
 
     p = (u_char *) pool + sizeof(ngx_slab_pool_t);
     size = pool->end - p;
-
+    // dyc: set junk content
     ngx_slab_junk(p, size);
 
     slots = (ngx_slab_page_t *) p;
@@ -103,7 +104,7 @@ ngx_slab_init(ngx_slab_pool_t *pool)
         slots[i].next = &slots[i];
         slots[i].prev = 0;
     }
-
+    // dyc: p points to free memory
     p += n * sizeof(ngx_slab_page_t);
 
     pages = (ngx_uint_t) (size / (ngx_pagesize + sizeof(ngx_slab_page_t)));

@@ -350,7 +350,9 @@ ngx_inet6_ntop(u_char *p, u_char *text, size_t len)
 
 #endif
 
-
+// dyc: @text's parse CIDR format to @cidr, 
+//      return OK if ip&mask == ip
+//      otherwise mask ip &= ip&mask
 ngx_int_t
 ngx_ptocidr(ngx_str_t *text, ngx_cidr_t *cidr)
 {
@@ -367,7 +369,7 @@ ngx_ptocidr(ngx_str_t *text, ngx_cidr_t *cidr)
 
     mask = ngx_strlchr(addr, last, '/');
     len = (mask ? mask : last) - addr;
-
+    // dyc: ip string to in_addr_t
     cidr->u.in.addr = ngx_inet_addr(addr, len);
 
     if (cidr->u.in.addr != INADDR_NONE) {
@@ -426,7 +428,7 @@ ngx_ptocidr(ngx_str_t *text, ngx_cidr_t *cidr)
 
         return rc;
 #endif
-
+    // dyc: shift is parsed from mask
     default: /* AF_INET */
         if (shift > 32) {
             return NGX_ERROR;

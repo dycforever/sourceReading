@@ -1250,7 +1250,8 @@ ngx_reopen_files(ngx_cycle_t *cycle, ngx_uid_t user)
 #endif
 }
 
-
+// dyc: return an already existed shm from cf->cycle->shared_memory, 
+//      or create a new one and push into it
 ngx_shm_zone_t *
 ngx_shared_memory_add(ngx_conf_t *cf, ngx_str_t *name, size_t size, void *tag)
 {
@@ -1260,7 +1261,7 @@ ngx_shared_memory_add(ngx_conf_t *cf, ngx_str_t *name, size_t size, void *tag)
 
     part = &cf->cycle->shared_memory.part;
     shm_zone = part->elts;
-
+    // dyc: @part is a list, every part has a shm_zone array, iterate by @i
     for (i = 0; /* void */ ; i++) {
 
         if (i >= part->nelts) {
@@ -1281,7 +1282,7 @@ ngx_shared_memory_add(ngx_conf_t *cf, ngx_str_t *name, size_t size, void *tag)
         {
             continue;
         }
-
+        // dyc: here means name == shm.name
         if (tag != shm_zone[i].tag) {
             ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                             "the shared memory zone \"%V\" is "
@@ -1297,7 +1298,7 @@ ngx_shared_memory_add(ngx_conf_t *cf, ngx_str_t *name, size_t size, void *tag)
                             size, &shm_zone[i].shm.name, shm_zone[i].shm.size);
             return NULL;
         }
-
+        // dyc: same name/tag/size
         return &shm_zone[i];
     }
 

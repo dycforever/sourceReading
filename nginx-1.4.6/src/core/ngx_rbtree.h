@@ -40,7 +40,7 @@ struct ngx_rbtree_s {
     ngx_rbtree_insert_pt   insert;
 };
 
-
+// dyc: set tree's root and sentinel to s(black color), set tree's insert func to i
 #define ngx_rbtree_init(tree, s, i)                                           \
     ngx_rbtree_sentinel_init(s);                                              \
     (tree)->root = s;                                                         \

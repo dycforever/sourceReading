@@ -122,6 +122,7 @@ ngx_http_access_handler(ngx_http_request_t *r)
     case AF_INET:
         if (alcf->rules) {
             sin = (struct sockaddr_in *) r->connection->sockaddr;
+            // dyc: looking up in ip/mask array for a matching item and compare
             return ngx_http_access_inet(r, alcf, sin->sin_addr.s_addr);
         }
         break;
@@ -150,7 +151,7 @@ ngx_http_access_handler(ngx_http_request_t *r)
     return NGX_DECLINED;
 }
 
-
+// dyc: looking up in ip/mask array for a matching item and compare
 static ngx_int_t
 ngx_http_access_inet(ngx_http_request_t *r, ngx_http_access_loc_conf_t *alcf,
     in_addr_t addr)
@@ -165,6 +166,7 @@ ngx_http_access_inet(ngx_http_request_t *r, ngx_http_access_loc_conf_t *alcf,
                        "access: %08XD %08XD %08XD",
                        addr, rule[i].mask, rule[i].addr);
 
+        // dyc: if no "/", mask = 32
         if ((addr & rule[i].mask) == rule[i].addr) {
             return ngx_http_access_found(r, rule[i].deny);
         }
@@ -240,7 +242,7 @@ ngx_http_access_found(ngx_http_request_t *r, ngx_uint_t deny)
     return NGX_OK;
 }
 
-
+// dyc: called for each allow/deny entry, and push into alcf->rules
 static char *
 ngx_http_access_rule(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
@@ -263,6 +265,8 @@ ngx_http_access_rule(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     if (!all) {
 
+        // dyc: return NGX_DONE if ip&mask != ip
+        //      if no "/", mask = 32
         rc = ngx_ptocidr(&value[1], &cidr);
 
         if (rc == NGX_ERROR) {
@@ -270,7 +274,6 @@ ngx_http_access_rule(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
                          "invalid parameter \"%V\"", &value[1]);
             return NGX_CONF_ERROR;
         }
-
         if (rc == NGX_DONE) {
             ngx_conf_log_error(NGX_LOG_WARN, cf, 0,
                          "low address bits of %V are meaningless", &value[1]);

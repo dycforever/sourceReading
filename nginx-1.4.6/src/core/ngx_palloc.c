@@ -251,7 +251,7 @@ ngx_palloc_large(ngx_pool_t *pool, size_t size)
     return p;
 }
 
-
+// dyc: alloc large memory from system and record it in pool->large
 void *
 ngx_pmemalign(ngx_pool_t *pool, size_t size, size_t alignment)
 {

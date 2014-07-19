@@ -22,14 +22,14 @@ typedef struct {
     u_char                       data[1];
 } ngx_http_limit_req_node_t;
 
-
+// dyc: ngx_http_limit_req_ctx_t -> ngx_http_limit_req_shctx_t
 typedef struct {
     ngx_rbtree_t                  rbtree;
     ngx_rbtree_node_t             sentinel;
     ngx_queue_t                   queue;
 } ngx_http_limit_req_shctx_t;
 
-
+// dyc: limit_req_zone -> ngx_http_limit_req_ctx_t
 typedef struct {
     ngx_http_limit_req_shctx_t  *sh;
     ngx_slab_pool_t             *shpool;
@@ -40,7 +40,7 @@ typedef struct {
     ngx_http_limit_req_node_t   *node;
 } ngx_http_limit_req_ctx_t;
 
-
+// dyc: limit_req -> ngx_http_limit_req_limit_t
 typedef struct {
     ngx_shm_zone_t              *shm_zone;
     /* integer value, 1 corresponds to 0.001 r/s */
@@ -182,7 +182,7 @@ ngx_http_limit_req_handler(ngx_http_request_t *r)
 #if (NGX_SUPPRESS_WARN)
     limit = NULL;
 #endif
-
+    // dyc: each limit_req
     for (n = 0; n < lrcf->limits.nelts; n++) {
 
         limit = &limits[n];
@@ -212,7 +212,7 @@ ngx_http_limit_req_handler(ngx_http_request_t *r)
         hash = ngx_crc32_short(vv->data, len);
 
         ngx_shmtx_lock(&ctx->shpool->mutex);
-
+        // dyc: n iterate index
         rc = ngx_http_limit_req_lookup(limit, hash, vv->data, len, &excess,
                                        (n == lrcf->limits.nelts - 1));
 
@@ -221,18 +221,18 @@ ngx_http_limit_req_handler(ngx_http_request_t *r)
         ngx_log_debug4(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                        "limit_req[%ui]: %i %ui.%03ui",
                        n, rc, excess / 1000, excess % 1000);
-
+        // dyc: meet this limit condition, test next rule
         if (rc != NGX_AGAIN) {
             break;
         }
-    }
-
+    } // for lrcf->limits.nelts
+    // dyc: ngx_http_limit_req_lookup() won't return DECLINED ?
     if (rc == NGX_DECLINED) {
         return NGX_DECLINED;
     }
-
+    // dyc: return DECLINED when next time call
     r->main->limit_req_set = 1;
-
+    // dyc: excess burst
     if (rc == NGX_BUSY || rc == NGX_ERROR) {
 
         if (rc == NGX_BUSY) {
@@ -262,11 +262,11 @@ ngx_http_limit_req_handler(ngx_http_request_t *r)
     }
 
     /* rc == NGX_AGAIN || rc == NGX_OK */
-
+    // dyc: impossible AGAIN ?
     if (rc == NGX_AGAIN) {
         excess = 0;
     }
-
+    // dyc: here means not exceed limit
     delay = ngx_http_limit_req_account(limits, n, &excess, &limit);
 
     if (!delay) {
@@ -284,7 +284,7 @@ ngx_http_limit_req_handler(ngx_http_request_t *r)
     r->read_event_handler = ngx_http_test_reading;
     r->write_event_handler = ngx_http_limit_req_delay;
     ngx_add_timer(r->connection->write, delay);
-
+    // dyc: for access handler, return NGX_AGAIN means NGX_OK
     return NGX_AGAIN;
 }
 
@@ -321,7 +321,8 @@ ngx_http_limit_req_delay(ngx_http_request_t *r)
     ngx_http_core_run_phases(r);
 }
 
-
+// dyc: find position and insert, re-balance is left to ngx_rbtree.c
+//      may be duplicated elements in this tree
 static void
 ngx_http_limit_req_rbtree_insert_value(ngx_rbtree_node_t *temp,
     ngx_rbtree_node_t *node, ngx_rbtree_node_t *sentinel)
@@ -362,7 +363,8 @@ ngx_http_limit_req_rbtree_insert_value(ngx_rbtree_node_t *temp,
     ngx_rbt_red(node);
 }
 
-
+// dyc: ctx = limit->shm_zone->data; ctx->node = lr;
+//      shm is locked when this function be called
 static ngx_int_t
 ngx_http_limit_req_lookup(ngx_http_limit_req_limit_t *limit, ngx_uint_t hash,
     u_char *data, size_t len, ngx_uint_t *ep, ngx_uint_t account)
@@ -419,7 +421,7 @@ ngx_http_limit_req_lookup(ngx_http_limit_req_limit_t *limit, ngx_uint_t hash,
             if ((ngx_uint_t) excess > limit->burst) {
                 return NGX_BUSY;
             }
-
+            // dyc: meet last req limit condition, return OK
             if (account) {
                 lr->excess = excess;
                 lr->last = now;
@@ -429,32 +431,32 @@ ngx_http_limit_req_lookup(ngx_http_limit_req_limit_t *limit, ngx_uint_t hash,
             lr->count++;
 
             ctx->node = lr;
-
+            // dyc: meet this limit condition, test next
             return NGX_AGAIN;
         }
 
         node = (rc < 0) ? node->left : node->right;
-    }
-
+    } // while
+    // dyc: not found in rbtree, so create a node
     *ep = 0;
-
+    // dyc: @node's type is ngx_rbtree_node_t, but its color field is actully a ngx_http_limit_req_node_t struct
     size = offsetof(ngx_rbtree_node_t, color)
            + offsetof(ngx_http_limit_req_node_t, data)
            + len;
 
     ngx_http_limit_req_expire(ctx, 1);
-
+    // dyc: create new node
     node = ngx_slab_alloc_locked(ctx->shpool, size);
 
     if (node == NULL) {
         ngx_http_limit_req_expire(ctx, 0);
-
+        // dyc: if too little ms or too many excess, do not dequeue and return
         node = ngx_slab_alloc_locked(ctx->shpool, size);
         if (node == NULL) {
             return NGX_ERROR;
         }
     }
-
+    // dyc: init new node
     node->key = hash;
 
     lr = (ngx_http_limit_req_node_t *) &node->color;
@@ -465,15 +467,15 @@ ngx_http_limit_req_lookup(ngx_http_limit_req_limit_t *limit, ngx_uint_t hash,
     ngx_memcpy(lr->data, data, len);
 
     ngx_rbtree_insert(&ctx->sh->rbtree, node);
-
     ngx_queue_insert_head(&ctx->sh->queue, &lr->queue);
 
+    // dyc: meet last req limit condition, return OK
     if (account) {
         lr->last = now;
         lr->count = 0;
+        // dyc: difference between OK and AGAIN is excess=0
         return NGX_OK;
     }
-
     lr->last = 0;
     lr->count = 1;
 
@@ -527,6 +529,7 @@ ngx_http_limit_req_account(ngx_http_limit_req_limit_t *limits, ngx_uint_t n,
 
         lr->last = now;
         lr->excess = excess;
+        // dyc: count ++ in ngx_http_limit_req_lookup()
         lr->count--;
 
         ngx_shmtx_unlock(&ctx->shpool->mutex);
@@ -580,7 +583,7 @@ ngx_http_limit_req_expire(ngx_http_limit_req_ctx_t *ctx, ngx_uint_t n)
         q = ngx_queue_last(&ctx->sh->queue);
 
         lr = ngx_queue_data(q, ngx_http_limit_req_node_t, queue);
-
+        // dyc: assert(count == 0)  ??
         if (lr->count) {
 
             /*
@@ -590,9 +593,9 @@ ngx_http_limit_req_expire(ngx_http_limit_req_ctx_t *ctx, ngx_uint_t n)
 
             return;
         }
-
+        // dyc: if n == 0, q must be deleted for free memory
         if (n++ != 0) {
-
+            // dyc: if n != 0, have more chances to return before dequeue
             ms = (ngx_msec_int_t) (now - lr->last);
             ms = ngx_abs(ms);
 
@@ -615,10 +618,11 @@ ngx_http_limit_req_expire(ngx_http_limit_req_ctx_t *ctx, ngx_uint_t n)
         ngx_rbtree_delete(&ctx->sh->rbtree, node);
 
         ngx_slab_free_locked(ctx->shpool, node);
-    }
+    } // while (n < 3)
 }
 
-
+// dyc: called in ngx_init_cycle()
+//      shm_zone[i].init(&shm_zone[i], oshm_zone[n].data)
 static ngx_int_t
 ngx_http_limit_req_init_zone(ngx_shm_zone_t *shm_zone, void *data)
 {
@@ -656,9 +660,10 @@ ngx_http_limit_req_init_zone(ngx_shm_zone_t *shm_zone, void *data)
     if (ctx->sh == NULL) {
         return NGX_ERROR;
     }
-
+    // dyc: just save
     ctx->shpool->data = ctx->sh;
 
+    // dyc: set rbtree's root and sentinel to sh->sentinel
     ngx_rbtree_init(&ctx->sh->rbtree, &ctx->sh->sentinel,
                     ngx_http_limit_req_rbtree_insert_value);
 
@@ -723,7 +728,7 @@ ngx_http_limit_req_merge_conf(ngx_conf_t *cf, void *parent, void *child)
     return NGX_CONF_OK;
 }
 
-
+// dyc: called by "limit_req_zone" CMD, such as: 
 static char *
 ngx_http_limit_req_zone(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
@@ -844,13 +849,13 @@ ngx_http_limit_req_zone(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     }
 
     ctx->rate = rate * 1000 / scale;
-
+    // dyc: get an already existed shm or create a new one
     shm_zone = ngx_shared_memory_add(cf, &name, size,
                                      &ngx_http_limit_req_module);
     if (shm_zone == NULL) {
         return NGX_CONF_ERROR;
     }
-
+    // dyc: we should create a new shm_zone
     if (shm_zone->data) {
         ctx = shm_zone->data;
 
@@ -859,14 +864,14 @@ ngx_http_limit_req_zone(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
                            &cmd->name, &name, &ctx->var);
         return NGX_CONF_ERROR;
     }
-
+    // dyc: called in ngx_init_cycle()
     shm_zone->init = ngx_http_limit_req_init_zone;
     shm_zone->data = ctx;
 
     return NGX_CONF_OK;
 }
 
-
+// dyc: called by each "limit_req" CMD, search global shm_zone and push ngx_http_limit_req_limit_t item
 static char *
 ngx_http_limit_req(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
@@ -891,6 +896,7 @@ ngx_http_limit_req(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
             s.len = value[i].len - 5;
             s.data = value[i].data + 5;
 
+            // dyc: get an already existed shm or create a new one
             shm_zone = ngx_shared_memory_add(cf, &s, 0,
                                              &ngx_http_limit_req_module);
             if (shm_zone == NULL) {
@@ -920,7 +926,7 @@ ngx_http_limit_req(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                            "invalid parameter \"%V\"", &value[i]);
         return NGX_CONF_ERROR;
-    }
+    } // for 
 
     if (shm_zone == NULL) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
@@ -937,7 +943,7 @@ ngx_http_limit_req(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     }
 
     limits = lrcf->limits.elts;
-
+    // dyc: init array with 1 element
     if (limits == NULL) {
         if (ngx_array_init(&lrcf->limits, cf->pool, 1,
                            sizeof(ngx_http_limit_req_limit_t))
