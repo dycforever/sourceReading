@@ -281,6 +281,7 @@ struct file fastcall *fget_light(unsigned int fd, int *fput_needed)
 		rcu_read_lock();
 		file = fcheck_files(files, fd);
 		if (file) {
+            // dyc: increase if not zero
 			if (atomic_inc_not_zero(&file->f_count))
 				*fput_needed = 1;
 			else
