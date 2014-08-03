@@ -503,7 +503,7 @@ struct sock *tcp_check_req(struct sock *sk,struct sk_buff *skb,
 	tmp_opt.saw_tstamp = 0;
 	if (th->doff > (sizeof(struct tcphdr)>>2)) {
 		tcp_parse_options(skb, &tmp_opt, 0);
-
+        // dyc: if there is timestamp in tcp's header
 		if (tmp_opt.saw_tstamp) {
 			tmp_opt.ts_recent = req->ts_recent;
 			/* We do not store true stamp, but it is not required,
@@ -653,6 +653,7 @@ struct sock *tcp_check_req(struct sock *sk,struct sk_buff *skb,
 		 * ESTABLISHED STATE. If it will be dropped after
 		 * socket is created, wait for troubles.
 		 */
+        // dyc: for tcp is tcp_v4_syn_recv_sock()
 		child = inet_csk(sk)->icsk_af_ops->syn_recv_sock(sk, skb,
 								 req, NULL);
 		if (child == NULL)

@@ -226,6 +226,7 @@ struct sock {
 	struct sk_buff_head	sk_receive_queue;
 	struct sk_buff_head	sk_write_queue;
 	struct sk_buff_head	sk_async_wait_queue;
+    // dyc: used buffer sized ?
 	int			sk_wmem_queued;
 	int			sk_forward_alloc;
 	gfp_t			sk_allocation;

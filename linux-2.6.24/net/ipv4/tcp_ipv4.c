@@ -1351,6 +1351,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
 #ifdef CONFIG_SYN_COOKIES
 		syn_flood_warning(skb);
 #endif
+        // dyc init sequence number
 		isn = cookie_v4_init_sequence(sk, skb, &req->mss);
 	} else if (!isn) {
 		struct inet_peer *peer = NULL;
@@ -1497,7 +1498,7 @@ exit:
 	return NULL;
 }
 
-// dyc: usually means receive 3-hands' last ack
+// dyc: usually means receive 3-hands' first syn or last ack
 static struct sock *tcp_v4_hnd_req(struct sock *sk, struct sk_buff *skb)
 {
 	struct tcphdr *th = tcp_hdr(skb);
@@ -1505,8 +1506,10 @@ static struct sock *tcp_v4_hnd_req(struct sock *sk, struct sk_buff *skb)
 	struct sock *nsk;
 	struct request_sock **prev;
 	/* Find possible connection requests. */
+    // dyc: search in listening sock's sys_table and find a match one
 	struct request_sock *req = inet_csk_search_req(sk, &prev, th->source,
 						       iph->saddr, iph->daddr);
+    // dyc: if req != NULL, SYN has sent before, so this skb is ack
 	if (req)
 		return tcp_check_req(sk, skb, req, prev);
 
@@ -1587,12 +1590,14 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
 		goto csum_err;
 
 	if (sk->sk_state == TCP_LISTEN) {
-        // dyc: here, usually means receive 3-hands' last ack
+        // dyc: here, usually means receive 3-hands' first syn or last ack
 		struct sock *nsk = tcp_v4_hnd_req(sk, skb);
+        // dyc: if find sk'stat is established, return NULL
 		if (!nsk)
 			goto discard;
-
+        // dyc: for first syn, nsk == sk
 		if (nsk != sk) {
+            // dyc: this is ack, so 3-hands success, create a new sock
 			if (tcp_child_process(sk, nsk, skb)) {
 				rsk = nsk;
 				goto reset;
@@ -1669,7 +1674,7 @@ int tcp_v4_rcv(struct sk_buff *skb)
 	TCP_SKB_CB(skb)->when	 = 0;
 	TCP_SKB_CB(skb)->flags	 = iph->tos;
 	TCP_SKB_CB(skb)->sacked	 = 0;
-
+    // dyc: inet_iif() get skb's rt_iif which is sock's dev's ifindex, sock's dev is set in netcard's driver when frame received
 	sk = __inet_lookup(&tcp_hashinfo, iph->saddr, th->source,
 			   iph->daddr, th->dest, inet_iif(skb));
 	if (!sk)
@@ -1690,6 +1695,7 @@ process:
 
 	bh_lock_sock_nested(sk);
 	ret = 0;
+    // dyc: if owned this sock
 	if (!sock_owned_by_user(sk)) {
 #ifdef CONFIG_NET_DMA
 		struct tcp_sock *tp = tcp_sk(sk);
@@ -1703,8 +1709,10 @@ process:
 			if (!tcp_prequeue(sk, skb))
 			ret = tcp_v4_do_rcv(sk, skb);
 		}
-	} else
+	} else {
+        // dyc: add skb to the tail of sk->sk_backlog
 		sk_add_backlog(sk, skb);
+    }
 	bh_unlock_sock(sk);
 
 	sock_put(sk);

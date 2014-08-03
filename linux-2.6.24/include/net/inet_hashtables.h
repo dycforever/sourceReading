@@ -37,6 +37,7 @@
  * One chain is dedicated to TIME_WAIT sockets.
  * I'll experiment with dynamic table growth later.
  */
+// dyc: for established connections and time wait connections
 struct inet_ehash_bucket {
 	struct hlist_head chain;
 	struct hlist_head twchain;
@@ -404,12 +405,14 @@ static inline struct sock *
 				  const int dif)
 {
 	INET_ADDR_COOKIE(acookie, saddr, daddr)
+    // dyc: combine two 16-bit Int to a 32-bit Int
 	const __portpair ports = INET_COMBINED_PORTS(sport, hnum);
 	struct sock *sk;
 	const struct hlist_node *node;
 	/* Optimize here for direct hit, only listening connections can
 	 * have wildcards anyways.
 	 */
+    // dyc: get hash code from source ip addr and port
 	unsigned int hash = inet_ehashfn(daddr, hnum, saddr, sport);
 	struct inet_ehash_bucket *head = inet_ehash_bucket(hashinfo, hash);
 	rwlock_t *lock = inet_ehash_lockp(hashinfo, hash);
@@ -417,12 +420,20 @@ static inline struct sock *
 	prefetch(head->chain.first);
 	read_lock(lock);
 	sk_for_each(sk, node, &head->chain) {
+        // dyc: sk->sk_hash == hash && 
+        //      sk->daddr == acookie && 
+        //      sk->dport == ports && 
+        //      sk->sk_bound_dev_if == dif
+        //
+        //      daddr is useless
+        //      ports is 32-bits, sk->dport is 16-bits, but sk->num stores sport, so (sk->num < 16 + sk->dport) == ports
 		if (INET_MATCH(sk, hash, acookie, saddr, daddr, ports, dif))
 			goto hit; /* You sunk my battleship! */
 	}
 
 	/* Must check for a TIME_WAIT'er before going to listener hash. */
 	sk_for_each(sk, node, &head->twchain) {
+        // dyc: same as above, but time_wait socks is typeof inet_timewait_sock instread of inet_sock
 		if (INET_TW_MATCH(sk, hash, acookie, saddr, daddr, ports, dif))
 			goto hit;
 	}

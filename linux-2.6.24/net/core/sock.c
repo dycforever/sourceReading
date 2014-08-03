@@ -504,6 +504,7 @@ set_sndbuf:
 		 *	Wake up sending tasks if we
 		 *	upped the value.
 		 */
+        // dyc: for tcp, is sk_stream_write_space()
 		sk->sk_write_space(sk);
 		break;
 

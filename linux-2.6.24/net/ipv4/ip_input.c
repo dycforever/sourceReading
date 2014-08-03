@@ -219,7 +219,8 @@ static int ip_local_deliver_finish(struct sk_buff *skb)
 		 */
 		if (raw_sk && !raw_v4_input(skb, ip_hdr(skb), hash))
 			raw_sk = NULL;
-
+        // dyc: inet_protos[] array is inited in inet_init(), 
+        //      including tcp_protocol/icmp_protocol ...
 		if ((ipprot = rcu_dereference(inet_protos[hash])) != NULL) {
 			int ret;
 
@@ -230,6 +231,7 @@ static int ip_local_deliver_finish(struct sk_buff *skb)
 				}
 				nf_reset(skb);
 			}
+            // dyc: for tcp, is is tcp_v4_rcv()
 			ret = ipprot->handler(skb);
 			if (ret < 0) {
 				protocol = -ret;
@@ -268,7 +270,7 @@ int ip_local_deliver(struct sk_buff *skb)
 			return 0;
 	}
 
-    // dyc: ip_local_deliver_finish() pass data from L3 to L4
+    // dyc: ip_local_deliver_finish() deliver packet from L3 to L4
 	return NF_HOOK(PF_INET, NF_IP_LOCAL_IN, skb, skb->dev, NULL,
 		       ip_local_deliver_finish);
 }
@@ -336,6 +338,7 @@ static int ip_rcv_finish(struct sk_buff *skb)
 	 */
 	if (skb->dst == NULL) {
         // dyc: find input route cache, drap packet if find failed
+        //      this function will set skb->dst
 		int err = ip_route_input(skb, iph->daddr, iph->saddr, iph->tos,
 					 skb->dev);
 		if (unlikely(err)) {
@@ -368,7 +371,7 @@ static int ip_rcv_finish(struct sk_buff *skb)
 	else if (rt->rt_type == RTN_BROADCAST)
 		IP_INC_STATS_BH(IPSTATS_MIB_INBCASTPKTS);
 
-    // dyc: for IPv4, call ip_local_deliver()
+    // dyc: for IPv4 and not forward or broadcast, call ip_local_deliver()
 	return dst_input(skb);
 
 drop:

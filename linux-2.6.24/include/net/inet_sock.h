@@ -115,7 +115,7 @@ struct inet_sock {
 	__be32			daddr;
 	__be32			rcv_saddr;
 	__be16			dport;
-	__u16			num;
+	__u16			num;  // dyc: sport
 	__be32			saddr;
 	__s16			uc_ttl;
 	__u16			cmsg_flags;

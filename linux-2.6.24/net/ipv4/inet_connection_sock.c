@@ -240,13 +240,14 @@ struct sock *inet_csk_accept(struct sock *sk, int flags, int *err)
 
 	/* Find already established connection */
 	if (reqsk_queue_empty(&icsk->icsk_accept_queue)) {
+        // dyc: if nonblock, return 0
 		long timeo = sock_rcvtimeo(sk, flags & O_NONBLOCK);
 
 		/* If this is a non blocking socket don't sleep */
 		error = -EAGAIN;
 		if (!timeo)
 			goto out_err;
-
+        // dyc: blocking socket
 		error = inet_csk_wait_for_connect(sk, timeo);
 		if (error)
 			goto out_err;
@@ -365,7 +366,7 @@ static inline u32 inet_synq_hash(const __be32 raddr, const __be16 rport,
 #else
 #define AF_INET_FAMILY(fam) 1
 #endif
-
+// dyc: search in listening sock's sys_table and find a match one
 struct request_sock *inet_csk_search_req(const struct sock *sk,
 					 struct request_sock ***prevp,
 					 const __be16 rport, const __be32 raddr,
@@ -404,6 +405,7 @@ void inet_csk_reqsk_queue_hash_add(struct sock *sk, struct request_sock *req,
 	const u32 h = inet_synq_hash(inet_rsk(req)->rmt_addr, inet_rsk(req)->rmt_port,
 				     lopt->hash_rnd, lopt->nr_table_entries);
 
+    // dyc: add req into icsk->icsk_accept_queue->listen_opt->syn_table[]
 	reqsk_queue_hash_req(&icsk->icsk_accept_queue, h, req, timeout);
 	inet_csk_reqsk_queue_added(sk, timeout);
 }

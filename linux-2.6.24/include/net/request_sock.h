@@ -187,7 +187,7 @@ static inline struct sock *reqsk_queue_get_child(struct request_sock_queue *queu
 	struct sock *child = req->sk;
 
 	BUG_TRAP(child != NULL);
-
+	// dyc: parent->sk_ack_backlog--;
 	sk_acceptq_removed(parent);
 	__reqsk_free(req);
 	return child;
@@ -228,7 +228,7 @@ static inline int reqsk_queue_is_full(const struct request_sock_queue *queue)
 {
 	return queue->listen_opt->qlen >> queue->listen_opt->max_qlen_log;
 }
-
+// dyc: add req into queue->listen_opt->syn_table[]
 static inline void reqsk_queue_hash_req(struct request_sock_queue *queue,
 					u32 hash, struct request_sock *req,
 					unsigned long timeout)

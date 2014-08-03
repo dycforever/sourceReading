@@ -245,7 +245,7 @@ static inline int dst_input(struct sk_buff *skb)
 	int err;
 
 	for (;;) {
-        // dyc: for IPv4, call ip_local_deliver()
+        // dyc: for IPv4 and not forward or broadcast, call ip_local_deliver()
 		err = skb->dst->input(skb);
 
 		if (likely(err == 0))
