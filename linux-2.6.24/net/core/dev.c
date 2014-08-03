@@ -4501,7 +4501,7 @@ static int __init net_dev_init(void)
 
 	dev_boot_phase = 0;
 
-    // dyc: softirq[NET_TX_SOFTIRQ].action = net_tx_action
+    // dyc: softirq[NET_TX_SOFTIRQ].action = net_tx_action, otherwise NULL
 	open_softirq(NET_TX_SOFTIRQ, net_tx_action, NULL);
 	open_softirq(NET_RX_SOFTIRQ, net_rx_action, NULL);
 
