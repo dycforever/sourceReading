@@ -110,6 +110,8 @@ struct inet_hashinfo __cacheline_aligned tcp_hashinfo = {
 
 static int tcp_v4_get_port(struct sock *sk, unsigned short snum)
 {
+    // dyc: in ./inet_connection_sock.c
+    //      find a port and add struct inet_bind_bucket into tcp_hashinfo->bhash[]
 	return inet_csk_get_port(&tcp_hashinfo, sk, snum,
 				 inet_csk_bind_conflict);
 }
@@ -747,6 +749,7 @@ static int tcp_v4_send_synack(struct sock *sk, struct request_sock *req,
 	struct sk_buff * skb;
 
 	/* First, grab a route. */
+    // dyc: if no dst, find in route
 	if (!dst && (dst = inet_csk_route_req(sk, req)) == NULL)
 		goto out;
 
@@ -1259,6 +1262,8 @@ static struct timewait_sock_ops tcp_timewait_sock_ops = {
 };
 
 // dyc: received a syn packet
+//      drop packet if reqsk_queue or accept_queue is full
+//      alloc and init a request_sock, then return syn+ack
 int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
 {
 	struct inet_request_sock *ireq;
@@ -1409,6 +1414,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
 	if (want_cookie) {
 		reqsk_free(req);
 	} else {
+        // dyc: add req into icsk->icsk_accept_queue->listen_opt->syn_table[]
 		inet_csk_reqsk_queue_hash_add(sk, req, TCP_TIMEOUT_INIT);
 	}
 	return 0;
@@ -1498,7 +1504,8 @@ exit:
 	return NULL;
 }
 
-// dyc: usually means receive 3-hands' first syn or last ack
+// dyc: look into listening chain, if NULL then
+//      look into established chain and timewait chain to get sock if match
 static struct sock *tcp_v4_hnd_req(struct sock *sk, struct sk_buff *skb)
 {
 	struct tcphdr *th = tcp_hdr(skb);
@@ -1509,10 +1516,12 @@ static struct sock *tcp_v4_hnd_req(struct sock *sk, struct sk_buff *skb)
     // dyc: search in listening sock's sys_table and find a match one
 	struct request_sock *req = inet_csk_search_req(sk, &prev, th->source,
 						       iph->saddr, iph->daddr);
-    // dyc: if req != NULL, SYN has sent before, so this skb is ack
+    // dyc: if req != NULL, dest socket is in listen list
+    //      usually, this packet is an ack to finish 3-hands
 	if (req)
 		return tcp_check_req(sk, skb, req, prev);
 
+    // dyc: if look in established_hashtable and timewait_hashtable
 	nsk = inet_lookup_established(&tcp_hashinfo, iph->saddr, th->source,
 				      iph->daddr, th->dest, inet_iif(skb));
 
@@ -1592,12 +1601,12 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
 	if (sk->sk_state == TCP_LISTEN) {
         // dyc: here, usually means receive 3-hands' first syn or last ack
 		struct sock *nsk = tcp_v4_hnd_req(sk, skb);
-        // dyc: if find sk'stat is established, return NULL
+        // dyc: if find sk'stat is TIME_WAIT, return NULL
 		if (!nsk)
 			goto discard;
-        // dyc: for first syn, nsk == sk
+        // dyc: packet is sent to other socket(SYN_RECV socket/ESTABLISHED socket)
 		if (nsk != sk) {
-            // dyc: this is ack, so 3-hands success, create a new sock
+            // dyc: pass sk to child socket
 			if (tcp_child_process(sk, nsk, skb)) {
 				rsk = nsk;
 				goto reset;
@@ -1607,7 +1616,8 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
 	}
 
 	TCP_CHECK_TIMER(sk);
-    // dyc: tcp_hdr() get tcp header from sock_buff
+    // dyc: here mean LISTEN socket received first SYN
+    //      tcp_hdr() get tcp header from sock_buff
 	if (tcp_rcv_state_process(sk, skb, tcp_hdr(skb), skb->len)) {
 		rsk = sk;
 		goto reset;
@@ -1695,7 +1705,8 @@ process:
 
 	bh_lock_sock_nested(sk);
 	ret = 0;
-    // dyc: if owned this sock
+    // dyc: ((sk)->sk_lock.owned)
+    //      if owned this sock
 	if (!sock_owned_by_user(sk)) {
 #ifdef CONFIG_NET_DMA
 		struct tcp_sock *tp = tcp_sk(sk);
@@ -2435,7 +2446,7 @@ void tcp4_proc_exit(void)
 #endif /* CONFIG_PROC_FS */
 
 DEFINE_PROTO_INUSE(tcp)
-
+// dyc: no tcp_bind() !
 struct proto tcp_prot = {
 	.name			= "TCP",
 	.owner			= THIS_MODULE,

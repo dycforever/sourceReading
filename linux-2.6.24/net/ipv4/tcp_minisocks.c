@@ -489,11 +489,12 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req,
  *	Process an incoming packet for SYN_RECV sockets represented
  *	as a request_sock.
  */
-
+// dyc:
 struct sock *tcp_check_req(struct sock *sk,struct sk_buff *skb,
 			   struct request_sock *req,
 			   struct request_sock **prev)
 {
+    // dyc: here means a listening socket received a packet from socket in listening_list
 	const struct tcphdr *th = tcp_hdr(skb);
 	__be32 flg = tcp_flag_word(th) & (TCP_FLAG_RST|TCP_FLAG_SYN|TCP_FLAG_ACK);
 	int paws_reject = 0;

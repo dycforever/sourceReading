@@ -983,7 +983,7 @@ main(int argc, char **argv)
     if (set_timer() == -1) {
         return -1;
     }
-
+    // dyc: call tc_select_create(), malloc memory for select
     ret = tc_event_loop_init(&event_loop, MAX_FD_NUM);
     if (ret == TC_EVENT_ERROR) {
         tc_log_info(LOG_ERR, 0, "event loop init failed");

@@ -265,6 +265,7 @@ struct sk_buff {
 	 * want to keep them across layers you have to do a skb_clone()
 	 * first. This is owned by whoever has the skb queued ATM.
 	 */
+    // dyc: for tcp, it is struct tcp_skb_cb
 	char			cb[48];
 
 	unsigned int		len,

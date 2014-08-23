@@ -39,7 +39,7 @@ int reqsk_queue_alloc(struct request_sock_queue *queue,
 {
 	size_t lopt_size = sizeof(struct listen_sock);
 	struct listen_sock *lopt;
-
+    // dyc: in range [8, sysctl_max_syn_backlog]
 	nr_table_entries = min_t(u32, nr_table_entries, sysctl_max_syn_backlog);
 	nr_table_entries = max_t(u32, nr_table_entries, 8);
 	nr_table_entries = roundup_pow_of_two(nr_table_entries + 1);
@@ -52,7 +52,7 @@ int reqsk_queue_alloc(struct request_sock_queue *queue,
 		lopt = kzalloc(lopt_size, GFP_KERNEL);
 	if (lopt == NULL)
 		return -ENOMEM;
-
+    // dyc: lopt->max_qlen_log == log(nr_table_entries)
 	for (lopt->max_qlen_log = 3;
 	     (1 << lopt->max_qlen_log) < nr_table_entries;
 	     lopt->max_qlen_log++);

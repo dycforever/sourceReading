@@ -98,8 +98,10 @@ static __always_inline unsigned read_seqbegin(const seqlock_t *sl)
  *    
  * Using xor saves one conditional branch.
  */
+// dyc: return true if iv != sl->sequence or iv is odd
 static __always_inline int read_seqretry(const seqlock_t *sl, unsigned iv)
 {
+    // dyc: iv == sl->sequence if sl->sequence not be changed, then (sl->sequence ^ iv) == 0
 	smp_rmb();
 	return (iv & 1) | (sl->sequence ^ iv);
 }

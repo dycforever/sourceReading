@@ -32,9 +32,10 @@ EXPORT_SYMBOL(inet_csk_timer_bug_msg);
 /*
  * This array holds the first and last local port number.
  */
+// dyc: may be changed by set_local_port_range()
 int sysctl_local_port_range[2] = { 32768, 61000 };
 DEFINE_SEQLOCK(sysctl_port_range_lock);
-
+// dyc: read local_port_range in concurrency situation
 void inet_get_local_port_range(int *low, int *high)
 {
 	unsigned seq;
@@ -43,6 +44,7 @@ void inet_get_local_port_range(int *low, int *high)
 
 		*low = sysctl_local_port_range[0];
 		*high = sysctl_local_port_range[1];
+        // dyc: while sysctl_port_range_lock has been changed or seq is odd
 	} while (read_seqretry(&sysctl_port_range_lock, seq));
 }
 EXPORT_SYMBOL(inet_get_local_port_range);
@@ -55,6 +57,7 @@ int inet_csk_bind_conflict(const struct sock *sk,
 	struct hlist_node *node;
 	int reuse = sk->sk_reuse;
 
+    // dyc: node is iterator, sk2 is *iterator
 	sk_for_each_bound(sk2, node, &tb->owners) {
 		if (sk != sk2 &&
 		    !inet_v6_ipv6only(sk2) &&
@@ -89,9 +92,10 @@ int inet_csk_get_port(struct inet_hashinfo *hashinfo,
 	int ret;
 
 	local_bh_disable();
+    // dyc: choose an available port
 	if (!snum) {
 		int remaining, rover, low, high;
-
+        // dyc: read local_port_range in concurrency situation
 		inet_get_local_port_range(&low, &high);
 		remaining = (high - low) + 1;
 		rover = net_random() % remaining + low;
@@ -99,6 +103,7 @@ int inet_csk_get_port(struct inet_hashinfo *hashinfo,
 		do {
 			head = &hashinfo->bhash[inet_bhashfn(rover, hashinfo->bhash_size)];
 			spin_lock(&head->lock);
+            // dyc: if port has been binded
 			inet_bind_bucket_for_each(tb, node, &head->chain)
 				if (tb->port == rover)
 					goto next;
@@ -130,6 +135,7 @@ int inet_csk_get_port(struct inet_hashinfo *hashinfo,
 			if (tb->port == snum)
 				goto tb_found;
 	}
+    // dyc: no others using this port
 	tb = NULL;
 	goto tb_not_found;
 tb_found:
@@ -141,14 +147,17 @@ tb_found:
 			goto success;
 		} else {
 			ret = 1;
+            // dyc: call inet_csk_bind_conflict()
 			if (bind_conflict(sk, tb))
 				goto fail_unlock;
 		}
 	}
 tb_not_found:
 	ret = 1;
+    // dyc: alloc inet_bind_bucket and add to list @head
 	if (!tb && (tb = inet_bind_bucket_create(hashinfo->bind_bucket_cachep, head, snum)) == NULL)
 		goto fail_unlock;
+    // dyc: port not be binded before
 	if (hlist_empty(&tb->owners)) {
 		if (sk->sk_reuse && sk->sk_state != TCP_LISTEN)
 			tb->fastreuse = 1;
@@ -159,6 +168,7 @@ tb_not_found:
 		tb->fastreuse = 0;
 success:
 	if (!inet_csk(sk)->icsk_bind_hash)
+        // dyc: set sk->num add sk to tb->owner
 		inet_bind_hash(sk, tb, snum);
 	BUG_TRAP(inet_csk(sk)->icsk_bind_hash == tb);
 	ret = 0;
@@ -247,12 +257,12 @@ struct sock *inet_csk_accept(struct sock *sk, int flags, int *err)
 		error = -EAGAIN;
 		if (!timeo)
 			goto out_err;
-        // dyc: blocking socket
+        // dyc: blocking socket, timeo == 0
 		error = inet_csk_wait_for_connect(sk, timeo);
 		if (error)
 			goto out_err;
 	}
-
+    // dyc: dequeue from icsk->icsk_accept_queue
 	newsk = reqsk_queue_get_child(&icsk->icsk_accept_queue, sk);
 	BUG_TRAP(newsk->sk_state != TCP_SYN_RECV);
 out:

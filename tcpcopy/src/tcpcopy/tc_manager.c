@@ -372,6 +372,7 @@ tcp_copy_init(tc_event_loop_t *event_loop)
 {
 
     /* register some timer */
+    // dyc: insert timer into loop->timer list, check rrs and clear timeout sessions
     tc_event_timer_add(event_loop, 60000, check_resource_usage);
     tc_event_timer_add(event_loop, OUTPUT_INTERVAL, tc_interval_dispose);
 
@@ -381,13 +382,12 @@ tcp_copy_init(tc_event_loop_t *event_loop)
     }
 #endif
 
-    /* init session table */
+    /* init session/transfer-port hash table */
     init_for_sessions();
 
 #if (!TCPCOPY_DR)
     address_init();
 #endif
-
     if (connect_to_server(event_loop) == TC_ERROR) {
         return TC_ERROR;
     }

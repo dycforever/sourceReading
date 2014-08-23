@@ -542,6 +542,7 @@ tc_offline_init(tc_event_loop_t *event_loop, char *pcap_file)
     gettimeofday(&base_time, NULL);
     tc_log_info(LOG_NOTICE, 0, "open pcap success:%s", pcap_file);
     tc_log_info(LOG_NOTICE, 0, "send the first packets here");
+    // dyc: first send
     send_packets_from_pcap(1);
 
     /* register a timer for offline */
@@ -556,6 +557,7 @@ tc_process_offline_packet(tc_event_timer_t *evt)
     int diff = 0;  
 
     if (!read_pcap_over) {
+        // dyc: not first send
         send_packets_from_pcap(0);
     } else {
         diff = tc_time() - read_pcap_over_time;

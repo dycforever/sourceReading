@@ -4962,7 +4962,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
 		goto discard;
 
 	case TCP_LISTEN:
-        // dyc: should be first syn
+        // dyc: here, packet should be first syn
 		if (th->ack)
 			return 1;
 

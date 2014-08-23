@@ -9,7 +9,7 @@ static long tc_event_timer_find(tc_event_loop_t *loop);
 static void tc_event_timer_run(tc_event_loop_t *loop);
 
 static tc_event_actions_t tc_event_actions = {
-    tc_select_create,
+    tc_select_create, /* malloc memory for select */
     tc_select_destroy,
     tc_select_add_event,
     tc_select_del_event,
@@ -238,6 +238,7 @@ void finally_release_obsolete_events()
     }
 }
 
+// dyc: malloc memory for event_timer_t and insert into loop->timer list
 int tc_event_timer_add(tc_event_loop_t *loop, long msec,
         tc_event_timer_handler_pt handler)
 {
@@ -248,7 +249,6 @@ int tc_event_timer_add(tc_event_loop_t *loop, long msec,
         return TC_EVENT_ERROR;
     }
 
-
     timer->handler = handler;
     timer->msec = tc_current_time_msec + msec;
 
@@ -258,6 +258,7 @@ int tc_event_timer_add(tc_event_loop_t *loop, long msec,
     return TC_EVENT_OK;
 }
 
+// dyc: return min timer->msec which must > 0
 static long tc_event_timer_find(tc_event_loop_t *loop)
 {
     long              min;
@@ -280,7 +281,6 @@ static long tc_event_timer_find(tc_event_loop_t *loop)
     if (min > 0) {
         min -= tc_current_time_msec;
     }
-
     return min < 0 ? 0 : min;
 }
 

@@ -28,7 +28,7 @@ struct tcphdr {
 	__be32	ack_seq;
 #if defined(__LITTLE_ENDIAN_BITFIELD)
 	__u16	res1:4,
-		doff:4,
+		doff:4,  /* header length in unit 4*/
 		fin:1,
 		syn:1,
 		rst:1,

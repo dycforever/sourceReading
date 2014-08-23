@@ -35,7 +35,7 @@
  *	Save time not doing access_ok. copy_*_user will make this work
  *	in any case.
  */
-
+// dyc: check if total size of iov overflow
 int verify_iovec(struct msghdr *m, struct iovec *iov, char *address, int mode)
 {
 	int size, err, ct;

@@ -367,7 +367,7 @@ static __inline__ void sk_add_bind_node(struct sock *sk,
 {
 	hlist_add_head(&sk->sk_bind_node, list);
 }
-
+// dyc: node is iterator, __sk is *iterator
 #define sk_for_each(__sk, node, list) \
 	hlist_for_each_entry(__sk, node, list, sk_node)
 #define sk_for_each_from(__sk, node) \
