@@ -96,6 +96,9 @@ unsigned long __lockfunc _spin_lock_irqsave(spinlock_t *lock)
 	LOCK_CONTENDED(lock, _raw_spin_trylock, _raw_spin_lock);
 #else
     // dyc: just spin lock code in assemble language
+    //      see __raw_spin_lock():
+    //          1 means lock available
+    //          <= 0 means locked
 	_raw_spin_lock_flags(lock, &flags);
 #endif
 	return flags;

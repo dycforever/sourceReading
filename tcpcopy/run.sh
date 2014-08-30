@@ -1,4 +1,4 @@
 
-./configure --prefix=/home/dyc/tools/tcpcopy --enable-offline
+./configure --prefix=/home/dyc/tools/tcpcopy
 make -j4
 make install
