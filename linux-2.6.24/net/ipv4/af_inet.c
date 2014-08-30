@@ -484,7 +484,7 @@ int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 		inet->saddr = 0;  /* Use device */
 
 	/* Make sure we are allowed to bind here. */
-    // dyc: call inet_csk_get_port()
+    // dyc: call inet_csk_get_port() in ./inet_connection_sock.c
 	if (sk->sk_prot->get_port(sk, snum)) {
 		inet->saddr = inet->rcv_saddr = 0;
 		err = -EADDRINUSE;

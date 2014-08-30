@@ -3688,6 +3688,7 @@ EXPORT_SYMBOL(schedule);
  * off of preempt_enable. Kernel preemptions off return from interrupt
  * occur there and call schedule directly.
  */
+// dyc: means this call won't be happened in interrupt ?
 asmlinkage void __sched preempt_schedule(void)
 {
 	struct thread_info *ti = current_thread_info();

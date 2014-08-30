@@ -270,6 +270,7 @@ static inline u32 inet_sk_port_offset(const struct sock *sk)
 /*
  * Bind a port for a connect operation and hash it.
  */
+// dyc: called in tcp_v4_connect()
 int inet_hash_connect(struct inet_timewait_death_row *death_row,
 		      struct sock *sk)
 {
