@@ -209,6 +209,7 @@ extern void inet_bind_hash(struct sock *sk, struct inet_bind_bucket *tb,
 			   const unsigned short snum);
 
 /* These can have wildcards, don't try too hard. */
+// dyc: mod 32
 static inline int inet_lhashfn(const unsigned short num)
 {
 	return num & (INET_LHTABLE_SIZE - 1);

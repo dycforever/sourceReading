@@ -521,7 +521,7 @@ void monotonic_to_bootbased(struct timespec *ts)
 {
 	ts->tv_sec += total_sleep_time;
 }
-
+// dyc: xtime_cache is updated by do_timer() -> update_times() -> update_wall_time()
 unsigned long get_seconds(void)
 {
 	return xtime_cache.tv_sec;

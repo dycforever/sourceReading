@@ -548,6 +548,7 @@ EXPORT_SYMBOL_GPL(inet_csk_clone);
  * can assume the socket waitqueue is inactive and nobody will
  * try to jump onto it.
  */
+// dyc: purge queues and free memory 
 void inet_csk_destroy_sock(struct sock *sk)
 {
 	BUG_TRAP(sk->sk_state == TCP_CLOSE);
@@ -558,13 +559,13 @@ void inet_csk_destroy_sock(struct sock *sk)
 
 	/* If it has not 0 inet_sk(sk)->num, it must be bound */
 	BUG_TRAP(!inet_sk(sk)->num || inet_csk(sk)->icsk_bind_hash);
-
+    // dyc: call tcp_v4_destroy_sock() to purge sk->write_queue and tp->out_of_order_queue
 	sk->sk_prot->destroy(sk);
-
+    // dyc: purge sk's sk_receive_queue/sk_error_queue/
 	sk_stream_kill_queues(sk);
-
+    // dyc: ignore for now
 	xfrm_sk_free_policy(sk);
-
+    // dyc: for debug
 	sk_refcnt_debug_release(sk);
 
 	atomic_dec(sk->sk_prot->orphan_count);
@@ -612,6 +613,7 @@ EXPORT_SYMBOL_GPL(inet_csk_listen_start);
  *	This routine closes sockets which have been at least partially
  *	opened, but not yet accepted.
  */
+// dyc: remove all sock in icsk->icsk_accept_queue and call tcp_disconnect() on it
 void inet_csk_listen_stop(struct sock *sk)
 {
 	struct inet_connection_sock *icsk = inet_csk(sk);
@@ -621,6 +623,7 @@ void inet_csk_listen_stop(struct sock *sk)
 	inet_csk_delete_keepalive_timer(sk);
 
 	/* make all the listen_opt local to us */
+    // dyc: return and set-NULL icsk->icsk_accept_queue
 	acc_req = reqsk_queue_yank_acceptq(&icsk->icsk_accept_queue);
 
 	/* Following specs, it would be better either to send FIN

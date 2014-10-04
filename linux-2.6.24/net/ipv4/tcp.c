@@ -1522,14 +1522,17 @@ static const unsigned char new_state[16] = {
   /* TCP_LISTEN		*/ TCP_CLOSE,
   /* TCP_CLOSING	*/ TCP_CLOSING,
 };
-
+// dyc: set sk->state when close, return if valid state which "call close()" can be happened
 static int tcp_close_state(struct sock *sk)
 {
 	int next = (int)new_state[sk->sk_state];
+    // dyc: &0xF
 	int ns = next & TCP_STATE_MASK;
 
 	tcp_set_state(sk, ns);
 
+    // dyc: TCP_ACTION_FIN	(1 << 7)
+    //      TCP_ACTION_FIN will set in new_state[] above
 	return next & TCP_ACTION_FIN;
 }
 
@@ -1568,10 +1571,8 @@ void tcp_close(struct sock *sk, long timeout)
 
 	if (sk->sk_state == TCP_LISTEN) {
 		tcp_set_state(sk, TCP_CLOSE);
-
 		/* Special case. */
 		inet_csk_listen_stop(sk);
-
 		goto adjudge_to_death;
 	}
 
@@ -1602,6 +1603,7 @@ void tcp_close(struct sock *sk, long timeout)
 		tcp_send_active_reset(sk, GFP_KERNEL);
 	} else if (sock_flag(sk, SOCK_LINGER) && !sk->sk_lingertime) {
 		/* Check zero linger _after_ checking for unread data. */
+        // dyc: call tcp_disconnect()
 		sk->sk_prot->disconnect(sk, 0);
 		NET_INC_STATS_USER(LINUX_MIB_TCPABORTONDATA);
 	} else if (tcp_close_state(sk)) {
@@ -1632,7 +1634,7 @@ void tcp_close(struct sock *sk, long timeout)
 		 */
 		tcp_send_fin(sk);
 	}
-
+    // dyc: if timeout == 0, do nothing
 	sk_stream_wait_close(sk, timeout);
 
 adjudge_to_death:
@@ -1642,8 +1644,8 @@ adjudge_to_death:
 	atomic_inc(sk->sk_prot->orphan_count);
 
 	/* It is the last release_sock in its life. It will remove backlog. */
+    // dyc: release backlog and wake_up(&sk->sk_lock.wq)
 	release_sock(sk);
-
 
 	/* Now socket is owned by kernel and we acquire BH lock
 	   to finish close. No need to check for user refs.
@@ -1708,6 +1710,7 @@ adjudge_to_death:
 out:
 	bh_unlock_sock(sk);
 	local_bh_enable();
+    // dyc: free memory
 	sock_put(sk);
 }
 
@@ -1737,6 +1740,7 @@ int tcp_disconnect(struct sock *sk, int flags)
 	} else if (tcp_need_reset(old_state) ||
 		   (tp->snd_nxt != tp->write_seq &&
 		    (1 << old_state) & (TCPF_CLOSING | TCPF_LAST_ACK))) {
+        // dyc: if old_state is (TCPF_ESTABLISHED | TCPF_CLOSE_WAIT | TCPF_FIN_WAIT1 | TCPF_FIN_WAIT2 | TCPF_SYN_RECV)
 		/* The last check adjusts for discrepancy of Linux wrt. RFC
 		 * states
 		 */
@@ -1775,6 +1779,7 @@ int tcp_disconnect(struct sock *sk, int flags)
 	inet_csk_delack_init(sk);
 	tcp_init_send_head(sk);
 	memset(&tp->rx_opt, 0, sizeof(tp->rx_opt));
+    // dyc: release dst_entry
 	__sk_dst_reset(sk);
 
 	BUG_TRAP(!inet->num || icsk->icsk_bind_hash);

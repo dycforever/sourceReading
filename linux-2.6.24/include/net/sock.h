@@ -79,7 +79,7 @@
  */
 typedef struct {
 	spinlock_t		slock;
-	int			owned;
+	int			owned; // dyc: slock to protect owned, and owned means if this sock is locked
 	wait_queue_head_t	wq;
 	/*
 	 * We express the mutex-alike socket_lock semantics
@@ -205,7 +205,7 @@ struct sock {
 	unsigned char		sk_protocol;
 	unsigned short		sk_type;
 	int			sk_rcvbuf;
-	socket_lock_t		sk_lock;
+	socket_lock_t		sk_lock; 
 	/*
 	 * The backlog queue is special, it is always used with
 	 * the per-socket spinlock held and requires low latency
@@ -1010,6 +1010,7 @@ static inline void sk_filter_charge(struct sock *sk, struct sk_filter *fp)
  */
 
 /* Ungrab socket and destroy it, if it was the last reference. */
+// dyc: add @sk->sk_refcnt in sock_hold(sk);
 static inline void sock_put(struct sock *sk)
 {
 	if (atomic_dec_and_test(&sk->sk_refcnt))
@@ -1085,6 +1086,7 @@ sk_dst_set(struct sock *sk, struct dst_entry *dst)
 	write_unlock(&sk->sk_dst_lock);
 }
 
+// dyc: release dst_entry
 static inline void
 __sk_dst_reset(struct sock *sk)
 {

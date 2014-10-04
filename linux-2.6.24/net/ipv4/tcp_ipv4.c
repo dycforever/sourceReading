@@ -1318,7 +1318,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
 	tcp_clear_options(&tmp_opt);
 	tmp_opt.mss_clamp = 536;
 	tmp_opt.user_mss  = tcp_sk(sk)->rx_opt.user_mss;
-
+    // dyc: parse tcp option of received syn packet
 	tcp_parse_options(skb, &tmp_opt, 0);
 
 	if (want_cookie) {
@@ -1326,7 +1326,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
 		tmp_opt.saw_tstamp = 0;
 	}
 
-    // dyc: if has timestamp, but timestamp is empty
+    // dyc: if has timestamp in option, but timestamp value is 0
 	if (tmp_opt.saw_tstamp && !tmp_opt.rcv_tsval) {
 		/* Some OSes (unknown ones, but I see them on web server, which
 		 * contains information interesting only for windows'
@@ -1338,7 +1338,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
 	}
 	tmp_opt.tstamp_ok = tmp_opt.saw_tstamp;
 
-    // dyc: init req
+    // dyc: init req, such as seq number and options
 	tcp_openreq_init(req, &tmp_opt, skb);
 
 	if (security_inet_conn_request(sk, skb, req))
@@ -1405,7 +1405,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
 		}
 
 		isn = tcp_v4_init_sequence(skb);
-	}
+	} // if !isn
 	tcp_rsk(req)->snt_isn = isn;
 
 	if (tcp_v4_send_synack(sk, req, dst))
@@ -1761,6 +1761,7 @@ do_time_wait:
 		inet_twsk_put(inet_twsk(sk));
 		goto discard_it;
 	}
+    // dyc: deal packet in TIMEWAIT state
 	switch (tcp_timewait_state_process(inet_twsk(sk), skb, th)) {
 	case TCP_TW_SYN: {
 		struct sock *sk2 = inet_lookup_listener(&tcp_hashinfo,

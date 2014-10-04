@@ -296,6 +296,7 @@ static inline void inet_csk_reqsk_queue_unlink(struct sock *sk,
 					       struct request_sock *req,
 					       struct request_sock **prev)
 {
+    // dyc: lock and *prev_req = req->dl_next;
 	reqsk_queue_unlink(&inet_csk(sk)->icsk_accept_queue, req, prev);
 }
 

@@ -903,6 +903,7 @@ out_free:
 	return NULL;
 }
 
+// dyc: real free sk's memory
 static void sk_prot_free(struct proto *prot, struct sock *sk)
 {
 	struct kmem_cache *slab;
@@ -912,10 +913,12 @@ static void sk_prot_free(struct proto *prot, struct sock *sk)
 	slab = prot->slab;
 
 	security_sk_free(sk);
+    // dyc: function below can be slub/slab/slob
 	if (slab != NULL)
 		kmem_cache_free(slab, sk);
-	else
+	else {
 		kfree(sk);
+    }
 	module_put(owner);
 }
 
@@ -965,8 +968,9 @@ void sk_free(struct sock *sk)
 	if (atomic_read(&sk->sk_omem_alloc))
 		printk(KERN_DEBUG "%s: optmem leakage (%d bytes) detected.\n",
 		       __FUNCTION__, atomic_read(&sk->sk_omem_alloc));
-
+    // dyc: about namespace 
 	put_net(sk->sk_net);
+    // dyc: real free sk's memory
 	sk_prot_free(sk->sk_prot_creator, sk);
 }
 
@@ -1328,7 +1332,7 @@ static void __lock_sock(struct sock *sk)
 	}
 	finish_wait(&sk->sk_lock.wq, &wait);
 }
-
+// dyc: release sk's backlog
 static void __release_sock(struct sock *sk)
 {
 	struct sk_buff *skb = sk->sk_backlog.head;
@@ -1631,6 +1635,7 @@ void fastcall lock_sock_nested(struct sock *sk, int subclass)
 
 EXPORT_SYMBOL(lock_sock_nested);
 
+// dyc: release backlog and wake_up(&sk->sk_lock.wq)
 void fastcall release_sock(struct sock *sk)
 {
 	/*
@@ -1642,6 +1647,7 @@ void fastcall release_sock(struct sock *sk)
 	if (sk->sk_backlog.tail)
 		__release_sock(sk);
 	sk->sk_lock.owned = 0;
+    // dyc: if waitqueue not empty
 	if (waitqueue_active(&sk->sk_lock.wq))
 		wake_up(&sk->sk_lock.wq);
 	spin_unlock_bh(&sk->sk_lock.slock);

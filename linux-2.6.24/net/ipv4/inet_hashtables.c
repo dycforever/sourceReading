@@ -64,6 +64,7 @@ void inet_bind_hash(struct sock *sk, struct inet_bind_bucket *tb,
 /*
  * Get rid of any references to a local port held by the given sock.
  */
+// dyc: delete from bind_hash
 static void __inet_put_port(struct inet_hashinfo *hashinfo, struct sock *sk)
 {
 	const int bhash = inet_bhashfn(inet_sk(sk)->num, hashinfo->bhash_size);
@@ -124,6 +125,7 @@ EXPORT_SYMBOL(inet_listen_wlock);
  * remote address for the connection. So always assume those are both
  * wildcarded during the search since they can never be otherwise.
  */
+// dyc: choose a most appropriate  sock according to proto_type/source_addr/dev_id
 static struct sock *inet_lookup_listener_slow(const struct hlist_head *head,
 					      const __be32 daddr,
 					      const unsigned short hnum,
@@ -170,6 +172,7 @@ struct sock *__inet_lookup_listener(struct inet_hashinfo *hashinfo,
 	const struct hlist_head *head;
 
 	read_lock(&hashinfo->lhash_lock);
+    // dyc: inet_lhashfn() just mod 32
 	head = &hashinfo->listening_hash[inet_lhashfn(hnum)];
 	if (!hlist_empty(head)) {
 		const struct inet_sock *inet = inet_sk((sk = __sk_head(head)));
@@ -191,6 +194,7 @@ sherry_cache:
 EXPORT_SYMBOL_GPL(__inet_lookup_listener);
 
 /* called with local bh disabled */
+// dyc: search in timewait chain and established chain to see if this port can be used
 static int __inet_check_established(struct inet_timewait_death_row *death_row,
 				    struct sock *sk, __u16 lport,
 				    struct inet_timewait_sock **twp)
@@ -217,6 +221,8 @@ static int __inet_check_established(struct inet_timewait_death_row *death_row,
 		tw = inet_twsk(sk2);
 
 		if (INET_TW_MATCH(sk2, hash, acookie, saddr, daddr, ports, dif)) {
+            // dyc: call sk->sk_prot->twsk_prot->twsk_unique,
+            //      which is tcp_twsk_unique(), use sysctl_tcp_tw_reuse
 			if (twsk_unique(sk, sk2, twp))
 				goto unique;
 			else
@@ -260,6 +266,7 @@ not_unique:
 	return -EADDRNOTAVAIL;
 }
 
+// dyc: generate a port for security
 static inline u32 inet_sk_port_offset(const struct sock *sk)
 {
 	const struct inet_sock *inet = inet_sk(sk);
@@ -280,9 +287,11 @@ int inet_hash_connect(struct inet_timewait_death_row *death_row,
 	struct inet_bind_bucket *tb;
 	int ret;
 
+    // dyc: not specify source port
 	if (!snum) {
 		int i, remaining, low, high, port;
 		static u32 hint;
+        // dyc: generate a port for security
 		u32 offset = hint + inet_sk_port_offset(sk);
 		struct hlist_node *node;
 		struct inet_timewait_sock *tw = NULL;
@@ -291,6 +300,7 @@ int inet_hash_connect(struct inet_timewait_death_row *death_row,
 		remaining = (high - low) + 1;
 
 		local_bh_disable();
+        // dyc: try @remaining times
 		for (i = 1; i <= remaining; i++) {
 			port = low + (i + offset) % remaining;
 			head = &hinfo->bhash[inet_bhashfn(port, hinfo->bhash_size)];
@@ -312,7 +322,7 @@ int inet_hash_connect(struct inet_timewait_death_row *death_row,
 					goto next_port;
 				}
 			}
-
+            // dyc: if not find port in tcp_death_row->hashinfo, create one and bind
 			tb = inet_bind_bucket_create(hinfo->bind_bucket_cachep, head, port);
 			if (!tb) {
 				spin_unlock(&head->lock);
@@ -323,7 +333,7 @@ int inet_hash_connect(struct inet_timewait_death_row *death_row,
 
 		next_port:
 			spin_unlock(&head->lock);
-		}
+		} // for (i = 1; i <= remaining; i++)
 		local_bh_enable();
 
 		return -EADDRNOTAVAIL;

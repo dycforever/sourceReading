@@ -195,6 +195,7 @@ static inline __be32 inet_rcv_saddr(const struct sock *sk)
 
 static inline void inet_twsk_put(struct inet_timewait_sock *tw)
 {
+    // dyc: return true if 0
 	if (atomic_dec_and_test(&tw->tw_refcnt)) {
 		struct module *owner = tw->tw_prot->owner;
 		twsk_destructor((struct sock *)tw);
