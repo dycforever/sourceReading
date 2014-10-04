@@ -382,6 +382,7 @@ void tcp_v4_err(struct sk_buff *skb, u32 info)
 		return;
 	}
 
+    // dyc: lock (__sk)->sk_lock.slock
 	bh_lock_sock(sk);
 	/* If too many ICMPs get dropped on busy
 	 * servers this needs to be solved differently.
@@ -1527,6 +1528,7 @@ static struct sock *tcp_v4_hnd_req(struct sock *sk, struct sk_buff *skb)
 
 	if (nsk) {
 		if (nsk->sk_state != TCP_TIME_WAIT) {
+            // dyc: lock (__sk)->sk_lock.slock
 			bh_lock_sock(nsk);
 			return nsk;
 		}
@@ -1717,6 +1719,7 @@ process:
 		else
 #endif
 		{
+            // dyc: if not tp->ucopy.task
 			if (!tcp_prequeue(sk, skb))
 			ret = tcp_v4_do_rcv(sk, skb);
 		}

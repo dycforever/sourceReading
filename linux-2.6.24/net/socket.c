@@ -1706,14 +1706,18 @@ asmlinkage long sys_setsockopt(int fd, int level, int optname,
 		if (err)
 			goto out_put;
 
-		if (level == SOL_SOCKET)
-			err =
-			    sock_setsockopt(sock, level, optname, optval,
-					    optlen);
-		else
-			err =
-			    sock->ops->setsockopt(sock, level, optname, optval,
-						  optlen);
+		if (level == SOL_SOCKET) {
+            err =
+                sock_setsockopt(sock, level, optname, optval,
+                        optlen);
+        } else {
+            // dyc: sock->ops is of type proto_ops
+            //      and setsockopt() for tcp is sock_common_socksetopt()
+            err =
+                sock->ops->setsockopt(sock, level, optname, optval,
+                        optlen);
+        }
+
 out_put:
 		fput_light(sock->file, fput_needed);
 	}

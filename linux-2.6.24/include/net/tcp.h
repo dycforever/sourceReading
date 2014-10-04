@@ -887,6 +887,7 @@ static inline int tcp_prequeue(struct sock *sk, struct sk_buff *skb)
 	struct tcp_sock *tp = tcp_sk(sk);
 
 	if (!sysctl_tcp_low_latency && tp->ucopy.task) {
+        // dyc; add skb to tail of &tp->ucopy.prequeue
 		__skb_queue_tail(&tp->ucopy.prequeue, skb);
 		tp->ucopy.memory += skb->truesize;
 		if (tp->ucopy.memory > sk->sk_rcvbuf) {
@@ -923,6 +924,7 @@ static const char *statename[]={
 };
 #endif
 // dyc: set sk->sk_state and do some statistics
+//      for TCP_CLOSE, call inet_put_port() to delete from bind_hash
 static inline void tcp_set_state(struct sock *sk, int state)
 {
 	int oldstate = sk->sk_state;

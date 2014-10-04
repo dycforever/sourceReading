@@ -576,6 +576,7 @@ set_rcvbuf:
 			ret = -EPERM;
 		break;
 
+        // dyc: SO_LINGER == 13
 	case SO_LINGER:
 		if (optlen < sizeof(ling)) {
 			ret = -EINVAL;	/* 1003.1g */
@@ -585,6 +586,7 @@ set_rcvbuf:
 			ret = -EFAULT;
 			break;
 		}
+        // dyc: reset is clear
 		if (!ling.l_onoff)
 			sock_reset_flag(sk, SOCK_LINGER);
 		else {
@@ -903,7 +905,7 @@ out_free:
 	return NULL;
 }
 
-// dyc: real free sk's memory
+// dyc: real free memory of sk
 static void sk_prot_free(struct proto *prot, struct sock *sk)
 {
 	struct kmem_cache *slab;
@@ -950,10 +952,12 @@ struct sock *sk_alloc(struct net *net, int family, gfp_t priority,
 	return sk;
 }
 
+// dyc: purge sk->sk_receive_queue and sk->sk_error_queue, free memory of sk
 void sk_free(struct sock *sk)
 {
 	struct sk_filter *filter;
 
+    // dyc: for tcp, call inet_sock_destruct() to purge sk->sk_receive_queue and sk->sk_error_queue
 	if (sk->sk_destruct)
 		sk->sk_destruct(sk);
 
@@ -970,7 +974,7 @@ void sk_free(struct sock *sk)
 		       __FUNCTION__, atomic_read(&sk->sk_omem_alloc));
     // dyc: about namespace 
 	put_net(sk->sk_net);
-    // dyc: real free sk's memory
+    // dyc: real free memory of sk
 	sk_prot_free(sk->sk_prot_creator, sk);
 }
 
@@ -1487,7 +1491,7 @@ ssize_t sock_no_sendpage(struct socket *sock, struct page *page, int offset, siz
 /*
  *	Default Socket Callbacks
  */
-
+// dyc: wake up all!
 static void sock_def_wakeup(struct sock *sk)
 {
 	read_lock(&sk->sk_callback_lock);

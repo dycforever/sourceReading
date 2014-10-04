@@ -1730,9 +1730,10 @@ int tcp_disconnect(struct sock *sk, int flags)
 	struct tcp_sock *tp = tcp_sk(sk);
 	int err = 0;
 	int old_state = sk->sk_state;
-
-	if (old_state != TCP_CLOSE)
+	if (old_state != TCP_CLOSE) {
+        // dyc: call inet_put_port() to delete from bind_hash
 		tcp_set_state(sk, TCP_CLOSE);
+    }
 
 	/* ABORT function of RFC793 */
 	if (old_state == TCP_LISTEN) {
@@ -1912,7 +1913,7 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
 		else
 			icsk->icsk_syn_retries = val;
 		break;
-
+    // dyc: TCP_LINGER2 == 8
 	case TCP_LINGER2:
 		if (val < 0)
 			tp->linger2 = -1;
@@ -2408,11 +2409,14 @@ void tcp_done(struct sock *sk)
 	tcp_clear_xmit_timers(sk);
 
 	sk->sk_shutdown = SHUTDOWN_MASK;
-
-	if (!sock_flag(sk, SOCK_DEAD))
+    // dyc: SOCK_DEAD means no process own this socket
+	if (!sock_flag(sk, SOCK_DEAD)) {
+        // dyc: call sock_def_wakeup()
 		sk->sk_state_change(sk);
-	else
+    } else {
+        // dyc: purge queues and free memory 
 		inet_csk_destroy_sock(sk);
+    }
 }
 EXPORT_SYMBOL_GPL(tcp_done);
 
