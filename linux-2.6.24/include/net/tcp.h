@@ -1035,6 +1035,7 @@ static inline int tcp_fin_time(const struct sock *sk)
 	return fin_timeout;
 }
 
+// dyc: return 1 means rejected
 static inline int tcp_paws_check(const struct tcp_options_received *rx_opt, int rst)
 {
 	if ((s32)(rx_opt->rcv_tsval - rx_opt->ts_recent) >= 0)

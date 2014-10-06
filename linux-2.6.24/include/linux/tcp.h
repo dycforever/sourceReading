@@ -206,7 +206,7 @@ struct tcp_sack_block {
 
 struct tcp_options_received {
 /*	PAWS/RTTM data	*/
-	long	ts_recent_stamp;/* Time we stored ts_recent (for aging) */
+	long	ts_recent_stamp;/* System-Time we stored ts_recent (for aging) */
 	u32	ts_recent;	/* Time stamp to echo next		*/
 	u32	rcv_tsval;	/* Time stamp value             	*/
 	u32	rcv_tsecr;	/* Time stamp echo reply        	*/
@@ -230,8 +230,8 @@ struct tcp_request_sock {
 	/* Only used by TCP MD5 Signature so far. */
 	struct tcp_request_sock_ops	*af_specific;
 #endif
-	u32			 	rcv_isn;
-	u32			 	snt_isn;
+	u32			 	rcv_isn;  // dyc: seq of first SYN which I received 
+	u32			 	snt_isn;  // dyc: seq of first SYN which I send
 };
 
 static inline struct tcp_request_sock *tcp_rsk(const struct request_sock *req)

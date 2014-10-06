@@ -138,10 +138,12 @@ int inet_csk_get_port(struct inet_hashinfo *hashinfo,
     // dyc: no others using this port
 	tb = NULL;
 	goto tb_not_found;
+
 tb_found:
 	if (!hlist_empty(&tb->owners)) {
 		if (sk->sk_reuse > 1)
 			goto success;
+        // dyc: tb->fastreuse = -1 in inet_hash_connect()
 		if (tb->fastreuse > 0 &&
 		    sk->sk_reuse && sk->sk_state != TCP_LISTEN) {
 			goto success;
@@ -167,9 +169,10 @@ tb_not_found:
 		   (!sk->sk_reuse || sk->sk_state == TCP_LISTEN))
 		tb->fastreuse = 0;
 success:
-	if (!inet_csk(sk)->icsk_bind_hash)
-        // dyc: set sk->num add sk to tb->owner
+	if (!inet_csk(sk)->icsk_bind_hash) {
+        // dyc: set inet_sk(sk)->num = snum, and add sk->sk_bind_node to tb->owners
 		inet_bind_hash(sk, tb, snum);
+    }
 	BUG_TRAP(inet_csk(sk)->icsk_bind_hash == tb);
 	ret = 0;
 
@@ -264,6 +267,7 @@ struct sock *inet_csk_accept(struct sock *sk, int flags, int *err)
 	}
     // dyc: dequeue from icsk->icsk_accept_queue
 	newsk = reqsk_queue_get_child(&icsk->icsk_accept_queue, sk);
+    // dyc: tcp_set_state(sk, TCP_ESTABLISHED) in tcp_rcv_state_process()
 	BUG_TRAP(newsk->sk_state != TCP_SYN_RECV);
 out:
 	release_sock(sk);
@@ -377,6 +381,8 @@ static inline u32 inet_synq_hash(const __be32 raddr, const __be16 rport,
 #define AF_INET_FAMILY(fam) 1
 #endif
 // dyc: search in listening sock's sys_table and find a match one
+//      item is added into syn_table[] in tcp_v4_conn_request()
+//      @sk is the listening socket
 struct request_sock *inet_csk_search_req(const struct sock *sk,
 					 struct request_sock ***prevp,
 					 const __be16 rport, const __be32 raddr,
@@ -406,7 +412,7 @@ struct request_sock *inet_csk_search_req(const struct sock *sk,
 }
 
 EXPORT_SYMBOL_GPL(inet_csk_search_req);
-
+// dyc: be called in tcp_v4_conn_request()
 void inet_csk_reqsk_queue_hash_add(struct sock *sk, struct request_sock *req,
 				   unsigned long timeout)
 {
@@ -425,6 +431,7 @@ extern int sysctl_tcp_synack_retries;
 
 EXPORT_SYMBOL_GPL(inet_csk_reqsk_queue_hash_add);
 
+// dyc: be called in tcp_keepalive_timer() -> tcp_synack_timer()
 void inet_csk_reqsk_queue_prune(struct sock *parent,
 				const unsigned long interval,
 				const unsigned long timeout,
@@ -513,7 +520,7 @@ void inet_csk_reqsk_queue_prune(struct sock *parent,
 }
 
 EXPORT_SYMBOL_GPL(inet_csk_reqsk_queue_prune);
-
+// dyc: be called in tcp_create_openreq_child()
 struct sock *inet_csk_clone(struct sock *sk, const struct request_sock *req,
 			    const gfp_t priority)
 {
@@ -574,15 +581,17 @@ void inet_csk_destroy_sock(struct sock *sk)
 
 EXPORT_SYMBOL(inet_csk_destroy_sock);
 
+// dyc: nr_table_entries is backlog of listen()
 int inet_csk_listen_start(struct sock *sk, const int nr_table_entries)
 {
 	struct inet_sock *inet = inet_sk(sk);
 	struct inet_connection_sock *icsk = inet_csk(sk);
+    // dyc: nr_table_entries is the size of syn_table[]
 	int rc = reqsk_queue_alloc(&icsk->icsk_accept_queue, nr_table_entries);
 
 	if (rc != 0)
 		return rc;
-
+    // dyc: sk_max_ack_backlog will be set in inet_listen()
 	sk->sk_max_ack_backlog = 0;
 	sk->sk_ack_backlog = 0;
 	inet_csk_delack_init(sk);
@@ -595,10 +604,9 @@ int inet_csk_listen_start(struct sock *sk, const int nr_table_entries)
 	sk->sk_state = TCP_LISTEN;
 	if (!sk->sk_prot->get_port(sk, inet->num)) {
 		inet->sport = htons(inet->num);
-
 		sk_dst_reset(sk);
+        // dyc: call tcp_v4_hash() to add sk into tcp_hashinfo->listening_hash[]
 		sk->sk_prot->hash(sk);
-
 		return 0;
 	}
 
@@ -646,6 +654,7 @@ void inet_csk_listen_stop(struct sock *sk)
 		BUG_TRAP(!sock_owned_by_user(child));
 		sock_hold(child);
 
+        // dyc: call tcp_disconnect()
 		sk->sk_prot->disconnect(child, O_NONBLOCK);
 
 		sock_orphan(child);

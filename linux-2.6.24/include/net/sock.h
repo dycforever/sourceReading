@@ -284,7 +284,7 @@ static inline struct sock *sk_next(const struct sock *sk)
 	return sk->sk_node.next ?
 		hlist_entry(sk->sk_node.next, struct sock, sk_node) : NULL;
 }
-
+// dyc: return !sk->sk_node.pprev
 static inline int sk_unhashed(const struct sock *sk)
 {
 	return hlist_unhashed(&sk->sk_node);

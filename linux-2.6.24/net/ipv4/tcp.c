@@ -1522,7 +1522,7 @@ static const unsigned char new_state[16] = {
   /* TCP_LISTEN		*/ TCP_CLOSE,
   /* TCP_CLOSING	*/ TCP_CLOSING,
 };
-// dyc: set sk->state when close, return if valid state which "call close()" can be happened
+// dyc: set sk->state when close, return if it is a valid state to send FIN
 static int tcp_close_state(struct sock *sk)
 {
 	int next = (int)new_state[sk->sk_state];
@@ -1559,7 +1559,7 @@ void tcp_shutdown(struct sock *sk, int how)
 			tcp_send_fin(sk);
 	}
 }
-
+// dyc: timeout = 0 or sk->sk_lingertime
 void tcp_close(struct sock *sk, long timeout)
 {
 	struct sk_buff *skb;
