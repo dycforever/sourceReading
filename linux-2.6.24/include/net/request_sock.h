@@ -149,7 +149,7 @@ static inline void reqsk_queue_unlink(struct request_sock_queue *queue,
 	*prev_req = req->dl_next;
 	write_unlock(&queue->syn_wait_lock);
 }
-
+// dyc: sk->sk_ack_backlog++;
 static inline void reqsk_queue_add(struct request_sock_queue *queue,
 				   struct request_sock *req,
 				   struct sock *parent,
@@ -203,7 +203,7 @@ static inline int reqsk_queue_removed(struct request_sock_queue *queue,
 
 	return --lopt->qlen;
 }
-
+// dyc: be called in inet_csk_reqsk_queue_added()
 static inline int reqsk_queue_added(struct request_sock_queue *queue)
 {
 	struct listen_sock *lopt = queue->listen_opt;

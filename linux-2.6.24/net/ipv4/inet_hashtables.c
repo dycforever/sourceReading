@@ -53,6 +53,7 @@ void inet_bind_bucket_destroy(struct kmem_cache *cachep, struct inet_bind_bucket
 	}
 }
 
+// dyc: set sk->num = snum, and add sk->sk_bind_node to tb->owner
 void inet_bind_hash(struct sock *sk, struct inet_bind_bucket *tb,
 		    const unsigned short snum)
 {
@@ -164,6 +165,7 @@ static struct sock *inet_lookup_listener_slow(const struct hlist_head *head,
 }
 
 /* Optimize the common listener case. */
+// dyc: find socket by @hnum, which is dport
 struct sock *__inet_lookup_listener(struct inet_hashinfo *hashinfo,
 				    const __be32 daddr, const unsigned short hnum,
 				    const int dif)
@@ -313,6 +315,8 @@ int inet_hash_connect(struct inet_timewait_death_row *death_row,
 			inet_bind_bucket_for_each(tb, node, &head->chain) {
 				if (tb->port == port) {
 					BUG_TRAP(!hlist_empty(&tb->owners));
+                    // dyc: tb->fastreuse >= 0 was set in inet_csk_get_port(), 
+                    //      which be called by bind() and listen()
 					if (tb->fastreuse >= 0)
 						goto next_port;
 					if (!__inet_check_established(death_row,
@@ -343,12 +347,14 @@ ok:
 
 		/* Head lock still held and bh's disabled */
 		inet_bind_hash(sk, tb, port);
+        // dyc: return !sk->sk_node.pprev
 		if (sk_unhashed(sk)) {
 			inet_sk(sk)->sport = htons(port);
+            // dyc: add into ehash with sk->sk_node
 			__inet_hash(hinfo, sk, 0);
 		}
 		spin_unlock(&head->lock);
-
+        // dyc: if reuse a timewait sock 
 		if (tw) {
 			inet_twsk_deschedule(tw, death_row);
 			inet_twsk_put(tw);
@@ -357,7 +363,7 @@ ok:
 		ret = 0;
 		goto out;
 	}
-
+    // dyc: here if specify local port
 	head = &hinfo->bhash[inet_bhashfn(snum, hinfo->bhash_size)];
 	tb  = inet_csk(sk)->icsk_bind_hash;
 	spin_lock_bh(&head->lock);

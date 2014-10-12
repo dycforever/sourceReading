@@ -230,6 +230,7 @@ static inline void __inet_inherit_port(struct inet_hashinfo *table,
 
 	spin_lock(&head->lock);
 	tb = inet_csk(sk)->icsk_bind_hash;
+    // dyc: owners is a list_head
 	sk_add_bind_node(child, &tb->owners);
 	inet_csk(child)->icsk_bind_hash = tb;
 	spin_unlock(&head->lock);
@@ -399,6 +400,7 @@ typedef __u64 __bitwise __addrpair;
  *
  * Local BH must be disabled here.
  */
+// dyc: lookup both in established and timewait
 static inline struct sock *
 	__inet_lookup_established(struct inet_hashinfo *hashinfo,
 				  const __be32 saddr, const __be16 sport,
@@ -457,6 +459,7 @@ static inline struct sock *
 					 ntohs(dport), dif);
 }
 
+// dyc: lookup established by 4-tuple, lookup listener by 2-tuple
 static inline struct sock *__inet_lookup(struct inet_hashinfo *hashinfo,
 					 const __be32 saddr, const __be16 sport,
 					 const __be32 daddr, const __be16 dport,

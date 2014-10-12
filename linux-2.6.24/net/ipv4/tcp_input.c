@@ -4699,7 +4699,7 @@ discard:
 	__kfree_skb(skb);
 	return 0;
 }
-
+// dyc: usually for receive synack in 3-hands
 static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
 					 struct tcphdr *th, unsigned len)
 {
@@ -4861,7 +4861,7 @@ discard:
 			tcp_send_ack(sk);
 		}
 		return -1;
-	}
+	} // if th->ack
 
 	/* No ACK in the segment */
 
@@ -4950,7 +4950,8 @@ reset_and_undo:
  *	It's called from both tcp_v4_rcv and tcp_v6_rcv and should be
  *	address independent.
  */
-
+// dyc: return 1 means need reset?
+//      only be called in tcp_v4_do_rcv() and tcp_child_process()
 int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
 			  struct tcphdr *th, unsigned len)
 {
@@ -4965,7 +4966,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
 		goto discard;
 
 	case TCP_LISTEN:
-        // dyc: here, packet should be first syn
+        // dyc: ack shouldn't be received by this sk, should to half-connection sk
 		if (th->ack)
 			return 1;
 

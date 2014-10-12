@@ -1151,7 +1151,7 @@ static int __sock_create(struct net *net, int family, int type, int protocol,
 
 	/* Now protected by module ref count */
 	rcu_read_unlock();
-
+    // dyc: call inet_create()
 	err = pf->create(net, sock, protocol);
 	if (err < 0)
 		goto out_module_put;
@@ -1494,7 +1494,7 @@ asmlinkage long sys_connect(int fd, struct sockaddr __user *uservaddr,
 	    security_socket_connect(sock, (struct sockaddr *)address, addrlen);
 	if (err)
 		goto out_put;
-
+    // dyc: for tcp, call inet_stream_connect
 	err = sock->ops->connect(sock, (struct sockaddr *)address, addrlen,
 				 sock->file->f_flags);
 out_put:

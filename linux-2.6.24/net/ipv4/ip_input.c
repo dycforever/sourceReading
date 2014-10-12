@@ -231,7 +231,7 @@ static int ip_local_deliver_finish(struct sk_buff *skb)
 				}
 				nf_reset(skb);
 			}
-            // dyc: for tcp, is is tcp_v4_rcv()
+            // dyc: for tcp, is tcp_v4_rcv()
 			ret = ipprot->handler(skb);
 			if (ret < 0) {
 				protocol = -ret;

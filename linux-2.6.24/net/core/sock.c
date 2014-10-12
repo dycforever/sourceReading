@@ -1349,6 +1349,7 @@ static void __release_sock(struct sock *sk)
 			struct sk_buff *next = skb->next;
 
 			skb->next = NULL;
+            // dyc: for tcp, is tcp_v4_do_rcv()
 			sk->sk_backlog_rcv(sk, skb);
 
 			/*
@@ -1640,7 +1641,7 @@ void fastcall lock_sock_nested(struct sock *sk, int subclass)
 
 EXPORT_SYMBOL(lock_sock_nested);
 
-// dyc: release backlog and wake_up(&sk->sk_lock.wq)
+// dyc: do blocked skb in sk->sk_backlog and wake_up(&sk->sk_lock.wq)
 void fastcall release_sock(struct sock *sk)
 {
 	/*
@@ -1649,8 +1650,10 @@ void fastcall release_sock(struct sock *sk)
 	mutex_release(&sk->sk_lock.dep_map, 1, _RET_IP_);
 
 	spin_lock_bh(&sk->sk_lock.slock);
-	if (sk->sk_backlog.tail)
+	if (sk->sk_backlog.tail) {
+        // dyc: call tcp_v4_do_rcv(skb) on skb in sk->sk_backlog
 		__release_sock(sk);
+    }
 	sk->sk_lock.owned = 0;
     // dyc: if waitqueue not empty
 	if (waitqueue_active(&sk->sk_lock.wq))

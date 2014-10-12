@@ -2329,6 +2329,7 @@ static void tcp_connect_init(struct sock *sk)
 /*
  * Build a SYN and send it off.
  */
+// dyc: be called in tcp_v4_connect()
 int tcp_connect(struct sock *sk)
 {
 	struct tcp_sock *tp = tcp_sk(sk);

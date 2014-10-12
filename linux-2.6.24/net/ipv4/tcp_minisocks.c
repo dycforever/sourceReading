@@ -94,6 +94,7 @@ static __inline__ int tcp_in_window(u32 seq, u32 end_seq, u32 s_win, u32 e_win)
  * is ridiculously low and, seems, we could use some mb() tricks
  * to avoid misread sequence numbers, states etc.  --ANK
  */
+// dyc: return value will be used in tcp_v4_rcv()
 enum tcp_tw_status
 tcp_timewait_state_process(struct inet_timewait_sock *tw, struct sk_buff *skb,
 			   const struct tcphdr *th)
@@ -119,6 +120,7 @@ tcp_timewait_state_process(struct inet_timewait_sock *tw, struct sk_buff *skb,
 
 		/* Out of window, send ACK */
         // dyc: tcp_in_window() return true if has intersection
+        //      if seq or timestamp is out-of-date, send back ack
 		if (paws_reject ||
 		    !tcp_in_window(TCP_SKB_CB(skb)->seq, TCP_SKB_CB(skb)->end_seq,
 				   tcptw->tw_rcv_nxt,
@@ -136,6 +138,7 @@ tcp_timewait_state_process(struct inet_timewait_sock *tw, struct sk_buff *skb,
 		if (!after(TCP_SKB_CB(skb)->end_seq, tcptw->tw_rcv_nxt) ||
 		    TCP_SKB_CB(skb)->end_seq == TCP_SKB_CB(skb)->seq) {
 			inet_twsk_put(tw);
+            // dyc: just discard it
 			return TCP_TW_SUCCESS;
 		}
 
@@ -502,6 +505,7 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req,
  *	as a request_sock.
  */
 // dyc: usually this is the last ack in 3-hands
+//      return NULL if discard this skb
 struct sock *tcp_check_req(struct sock *sk,struct sk_buff *skb,
 			   struct request_sock *req,
 			   struct request_sock **prev)
@@ -519,12 +523,15 @@ struct sock *tcp_check_req(struct sock *sk,struct sk_buff *skb,
 		tcp_parse_options(skb, &tmp_opt, 0);
         // dyc: if there is timestamp in tcp's header
 		if (tmp_opt.saw_tstamp) {
+            // dyc: req->ts_recent was inited in tcp_openreq_init()
+            //      req->ts_recent = rx_opt->saw_tstamp ? rx_opt->rcv_tsval : 0
 			tmp_opt.ts_recent = req->ts_recent;
 			/* We do not store true stamp, but it is not required,
 			 * it can be estimated (approximately)
 			 * from another data.
 			 */
 			tmp_opt.ts_recent_stamp = get_seconds() - ((TCP_TIMEOUT_INIT/HZ)<<req->retrans);
+            // dyc: to see if a obsolete skb, may be equal!
 			paws_reject = tcp_paws_check(&tmp_opt, th->rst);
 		}
 	}
@@ -552,7 +559,7 @@ struct sock *tcp_check_req(struct sock *sk,struct sk_buff *skb,
 		 * Enforce "SYN-ACK" according to figure 8, figure 6
 		 * of RFC793, fixed by RFC1122.
 		 */
-        // dyc: for tcp_ipv4 is tcp_v4_send_synack
+        // dyc: for tcp_ipv4 is tcp_v4_send_synack()
 		req->rsk_ops->rtx_syn_ack(sk, req, NULL);
 		return NULL;
 	}
@@ -611,7 +618,7 @@ struct sock *tcp_check_req(struct sock *sk,struct sk_buff *skb,
 	 *
 	 * Invalid ACK: reset will be sent by listening socket
 	 */
-    // dyc: drop invalid ack
+    // dyc: this ACK isn't ack for SYN(seq == snt_isn) sent before, drop invalid ack
 	if ((flg & TCP_FLAG_ACK) &&
 	    (TCP_SKB_CB(skb)->ack_seq != tcp_rsk(req)->snt_isn + 1))
 		return sk;
@@ -635,93 +642,95 @@ struct sock *tcp_check_req(struct sock *sk,struct sk_buff *skb,
 
 	/* In sequence, PAWS is OK. */
 
-	if (tmp_opt.saw_tstamp && !after(TCP_SKB_CB(skb)->seq, tcp_rsk(req)->rcv_isn + 1))
-			req->ts_recent = tmp_opt.rcv_tsval;
+    if (tmp_opt.saw_tstamp && !after(TCP_SKB_CB(skb)->seq, tcp_rsk(req)->rcv_isn + 1))
+        req->ts_recent = tmp_opt.rcv_tsval;
 
-		if (TCP_SKB_CB(skb)->seq == tcp_rsk(req)->rcv_isn) {
-			/* Truncate SYN, it is out of window starting
-			   at tcp_rsk(req)->rcv_isn + 1. */
-			flg &= ~TCP_FLAG_SYN;
-		}
+    // dyc: receive SYN again ?
+    if (TCP_SKB_CB(skb)->seq == tcp_rsk(req)->rcv_isn) {
+        /* Truncate SYN, it is out of window starting
+           at tcp_rsk(req)->rcv_isn + 1. */
+        flg &= ~TCP_FLAG_SYN;
+    }
 
-		/* RFC793: "second check the RST bit" and
-		 *	   "fourth, check the SYN bit"
-		 */
-		if (flg & (TCP_FLAG_RST|TCP_FLAG_SYN)) {
-			TCP_INC_STATS_BH(TCP_MIB_ATTEMPTFAILS);
-			goto embryonic_reset;
-		}
+    /* RFC793: "second check the RST bit" and
+     *	   "fourth, check the SYN bit"
+     */
+    // dyc: this should be an ack
+    if (flg & (TCP_FLAG_RST|TCP_FLAG_SYN)) {
+        TCP_INC_STATS_BH(TCP_MIB_ATTEMPTFAILS);
+        goto embryonic_reset;
+    }
 
-		/* ACK sequence verified above, just make sure ACK is
-		 * set.  If ACK not set, just silently drop the packet.
-		 */
-		if (!(flg & TCP_FLAG_ACK))
-			return NULL;
+    /* ACK sequence verified above, just make sure ACK is
+     * set.  If ACK not set, just silently drop the packet.
+     */
+    if (!(flg & TCP_FLAG_ACK))
+        return NULL;
 
-		/* If TCP_DEFER_ACCEPT is set, drop bare ACK. */
-		if (inet_csk(sk)->icsk_accept_queue.rskq_defer_accept &&
-		    TCP_SKB_CB(skb)->end_seq == tcp_rsk(req)->rcv_isn + 1) {
-			inet_rsk(req)->acked = 1;
-			return NULL;
-		}
+    /* If TCP_DEFER_ACCEPT is set, drop bare ACK. */
+    if (inet_csk(sk)->icsk_accept_queue.rskq_defer_accept &&
+            TCP_SKB_CB(skb)->end_seq == tcp_rsk(req)->rcv_isn + 1) {
+        inet_rsk(req)->acked = 1;
+        return NULL;
+    }
 
-		/* OK, ACK is valid, create big socket and
-		 * feed this segment to it. It will repeat all
-		 * the tests. THIS SEGMENT MUST MOVE SOCKET TO
-		 * ESTABLISHED STATE. If it will be dropped after
-		 * socket is created, wait for troubles.
-		 */
-        // dyc: for tcp is tcp_v4_syn_recv_sock()
-        //      create and init a struct sock for new connection
-		child = inet_csk(sk)->icsk_af_ops->syn_recv_sock(sk, skb,
-								 req, NULL);
-		if (child == NULL)
-			goto listen_overflow;
+    /* OK, ACK is valid, create big socket and
+     * feed this segment to it. It will repeat all
+     * the tests. THIS SEGMENT MUST MOVE SOCKET TO
+     * ESTABLISHED STATE. If it will be dropped after
+     * socket is created, wait for troubles.
+     */
+    // dyc: for tcp is tcp_v4_syn_recv_sock()
+    //      create and init a struct sock for new connection
+    child = inet_csk(sk)->icsk_af_ops->syn_recv_sock(sk, skb,
+            req, NULL);
+    if (child == NULL)
+        goto listen_overflow;
 #ifdef CONFIG_TCP_MD5SIG
-		else {
-			/* Copy over the MD5 key from the original socket */
-			struct tcp_md5sig_key *key;
-			struct tcp_sock *tp = tcp_sk(sk);
-			key = tp->af_specific->md5_lookup(sk, child);
-			if (key != NULL) {
-				/*
-				 * We're using one, so create a matching key on the
-				 * newsk structure. If we fail to get memory then we
-				 * end up not copying the key across. Shucks.
-				 */
-				char *newkey = kmemdup(key->key, key->keylen,
-						       GFP_ATOMIC);
-				if (newkey) {
-					if (!tcp_alloc_md5sig_pool())
-						BUG();
-					tp->af_specific->md5_add(child, child,
-								 newkey,
-								 key->keylen);
-				}
-			}
-		}
+    else {
+        /* Copy over the MD5 key from the original socket */
+        struct tcp_md5sig_key *key;
+        struct tcp_sock *tp = tcp_sk(sk);
+        key = tp->af_specific->md5_lookup(sk, child);
+        if (key != NULL) {
+            /*
+             * We're using one, so create a matching key on the
+             * newsk structure. If we fail to get memory then we
+             * end up not copying the key across. Shucks.
+             */
+            char *newkey = kmemdup(key->key, key->keylen,
+                    GFP_ATOMIC);
+            if (newkey) {
+                if (!tcp_alloc_md5sig_pool())
+                    BUG();
+                tp->af_specific->md5_add(child, child,
+                        newkey,
+                        key->keylen);
+            }
+        }
+    }
 #endif
-        // dyc: remove req from list sk->icsk_accept_queue
-		inet_csk_reqsk_queue_unlink(sk, req, prev);
-        // dyc: queue->listen_opt->qlen --
-		inet_csk_reqsk_queue_removed(sk, req);
-        // dyc: add to icsk_accept_queue->rskq_accept_head and parent's backlog++
-		inet_csk_reqsk_queue_add(sk, req, child);
-		return child;
+    // dyc: remove req from list sk->icsk_accept_queue
+    inet_csk_reqsk_queue_unlink(sk, req, prev);
+    // dyc: queue->listen_opt->qlen --
+    inet_csk_reqsk_queue_removed(sk, req);
+    // dyc: add to icsk_accept_queue->rskq_accept_head and parent's backlog++
+    inet_csk_reqsk_queue_add(sk, req, child);
+    return child;
 
-	listen_overflow:
-		if (!sysctl_tcp_abort_on_overflow) {
-			inet_rsk(req)->acked = 1;
-			return NULL;
-		}
+listen_overflow:
+    if (!sysctl_tcp_abort_on_overflow) {
+        inet_rsk(req)->acked = 1;
+        return NULL;
+    }
 
-	embryonic_reset:
-		NET_INC_STATS_BH(LINUX_MIB_EMBRYONICRSTS);
-		if (!(flg & TCP_FLAG_RST))
-			req->rsk_ops->send_reset(sk, skb);
+embryonic_reset:
+    NET_INC_STATS_BH(LINUX_MIB_EMBRYONICRSTS);
+    if (!(flg & TCP_FLAG_RST))
+        req->rsk_ops->send_reset(sk, skb);
 
-		inet_csk_reqsk_queue_drop(sk, req, prev);
-		return NULL;
+    inet_csk_reqsk_queue_drop(sk, req, prev);
+    return NULL;
 }
 
 /*
