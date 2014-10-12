@@ -1188,7 +1188,7 @@ out_release:
 	rcu_read_unlock();
 	goto out_sock_release;
 }
-
+// dyc: called in sys_socket()
 int sock_create(int family, int type, int protocol, struct socket **res)
 {
 	return __sock_create(current->nsproxy->net_ns, family, type, protocol, res, 0);

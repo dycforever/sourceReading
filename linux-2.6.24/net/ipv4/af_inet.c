@@ -241,7 +241,7 @@ EXPORT_SYMBOL(build_ehash_secret);
 /*
  *	Create an inet socket.
  */
-
+// dyc: be called in __sock_create()
 static int inet_create(struct net *net, struct socket *sock, int protocol)
 {
 	struct sock *sk;
@@ -374,7 +374,7 @@ lookup_protocol:
 		/* Add to protocol hash chains. */
 		sk->sk_prot->hash(sk);
 	}
-
+    // dyc: for tcp, call tcp_v4_init_sock()
 	if (sk->sk_prot->init) {
 		err = sk->sk_prot->init(sk);
 		if (err)

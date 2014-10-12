@@ -1552,6 +1552,7 @@ void sk_send_sigurg(struct sock *sk)
 void sk_reset_timer(struct sock *sk, struct timer_list* timer,
 		    unsigned long expires)
 {
+    // dyc: if modify an inactive timer, hold sock
 	if (!mod_timer(timer, expires))
 		sock_hold(sk);
 }
