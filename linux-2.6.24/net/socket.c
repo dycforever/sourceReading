@@ -447,7 +447,7 @@ struct socket *sockfd_lookup(int fd, int *err)
 		fput(file);
 	return sock;
 }
-
+// dyc: fput_needed is return value
 static struct socket *sockfd_lookup_light(int fd, int *err, int *fput_needed)
 {
 	struct file *file;
@@ -1151,7 +1151,7 @@ static int __sock_create(struct net *net, int family, int type, int protocol,
 
 	/* Now protected by module ref count */
 	rcu_read_unlock();
-
+    // dyc: call inet_create()
 	err = pf->create(net, sock, protocol);
 	if (err < 0)
 		goto out_module_put;
@@ -1188,7 +1188,7 @@ out_release:
 	rcu_read_unlock();
 	goto out_sock_release;
 }
-
+// dyc: called in sys_socket()
 int sock_create(int family, int type, int protocol, struct socket **res)
 {
 	return __sock_create(current->nsproxy->net_ns, family, type, protocol, res, 0);
@@ -1494,7 +1494,7 @@ asmlinkage long sys_connect(int fd, struct sockaddr __user *uservaddr,
 	    security_socket_connect(sock, (struct sockaddr *)address, addrlen);
 	if (err)
 		goto out_put;
-
+    // dyc: for tcp, call inet_stream_connect
 	err = sock->ops->connect(sock, (struct sockaddr *)address, addrlen,
 				 sock->file->f_flags);
 out_put:
@@ -1706,14 +1706,18 @@ asmlinkage long sys_setsockopt(int fd, int level, int optname,
 		if (err)
 			goto out_put;
 
-		if (level == SOL_SOCKET)
-			err =
-			    sock_setsockopt(sock, level, optname, optval,
-					    optlen);
-		else
-			err =
-			    sock->ops->setsockopt(sock, level, optname, optval,
-						  optlen);
+		if (level == SOL_SOCKET) {
+            err =
+                sock_setsockopt(sock, level, optname, optval,
+                        optlen);
+        } else {
+            // dyc: sock->ops is of type proto_ops
+            //      and setsockopt() for tcp is sock_common_socksetopt()
+            err =
+                sock->ops->setsockopt(sock, level, optname, optval,
+                        optlen);
+        }
+
 out_put:
 		fput_light(sock->file, fput_needed);
 	}

@@ -504,6 +504,7 @@ set_sndbuf:
 		 *	Wake up sending tasks if we
 		 *	upped the value.
 		 */
+        // dyc: for tcp, is sk_stream_write_space()
 		sk->sk_write_space(sk);
 		break;
 
@@ -575,6 +576,7 @@ set_rcvbuf:
 			ret = -EPERM;
 		break;
 
+        // dyc: SO_LINGER == 13
 	case SO_LINGER:
 		if (optlen < sizeof(ling)) {
 			ret = -EINVAL;	/* 1003.1g */
@@ -584,6 +586,7 @@ set_rcvbuf:
 			ret = -EFAULT;
 			break;
 		}
+        // dyc: reset is clear
 		if (!ling.l_onoff)
 			sock_reset_flag(sk, SOCK_LINGER);
 		else {
@@ -902,6 +905,7 @@ out_free:
 	return NULL;
 }
 
+// dyc: real free memory of sk
 static void sk_prot_free(struct proto *prot, struct sock *sk)
 {
 	struct kmem_cache *slab;
@@ -911,10 +915,12 @@ static void sk_prot_free(struct proto *prot, struct sock *sk)
 	slab = prot->slab;
 
 	security_sk_free(sk);
+    // dyc: function below can be slub/slab/slob
 	if (slab != NULL)
 		kmem_cache_free(slab, sk);
-	else
+	else {
 		kfree(sk);
+    }
 	module_put(owner);
 }
 
@@ -946,10 +952,12 @@ struct sock *sk_alloc(struct net *net, int family, gfp_t priority,
 	return sk;
 }
 
+// dyc: purge sk->sk_receive_queue and sk->sk_error_queue, free memory of sk
 void sk_free(struct sock *sk)
 {
 	struct sk_filter *filter;
 
+    // dyc: for tcp, call inet_sock_destruct() to purge sk->sk_receive_queue and sk->sk_error_queue
 	if (sk->sk_destruct)
 		sk->sk_destruct(sk);
 
@@ -964,8 +972,9 @@ void sk_free(struct sock *sk)
 	if (atomic_read(&sk->sk_omem_alloc))
 		printk(KERN_DEBUG "%s: optmem leakage (%d bytes) detected.\n",
 		       __FUNCTION__, atomic_read(&sk->sk_omem_alloc));
-
+    // dyc: about namespace 
 	put_net(sk->sk_net);
+    // dyc: real free memory of sk
 	sk_prot_free(sk->sk_prot_creator, sk);
 }
 
@@ -1327,7 +1336,7 @@ static void __lock_sock(struct sock *sk)
 	}
 	finish_wait(&sk->sk_lock.wq, &wait);
 }
-
+// dyc: release sk's backlog
 static void __release_sock(struct sock *sk)
 {
 	struct sk_buff *skb = sk->sk_backlog.head;
@@ -1340,6 +1349,7 @@ static void __release_sock(struct sock *sk)
 			struct sk_buff *next = skb->next;
 
 			skb->next = NULL;
+            // dyc: for tcp, is tcp_v4_do_rcv()
 			sk->sk_backlog_rcv(sk, skb);
 
 			/*
@@ -1482,7 +1492,7 @@ ssize_t sock_no_sendpage(struct socket *sock, struct page *page, int offset, siz
 /*
  *	Default Socket Callbacks
  */
-
+// dyc: wake up all!
 static void sock_def_wakeup(struct sock *sk)
 {
 	read_lock(&sk->sk_callback_lock);
@@ -1543,6 +1553,7 @@ void sk_send_sigurg(struct sock *sk)
 void sk_reset_timer(struct sock *sk, struct timer_list* timer,
 		    unsigned long expires)
 {
+    // dyc: if modify an inactive timer, hold sock
 	if (!mod_timer(timer, expires))
 		sock_hold(sk);
 }
@@ -1630,6 +1641,7 @@ void fastcall lock_sock_nested(struct sock *sk, int subclass)
 
 EXPORT_SYMBOL(lock_sock_nested);
 
+// dyc: do blocked skb in sk->sk_backlog and wake_up(&sk->sk_lock.wq)
 void fastcall release_sock(struct sock *sk)
 {
 	/*
@@ -1638,9 +1650,12 @@ void fastcall release_sock(struct sock *sk)
 	mutex_release(&sk->sk_lock.dep_map, 1, _RET_IP_);
 
 	spin_lock_bh(&sk->sk_lock.slock);
-	if (sk->sk_backlog.tail)
+	if (sk->sk_backlog.tail) {
+        // dyc: call tcp_v4_do_rcv(skb) on skb in sk->sk_backlog
 		__release_sock(sk);
+    }
 	sk->sk_lock.owned = 0;
+    // dyc: if waitqueue not empty
 	if (waitqueue_active(&sk->sk_lock.wq))
 		wake_up(&sk->sk_lock.wq);
 	spin_unlock_bh(&sk->sk_lock.slock);

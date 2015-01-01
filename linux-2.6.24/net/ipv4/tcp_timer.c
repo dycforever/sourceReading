@@ -36,8 +36,10 @@ static void tcp_write_timer(unsigned long);
 static void tcp_delack_timer(unsigned long);
 static void tcp_keepalive_timer (unsigned long data);
 
+// dyc: be called in tcp_v4_init_create()
 void tcp_init_xmit_timers(struct sock *sk)
 {
+    // dyc: in inet_connection_sock.c
 	inet_csk_init_xmit_timers(sk, &tcp_write_timer, &tcp_delack_timer,
 				  &tcp_keepalive_timer);
 }
@@ -440,7 +442,7 @@ void tcp_set_keepalive(struct sock *sk, int val)
 		inet_csk_delete_keepalive_timer(sk);
 }
 
-
+// dyc: timer for connect/keepalive/FIN_WAIT_2
 static void tcp_keepalive_timer (unsigned long data)
 {
 	struct sock *sk = (struct sock *) data;
@@ -452,12 +454,14 @@ static void tcp_keepalive_timer (unsigned long data)
 	bh_lock_sock(sk);
 	if (sock_owned_by_user(sk)) {
 		/* Try again later. */
+        // dyc: reset timer 50ms later
 		inet_csk_reset_keepalive_timer (sk, HZ/20);
 		goto out;
 	}
 
 	if (sk->sk_state == TCP_LISTEN) {
         // dyc: it is a conn_build timer
+        //      just call inet_csk_reqsk_queue_prune()
 		tcp_synack_timer(sk);
 		goto out;
 	}

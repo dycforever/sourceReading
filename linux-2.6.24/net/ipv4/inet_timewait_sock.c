@@ -53,6 +53,7 @@ static void __inet_twsk_kill(struct inet_timewait_sock *tw,
  * Essentially we whip up a timewait bucket, copy the relevant info into it
  * from the SK, and mess with hash chains and list linkage.
  */
+// dyc: be called in tcp_time_wait()
 void __inet_twsk_hashdance(struct inet_timewait_sock *tw, struct sock *sk,
 			   struct inet_hashinfo *hashinfo)
 {
@@ -75,8 +76,10 @@ void __inet_twsk_hashdance(struct inet_timewait_sock *tw, struct sock *sk,
 	write_lock(lock);
 
 	/* Step 2: Remove SK from established hash. */
-	if (__sk_del_node_init(sk))
+    // dyc: delete sk from ehash
+	if (__sk_del_node_init(sk)) {
 		sock_prot_dec_use(sk->sk_prot);
+    }
 
 	/* Step 3: Hash TW into TIMEWAIT chain. */
 	inet_twsk_add_node(tw, &ehead->twchain);
@@ -87,6 +90,7 @@ void __inet_twsk_hashdance(struct inet_timewait_sock *tw, struct sock *sk,
 
 EXPORT_SYMBOL_GPL(__inet_twsk_hashdance);
 
+// dyc: called in tcp_time_wait()
 struct inet_timewait_sock *inet_twsk_alloc(const struct sock *sk, const int state)
 {
 	struct inet_timewait_sock *tw =
@@ -247,6 +251,7 @@ void inet_twsk_deschedule(struct inet_timewait_sock *tw,
 
 EXPORT_SYMBOL(inet_twsk_deschedule);
 
+// dyc: add tw to twdr->twcal_row[] or twdr->cells[] according to timeo
 void inet_twsk_schedule(struct inet_timewait_sock *tw,
 		       struct inet_timewait_death_row *twdr,
 		       const int timeo, const int timewait_len)
@@ -287,7 +292,7 @@ void inet_twsk_schedule(struct inet_timewait_sock *tw,
 		twdr->tw_count--;
 	else
 		atomic_inc(&tw->tw_refcnt);
-
+    // dyc: add tw into twdr->twcal_row[] or twdr->cells[]
 	if (slot >= INET_TWDR_RECYCLE_SLOTS) {
 		/* Schedule to slow timer */
 		if (timeo >= timewait_len) {

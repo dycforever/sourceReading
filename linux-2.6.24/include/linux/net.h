@@ -112,10 +112,11 @@ enum sock_shutdown_cmd {
  *  @wait: wait queue for several uses
  *  @type: socket type (%SOCK_STREAM, etc)
  */
+// dyc: state/flags/type 's value see comments above
 struct socket {
 	socket_state		state;
 	unsigned long		flags;
-	const struct proto_ops	*ops;
+	const struct proto_ops	*ops;  // dyc: map socket op => L4 op
 	struct fasync_struct	*fasync_list;
 	struct file		*file;
 	struct sock		*sk;
@@ -130,6 +131,7 @@ struct sockaddr;
 struct msghdr;
 struct module;
 
+// dyc: map socket op => L4 op
 struct proto_ops {
 	int		family;
 	struct module	*owner;

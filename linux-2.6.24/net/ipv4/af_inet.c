@@ -240,7 +240,7 @@ EXPORT_SYMBOL(build_ehash_secret);
 /*
  *	Create an inet socket.
  */
-
+// dyc: be called in __sock_create()
 static int inet_create(struct net *net, struct socket *sock, int protocol)
 {
 	struct sock *sk;
@@ -363,6 +363,7 @@ lookup_protocol:
 
 	sk_refcnt_debug_inc(sk);
 
+    // dyc: if is type SOCK_RAW
 	if (inet->num) {
 		/* It assumes that any protocol which allows
 		 * the user to assign a number at socket
@@ -371,9 +372,10 @@ lookup_protocol:
 		 */
 		inet->sport = htons(inet->num);
 		/* Add to protocol hash chains. */
+        // dyc: call tcp_v4_hash(), add sk to @hashinfo->listening_hash[]
 		sk->sk_prot->hash(sk);
 	}
-
+    // dyc: for tcp, call tcp_v4_init_sock()
 	if (sk->sk_prot->init) {
 		err = sk->sk_prot->init(sk);
 		if (err)
@@ -414,6 +416,7 @@ int inet_release(struct socket *sock)
 		    !(current->flags & PF_EXITING))
 			timeout = sk->sk_lingertime;
 		sock->sk = NULL;
+        // dyc: call tcp_close()
 		sk->sk_prot->close(sk, timeout);
 	}
 	return 0;
@@ -432,6 +435,7 @@ int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 	int err;
 
 	/* If the socket has its own bind function then use it. (RAW) */
+    // dyc: no tcp_bind()
 	if (sk->sk_prot->bind) {
 		err = sk->sk_prot->bind(sk, uaddr, addr_len);
 		goto out;
@@ -482,6 +486,7 @@ int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 		inet->saddr = 0;  /* Use device */
 
 	/* Make sure we are allowed to bind here. */
+    // dyc: call tcp_v4_get_port() -> inet_csk_get_port()
 	if (sk->sk_prot->get_port(sk, snum)) {
 		inet->saddr = inet->rcv_saddr = 0;
 		err = -EADDRINUSE;
@@ -574,6 +579,7 @@ int inet_stream_connect(struct socket *sock, struct sockaddr *uaddr,
 		if (sk->sk_state != TCP_CLOSE)
 			goto out;
 
+        // dyc: for tcp, call tcp_connect()
 		err = sk->sk_prot->connect(sk, uaddr, addr_len);
 		if (err < 0)
 			goto out;
@@ -633,6 +639,7 @@ int inet_accept(struct socket *sock, struct socket *newsock, int flags)
 {
 	struct sock *sk1 = sock->sk;
 	int err = -EINVAL;
+    // dyc: call inet_csk_accept()
 	struct sock *sk2 = sk1->sk_prot->accept(sk1, flags, &err);
 
 	if (!sk2)
@@ -642,7 +649,7 @@ int inet_accept(struct socket *sock, struct socket *newsock, int flags)
 
 	BUG_TRAP((1 << sk2->sk_state) &
 		 (TCPF_ESTABLISHED | TCPF_CLOSE_WAIT | TCPF_CLOSE));
-
+    
 	sock_graft(sk2, newsock);
 
 	newsock->state = SS_CONNECTED;

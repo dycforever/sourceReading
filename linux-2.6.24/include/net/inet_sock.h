@@ -113,9 +113,9 @@ struct inet_sock {
 #endif
 	/* Socket demultiplex comparisons on incoming packets. */
 	__be32			daddr;
-	__be32			rcv_saddr;
+	__be32			rcv_saddr; // dyc: source addr
 	__be16			dport;
-	__u16			num;
+	__u16			num;  // dyc: source port
 	__be32			saddr;
 	__s16			uc_ttl;
 	__u16			cmsg_flags;

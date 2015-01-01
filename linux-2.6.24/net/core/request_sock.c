@@ -34,15 +34,18 @@
  */
 int sysctl_max_syn_backlog = 256;
 
+// dyc: alloc memory and init members of queue
+//      nr_table_entries is the size of syn_table[]
 int reqsk_queue_alloc(struct request_sock_queue *queue,
 		      unsigned int nr_table_entries)
 {
 	size_t lopt_size = sizeof(struct listen_sock);
 	struct listen_sock *lopt;
-
+    // dyc: in range [8, sysctl_max_syn_backlog]
 	nr_table_entries = min_t(u32, nr_table_entries, sysctl_max_syn_backlog);
 	nr_table_entries = max_t(u32, nr_table_entries, 8);
 	nr_table_entries = roundup_pow_of_two(nr_table_entries + 1);
+    // dyc: nr_table_entries is the size of syn_table[]
 	lopt_size += nr_table_entries * sizeof(struct request_sock *);
 	if (lopt_size > PAGE_SIZE)
 		lopt = __vmalloc(lopt_size,
@@ -52,7 +55,8 @@ int reqsk_queue_alloc(struct request_sock_queue *queue,
 		lopt = kzalloc(lopt_size, GFP_KERNEL);
 	if (lopt == NULL)
 		return -ENOMEM;
-
+    // dyc: lopt->max_qlen_log == log(nr_table_entries)
+    //      lopt->max_qlen_log is used in inet_csk_reqsk_queue_prune() and inet_csk_reqsk_queue_is_full()
 	for (lopt->max_qlen_log = 3;
 	     (1 << lopt->max_qlen_log) < nr_table_entries;
 	     lopt->max_qlen_log++);

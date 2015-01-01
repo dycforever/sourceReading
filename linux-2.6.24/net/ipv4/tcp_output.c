@@ -2059,6 +2059,7 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
 void tcp_send_fin(struct sock *sk)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
+    // dyc: get tail of @sk->sk_write_queue
 	struct sk_buff *skb = tcp_write_queue_tail(sk);
 	int mss_now;
 
@@ -2103,6 +2104,7 @@ void tcp_send_fin(struct sock *sk)
  * was unread data in the receive queue.  This behavior is recommended
  * by RFC 2525, section 2.17.  -DaveM
  */
+// dyc: create and send a RST packet
 void tcp_send_active_reset(struct sock *sk, gfp_t priority)
 {
 	struct sk_buff *skb;
@@ -2327,6 +2329,7 @@ static void tcp_connect_init(struct sock *sk)
 /*
  * Build a SYN and send it off.
  */
+// dyc: be called in tcp_v4_connect()
 int tcp_connect(struct sock *sk)
 {
 	struct tcp_sock *tp = tcp_sk(sk);

@@ -21,7 +21,7 @@
 #define inc_preempt_count() add_preempt_count(1)
 #define dec_preempt_count() sub_preempt_count(1)
 
-  //preempt_count==0表示可抢占
+  //preempt_count==0  means preemptable
 #define preempt_count()	(current_thread_info()->preempt_count)
 
 #ifdef CONFIG_PREEMPT
@@ -52,7 +52,7 @@ do { \
 	barrier(); \
 	preempt_check_resched(); \
 } while (0)
-// 以下else是 表示是否define CONFIG_PREEMPT
+// dyc:: else below means not define CONFIG_PREEMPT
 #else
 
 #define preempt_disable()		do { } while (0)

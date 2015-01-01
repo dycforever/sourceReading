@@ -331,6 +331,7 @@ static void timer_stats_account_timer(struct timer_list *timer) {}
  */
 void fastcall init_timer(struct timer_list *timer)
 {
+    // dyc: entry is a list_head
 	timer->entry.next = NULL;
 	timer->base = __raw_get_cpu_var(tvec_bases);
 #ifdef CONFIG_TIMER_STATS
@@ -487,6 +488,7 @@ int mod_timer(struct timer_list *timer, unsigned long expires)
 	 * networking code - if the timer is re-modified
 	 * to be the same thing then just return:
 	 */
+    // dyc: same time and @timer->entry isn't empty
 	if (timer->expires == expires && timer_pending(timer))
 		return 1;
 

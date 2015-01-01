@@ -1787,14 +1787,16 @@ int netif_rx(struct sk_buff *skb)
 
 	__get_cpu_var(netdev_rx_stat).total++;
 	if (queue->input_pkt_queue.qlen <= netdev_max_backlog) {
+        // dyc: if there are packets in input_pkt_queue, softirq must have be raised
 		if (queue->input_pkt_queue.qlen) {
 enqueue:
 			dev_hold(skb->dev);
+            // dyc: enqueue skb
 			__skb_queue_tail(&queue->input_pkt_queue, skb);
 			local_irq_restore(flags);
 			return NET_RX_SUCCESS;
 		}
-
+        // dyc: add napi to &__get_cpu_var(softnet_data).poll_list and then raise software irq NET_RX_SOFTIRQ
 		napi_schedule(&queue->backlog);
 		goto enqueue;
 	}
@@ -2067,11 +2069,13 @@ int netif_receive_skb(struct sk_buff *skb)
 		goto ncls;
 	}
 #endif
-
+    // dyc: see dev_add_pack(), ptype_all for all types, 
+    //      while ptype_base[]'s each slot represent a type
 	list_for_each_entry_rcu(ptype, &ptype_all, list) {
 		if (!ptype->dev || ptype->dev == skb->dev) {
 			if (pt_prev)
 	            // dyc: call pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
+                //      for ipv4 and ethernet is ip_rcv() set in ipv4/af_inet.c: inet_init() -> dev_add_pack(ip_packet_type)
 				ret = deliver_skb(skb, pt_prev, orig_dev);
 			pt_prev = ptype;
 		}
@@ -2175,7 +2179,7 @@ static void net_rx_action(struct softirq_action *h)
 
 	local_irq_disable();
 
-    // dyc: dev was add to list in __napi_schedule()
+    // dyc: napi_struct was add to list in __napi_schedule()
 	while (!list_empty(list)) {
 		struct napi_struct *n;
 		int work, weight;
@@ -2212,6 +2216,7 @@ static void net_rx_action(struct softirq_action *h)
 		work = 0;
         // dyc: receive data from netcard 
 		if (test_bit(NAPI_STATE_SCHED, &n->state))
+		    // dyc: poll = process_backlog() in net_dev_init();
 			work = n->poll(n, weight);
 
 		WARN_ON_ONCE(work > weight);
@@ -2233,7 +2238,7 @@ static void net_rx_action(struct softirq_action *h)
 		}
 
 		netpoll_poll_unlock(have);
-	}
+	} // while (!list_empty(poll_list))
 out:
 	local_irq_enable();
 
@@ -3737,7 +3742,7 @@ int register_netdevice(struct net_device *dev)
 	dev_init_scheduler(dev);
     // dyc: atomic_inc(&dev->refcnt);
 	dev_hold(dev);
-    // dyc: add dev to dev->dev_list/dev->name_hlist/dev->index_hlist
+    // dyc: add dev to net->dev_base_head/net->dev_name_head/net->dev_index_head
 	list_netdevice(dev);
 
 	/* Notify protocols, that a new device appeared. */
@@ -4496,7 +4501,7 @@ static int __init net_dev_init(void)
 
 	dev_boot_phase = 0;
 
-    // dyc: softirq[NET_TX_SOFTIRQ].action = net_tx_action
+    // dyc: softirq[NET_TX_SOFTIRQ].action = net_tx_action, otherwise NULL
 	open_softirq(NET_TX_SOFTIRQ, net_tx_action, NULL);
 	open_softirq(NET_RX_SOFTIRQ, net_rx_action, NULL);
 

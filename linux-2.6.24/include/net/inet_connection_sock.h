@@ -251,7 +251,7 @@ extern int inet_csk_get_port(struct inet_hashinfo *hashinfo,
 
 extern struct dst_entry* inet_csk_route_req(struct sock *sk,
 					    const struct request_sock *req);
-
+// dyc: add sk->sk_ack_backlog
 static inline void inet_csk_reqsk_queue_add(struct sock *sk,
 					    struct request_sock *req,
 					    struct sock *child)
@@ -269,10 +269,11 @@ static inline void inet_csk_reqsk_queue_removed(struct sock *sk,
 	if (reqsk_queue_removed(&inet_csk(sk)->icsk_accept_queue, req) == 0)
 		inet_csk_delete_keepalive_timer(sk);
 }
-
+// dyc: add lopt->qlen
 static inline void inet_csk_reqsk_queue_added(struct sock *sk,
 					      const unsigned long timeout)
 {
+    // dyc: inet_csk(sk)->icsk_accept_queue.qlen++ and return if previous length is 0
 	if (reqsk_queue_added(&inet_csk(sk)->icsk_accept_queue) == 0)
 		inet_csk_reset_keepalive_timer(sk, timeout);
 }
@@ -296,6 +297,7 @@ static inline void inet_csk_reqsk_queue_unlink(struct sock *sk,
 					       struct request_sock *req,
 					       struct request_sock **prev)
 {
+    // dyc: lock and *prev_req = req->dl_next;
 	reqsk_queue_unlink(&inet_csk(sk)->icsk_accept_queue, req, prev);
 }
 

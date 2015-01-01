@@ -149,7 +149,7 @@ static inline void reqsk_queue_unlink(struct request_sock_queue *queue,
 	*prev_req = req->dl_next;
 	write_unlock(&queue->syn_wait_lock);
 }
-
+// dyc: sk->sk_ack_backlog++;
 static inline void reqsk_queue_add(struct request_sock_queue *queue,
 				   struct request_sock *req,
 				   struct sock *parent,
@@ -187,7 +187,7 @@ static inline struct sock *reqsk_queue_get_child(struct request_sock_queue *queu
 	struct sock *child = req->sk;
 
 	BUG_TRAP(child != NULL);
-
+	// dyc: parent->sk_ack_backlog--;
 	sk_acceptq_removed(parent);
 	__reqsk_free(req);
 	return child;
@@ -203,7 +203,7 @@ static inline int reqsk_queue_removed(struct request_sock_queue *queue,
 
 	return --lopt->qlen;
 }
-
+// dyc: be called in inet_csk_reqsk_queue_added()
 static inline int reqsk_queue_added(struct request_sock_queue *queue)
 {
 	struct listen_sock *lopt = queue->listen_opt;
@@ -228,7 +228,7 @@ static inline int reqsk_queue_is_full(const struct request_sock_queue *queue)
 {
 	return queue->listen_opt->qlen >> queue->listen_opt->max_qlen_log;
 }
-
+// dyc: add req into queue->listen_opt->syn_table[]
 static inline void reqsk_queue_hash_req(struct request_sock_queue *queue,
 					u32 hash, struct request_sock *req,
 					unsigned long timeout)

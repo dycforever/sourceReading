@@ -110,6 +110,8 @@ struct inet_hashinfo __cacheline_aligned tcp_hashinfo = {
 
 static int tcp_v4_get_port(struct sock *sk, unsigned short snum)
 {
+    // dyc: in ./inet_connection_sock.c
+    //      find a port and add struct inet_bind_bucket into tcp_hashinfo->bhash[]
 	return inet_csk_get_port(&tcp_hashinfo, sk, snum,
 				 inet_csk_bind_conflict);
 }
@@ -380,6 +382,7 @@ void tcp_v4_err(struct sk_buff *skb, u32 info)
 		return;
 	}
 
+    // dyc: lock (__sk)->sk_lock.slock
 	bh_lock_sock(sk);
 	/* If too many ICMPs get dropped on busy
 	 * servers this needs to be solved differently.
@@ -747,6 +750,7 @@ static int tcp_v4_send_synack(struct sock *sk, struct request_sock *req,
 	struct sk_buff * skb;
 
 	/* First, grab a route. */
+    // dyc: if no dst, find in route
 	if (!dst && (dst = inet_csk_route_req(sk, req)) == NULL)
 		goto out;
 
@@ -1258,7 +1262,9 @@ static struct timewait_sock_ops tcp_timewait_sock_ops = {
 	.twsk_destructor= tcp_twsk_destructor,
 };
 
-// dyc: received a syn packet
+// dyc: be called in tcp_rcv_state_process(), when received a syn packet
+//      drop packet if reqsk_queue or accept_queue is full
+//      alloc and init a request_sock, then return syn+ack
 int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
 {
 	struct inet_request_sock *ireq;
@@ -1313,7 +1319,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
 	tcp_clear_options(&tmp_opt);
 	tmp_opt.mss_clamp = 536;
 	tmp_opt.user_mss  = tcp_sk(sk)->rx_opt.user_mss;
-
+    // dyc: parse tcp option of received syn packet
 	tcp_parse_options(skb, &tmp_opt, 0);
 
 	if (want_cookie) {
@@ -1321,7 +1327,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
 		tmp_opt.saw_tstamp = 0;
 	}
 
-    // dyc: if has timestamp, but timestamp is empty
+    // dyc: if has timestamp in option, but timestamp value is 0
 	if (tmp_opt.saw_tstamp && !tmp_opt.rcv_tsval) {
 		/* Some OSes (unknown ones, but I see them on web server, which
 		 * contains information interesting only for windows'
@@ -1333,7 +1339,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
 	}
 	tmp_opt.tstamp_ok = tmp_opt.saw_tstamp;
 
-    // dyc: init req
+    // dyc: init req, such as seq number and options
 	tcp_openreq_init(req, &tmp_opt, skb);
 
 	if (security_inet_conn_request(sk, skb, req))
@@ -1351,6 +1357,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
 #ifdef CONFIG_SYN_COOKIES
 		syn_flood_warning(skb);
 #endif
+        // dyc init sequence number
 		isn = cookie_v4_init_sequence(sk, skb, &req->mss);
 	} else if (!isn) {
 		struct inet_peer *peer = NULL;
@@ -1399,7 +1406,8 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
 		}
 
 		isn = tcp_v4_init_sequence(skb);
-	}
+	} // if !isn
+    // dyc: will set into tcphdr in tcp_make_synack()
 	tcp_rsk(req)->snt_isn = isn;
 
 	if (tcp_v4_send_synack(sk, req, dst))
@@ -1408,6 +1416,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
 	if (want_cookie) {
 		reqsk_free(req);
 	} else {
+        // dyc: add req into icsk->icsk_accept_queue->listen_opt->syn_table[]
 		inet_csk_reqsk_queue_hash_add(sk, req, TCP_TIMEOUT_INIT);
 	}
 	return 0;
@@ -1483,8 +1492,9 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
 					  newkey, key->keylen);
 	}
 #endif
-
+    // dyc: add to tcp_hashinfo.ehash
 	__inet_hash(&tcp_hashinfo, newsk, 0);
+    // dyc: add newsk to inet_csk(sk)->icsk_bind_hash->owners
 	__inet_inherit_port(&tcp_hashinfo, sk, newsk);
 
 	return newsk;
@@ -1497,7 +1507,9 @@ exit:
 	return NULL;
 }
 
-// dyc: usually means receive 3-hands' last ack
+// dyc: look into listening chain, if NULL then
+//      look into established chain and timewait chain to get sock if match
+//      @sk is the listening socket
 static struct sock *tcp_v4_hnd_req(struct sock *sk, struct sk_buff *skb)
 {
 	struct tcphdr *th = tcp_hdr(skb);
@@ -1505,16 +1517,25 @@ static struct sock *tcp_v4_hnd_req(struct sock *sk, struct sk_buff *skb)
 	struct sock *nsk;
 	struct request_sock **prev;
 	/* Find possible connection requests. */
+    // dyc: search in listening sock's syn_table[] and find a match one
+    //      item is added into syn_table[] in tcp_v4_conn_request()
 	struct request_sock *req = inet_csk_search_req(sk, &prev, th->source,
 						       iph->saddr, iph->daddr);
-	if (req)
+	if (req) {
+    // dyc: if found, usually this packet is an ack to finish 3-hands
 		return tcp_check_req(sk, skb, req, prev);
+    }
 
+    // dyc: if look in established_hashtable and timewait_hashtable
+    //      if two SYNACK were sent to the same socket, 2nd SYNACK will add to sk->sk_backlog
+    //      later this sock be released, call sk->sk_backlog_rcv(skb) for all skb in sk->sk_backlog
+    //      see more detail in __release_sock()
 	nsk = inet_lookup_established(&tcp_hashinfo, iph->saddr, th->source,
 				      iph->daddr, th->dest, inet_iif(skb));
 
 	if (nsk) {
 		if (nsk->sk_state != TCP_TIME_WAIT) {
+            // dyc: lock (__sk)->sk_lock.slock
 			bh_lock_sock(nsk);
 			return nsk;
 		}
@@ -1587,12 +1608,14 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
 		goto csum_err;
 
 	if (sk->sk_state == TCP_LISTEN) {
-        // dyc: here, usually means receive 3-hands' last ack
+        // dyc: here, usually means receive 3-hands' first syn or last ack
 		struct sock *nsk = tcp_v4_hnd_req(sk, skb);
+        // dyc: if find sk'stat is TIME_WAIT, return NULL
 		if (!nsk)
 			goto discard;
-
+        // dyc: packet is sent to other socket(SYN_RECV socket/ESTABLISHED socket)
 		if (nsk != sk) {
+            // dyc: pass sk to child socket
 			if (tcp_child_process(sk, nsk, skb)) {
 				rsk = nsk;
 				goto reset;
@@ -1602,7 +1625,9 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
 	}
 
 	TCP_CHECK_TIMER(sk);
-    // dyc: tcp_hdr() get tcp header from sock_buff
+    // dyc: all kinds of situation except ESTABLISHED and TIMEWAIT
+    //      such as LISTEN socket received first SYN
+    //      tcp_hdr() get tcp header from sock_buff
 	if (tcp_rcv_state_process(sk, skb, tcp_hdr(skb), skb->len)) {
 		rsk = sk;
 		goto reset;
@@ -1670,6 +1695,7 @@ int tcp_v4_rcv(struct sk_buff *skb)
 	TCP_SKB_CB(skb)->flags	 = iph->tos;
 	TCP_SKB_CB(skb)->sacked	 = 0;
 
+    // dyc: inet_iif() get skb's rt_iif which is sock's dev's ifindex, sock's dev is set in netcard's driver when frame received
 	sk = __inet_lookup(&tcp_hashinfo, iph->saddr, th->source,
 			   iph->daddr, th->dest, inet_iif(skb));
 	if (!sk)
@@ -1690,6 +1716,8 @@ process:
 
 	bh_lock_sock_nested(sk);
 	ret = 0;
+    // dyc: ((sk)->sk_lock.owned)
+    //      if no other process owned this sock
 	if (!sock_owned_by_user(sk)) {
 #ifdef CONFIG_NET_DMA
 		struct tcp_sock *tp = tcp_sk(sk);
@@ -1700,11 +1728,14 @@ process:
 		else
 #endif
 		{
+            // dyc: if not tp->ucopy.task
 			if (!tcp_prequeue(sk, skb))
 			ret = tcp_v4_do_rcv(sk, skb);
 		}
-	} else
+	} else {
+        // dyc: add skb to the tail of sk->sk_backlog
 		sk_add_backlog(sk, skb);
+    }
 	bh_unlock_sock(sk);
 
 	sock_put(sk);
@@ -1742,6 +1773,7 @@ do_time_wait:
 		inet_twsk_put(inet_twsk(sk));
 		goto discard_it;
 	}
+    // dyc: deal packet in TIMEWAIT state
 	switch (tcp_timewait_state_process(inet_twsk(sk), skb, th)) {
 	case TCP_TW_SYN: {
 		struct sock *sk2 = inet_lookup_listener(&tcp_hashinfo,
@@ -1756,6 +1788,7 @@ do_time_wait:
 		/* Fall through to ACK */
 	}
 	case TCP_TW_ACK:
+        // dyc: send ack
 		tcp_v4_timewait_ack(sk, skb);
 		break;
 	case TCP_TW_RST:
@@ -1853,6 +1886,7 @@ static struct tcp_sock_af_ops tcp_sock_ipv4_specific = {
 /* NOTE: A lot of things set to zero explicitly by call to
  *       sk_alloc() so need not be done here.
  */
+// dyc: be called in inet_create()
 static int tcp_v4_init_sock(struct sock *sk)
 {
 	struct inet_connection_sock *icsk = inet_csk(sk);
@@ -2427,7 +2461,7 @@ void tcp4_proc_exit(void)
 #endif /* CONFIG_PROC_FS */
 
 DEFINE_PROTO_INUSE(tcp)
-
+// dyc: no tcp_bind() !
 struct proto tcp_prot = {
 	.name			= "TCP",
 	.owner			= THIS_MODULE,
