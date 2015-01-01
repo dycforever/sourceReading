@@ -38,7 +38,7 @@ static ngx_connection_t  dumb;
 
 static ngx_str_t  error_log = ngx_string(NGX_ERROR_LOG_PATH);
 
-
+// dyc: for first start_up old_cycle is init_cycle
 ngx_cycle_t *
 ngx_init_cycle(ngx_cycle_t *old_cycle)
 {
@@ -217,14 +217,14 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     ngx_strlow(cycle->hostname.data, (u_char *) hostname, cycle->hostname.len);
 
 
-    // dyc: create conf for every nginx-core-modules
+    // dyc: create config for every nginx-core-modules
     for (i = 0; ngx_modules[i]; i++) {
         if (ngx_modules[i]->type != NGX_CORE_MODULE) {
             continue;
         }
 
         module = ngx_modules[i]->ctx;
-
+        // dyc: ngx_core_module_create_conf for example, return a ngx_core_conf_t
         if (module->create_conf) {
             rv = module->create_conf(cycle);
             if (rv == NULL) {
@@ -238,7 +238,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
 
     senv = environ;
 
-
+    // dyc: conf represent global config object 
     ngx_memzero(&conf, sizeof(ngx_conf_t));
     /* STUB: init array ? */
     conf.args = ngx_array_create(pool, 10, sizeof(ngx_str_t));
@@ -355,6 +355,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
 
     /* open the new files */
     // dyc: the file name of files in open_files list is assigned when parsing configuration
+    //      usually error.log and access.log
     part = &cycle->open_files.part;
     file = part->elts;
     for (i = 0; /* void */ ; i++) {
@@ -490,7 +491,8 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
 
 
     /* handle the listening sockets */
-
+    // dyc: inherit old listening ports if equal
+    //      so need two loop if has old listening ports
     if (old_cycle->listening.nelts) {
         ls = old_cycle->listening.elts;
         for (i = 0; i < old_cycle->listening.nelts; i++) {
@@ -665,7 +667,7 @@ old_shm_zone_done:
 
     ls = old_cycle->listening.elts;
     for (i = 0; i < old_cycle->listening.nelts; i++) {
-
+        // dyc: remain = 1 if old socket_addr == new socket_addr
         if (ls[i].remain || ls[i].fd == -1) {
             continue;
         }

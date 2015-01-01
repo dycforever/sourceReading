@@ -288,7 +288,7 @@ main(int argc, char *const *argv)
 
     ngx_pid = ngx_getpid();
 
-    // dyc: open log file in prefix path
+    // dyc: open error log file in prefix_path/error_log
     log = ngx_log_init(ngx_prefix);
     if (log == NULL) {
         return 1;
@@ -321,7 +321,9 @@ main(int argc, char *const *argv)
         return 1;
     }
 
-    // dyc: get some system info
+    // dyc: get system info: pagesize/cpu/cache_size/max_socket .. etc
+    //      and function pointer, such as unix_send/unix_recv
+    //      info saved in global variable
     if (ngx_os_init(log) != NGX_OK) {
         return 1;
     }
@@ -332,7 +334,7 @@ main(int argc, char *const *argv)
     if (ngx_crc32_table_init() != NGX_OK) {
         return 1;
     }
-
+    // dyc: set socket opt for socket specified by ENV_VAR
     if (ngx_add_inherited_sockets(&init_cycle) != NGX_OK) {
         return 1;
     }
@@ -484,7 +486,8 @@ ngx_add_inherited_sockets(ngx_cycle_t *cycle)
     }
 
     ngx_inherited = 1;
-    // dyc: set some socket options
+    // dyc: set listen socket's address and some sockopts, such as
+    //      recv/send buffer, defer accept
     return ngx_set_inherited_sockets(cycle);
 }
 
@@ -915,7 +918,7 @@ ngx_process_options(ngx_cycle_t *cycle)
 
 #endif
     }
-
+    // dyc: passed in by -c
     if (ngx_conf_file) {
         cycle->conf_file.len = ngx_strlen(ngx_conf_file);
         cycle->conf_file.data = ngx_conf_file;
@@ -938,7 +941,7 @@ ngx_process_options(ngx_cycle_t *cycle)
             break;
         }
     }
-
+    // dyc: passed in by -g
     if (ngx_conf_params) {
         cycle->conf_param.len = ngx_strlen(ngx_conf_params);
         cycle->conf_param.data = ngx_conf_params;
