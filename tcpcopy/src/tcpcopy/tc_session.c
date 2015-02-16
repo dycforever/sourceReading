@@ -169,7 +169,7 @@ fill_pro_common_header(tc_iph_t *ip, tc_tcph_t *tcp)
     tcp->window  = 65535; 
 }
 
-
+// dyc: create hash table: sess_table 
 int
 tc_init_sess_table(void)
 {

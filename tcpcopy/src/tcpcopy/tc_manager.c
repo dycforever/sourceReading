@@ -193,14 +193,14 @@ restore_work(tc_event_timer_t *evt)
 int
 tcp_copy_init(tc_event_loop_t *ev_lp)
 {
-
+    // dyc: add timer to tc_event_timer_rbtree
     tc_event_add_timer(ev_lp->pool, 60000, NULL, check_resource_usage);
     tc_event_add_timer(ev_lp->pool, OUTPUT_INTERVAL, NULL, tc_interval_disp);
 
     if (clt_settings.lonely) {
         tc_event_add_timer(ev_lp->pool, RETRY_INTERVAL, NULL, restore_work);
     }
-
+    // dyc: create hash table: sess_table 
     if  (tc_init_sess_table() == TC_ERR) {
         return TC_ERR;
     }
