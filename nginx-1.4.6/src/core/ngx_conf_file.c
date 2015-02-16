@@ -372,6 +372,7 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
 
             conf = NULL;
 
+            // dyc: conf.ctx = cycle->conf_ctx[module->index] = module->create_conf(cycle);
             if (cmd->type & NGX_DIRECT_CONF) {
                 conf = ((void **) cf->ctx)[ngx_modules[i]->index];
 

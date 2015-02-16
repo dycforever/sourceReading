@@ -99,14 +99,18 @@ static ngx_command_t  ngx_http_commands[] = {
       ngx_null_command
 };
 
-
+// typedef struct {
+//     ngx_str_t             name;
+//     void               *(*create_conf)(ngx_cycle_t *cycle);
+//     char               *(*init_conf)(ngx_cycle_t *cycle, void *conf);
+// } ngx_core_module_t;
 static ngx_core_module_t  ngx_http_module_ctx = {
     ngx_string("http"),
     NULL,
     NULL
 };
 
-
+// dyc: ngx_http_module->ctx = ngx_http_module_ctx
 ngx_module_t  ngx_http_module = {
     NGX_MODULE_V1,
     &ngx_http_module_ctx,                  /* module context */
@@ -122,7 +126,7 @@ ngx_module_t  ngx_http_module = {
     NGX_MODULE_V1_PADDING
 };
 
-
+// dyc: conf = &(cycle->conf_ctx[module->index])
 static char *
 ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {

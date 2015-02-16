@@ -480,6 +480,8 @@ static int __rcu_pending(struct rcu_ctrlblk *rcp, struct rcu_data *rdp)
 	/* This cpu has pending rcu entries and the grace period
 	 * for them has completed.
 	 */
+    // dyc: curlist means there are some task need to deal after this grace period
+    //                  !(rcp->completed < rdp->batch)
 	if (rdp->curlist && !rcu_batch_before(rcp->completed, rdp->batch))
 		return 1;
 
