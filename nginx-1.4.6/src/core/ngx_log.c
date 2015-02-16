@@ -262,6 +262,7 @@ ngx_log_errno(u_char *buf, u_char *last, ngx_err_t err)
 }
 
 
+// dyc: concat prefix and log_file_name to a full path, and open it
 ngx_log_t *
 ngx_log_init(u_char *prefix)
 {
@@ -271,6 +272,7 @@ ngx_log_init(u_char *prefix)
     ngx_log.file = &ngx_log_file;
     ngx_log.log_level = NGX_LOG_NOTICE;
 
+    // dyc: set in ./configure
     name = (u_char *) NGX_ERROR_LOG_PATH;
 
     /*
@@ -286,7 +288,7 @@ ngx_log_init(u_char *prefix)
     }
 
     p = NULL;
-
+    // dyc: concat prefix and log_file_name to a full path
 #if (NGX_WIN32)
     if (name[1] != ':') {
 #else
@@ -298,6 +300,7 @@ ngx_log_init(u_char *prefix)
 
         } else {
 #ifdef NGX_PREFIX
+            // dyc: set in ./configure
             prefix = (u_char *) NGX_PREFIX;
             plen = ngx_strlen(prefix);
 #else

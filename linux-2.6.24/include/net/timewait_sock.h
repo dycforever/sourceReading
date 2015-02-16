@@ -24,6 +24,7 @@ struct timewait_sock_ops {
 
 static inline int twsk_unique(struct sock *sk, struct sock *sktw, void *twp)
 {
+    // dyc: call tcp_twsk_unique()
 	if (sk->sk_prot->twsk_prot->twsk_unique != NULL)
 		return sk->sk_prot->twsk_prot->twsk_unique(sk, sktw, twp);
 	return 0;

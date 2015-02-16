@@ -242,11 +242,12 @@ extern int tcp_memory_pressure;
  * The next routines deal with comparing 32 bit unsigned ints
  * and worry about wraparound (automatic with unsigned arithmetic).
  */
-
+// dyc: return (seq1 < seq2)
 static inline int before(__u32 seq1, __u32 seq2)
 {
         return (__s32)(seq1-seq2) < 0;
 }
+// dyc: return (seq2 > seq1)
 #define after(seq2, seq1) 	before(seq1, seq2)
 
 /* is s2<=s1<=s3 ? */
@@ -886,6 +887,7 @@ static inline int tcp_prequeue(struct sock *sk, struct sk_buff *skb)
 	struct tcp_sock *tp = tcp_sk(sk);
 
 	if (!sysctl_tcp_low_latency && tp->ucopy.task) {
+        // dyc; add skb to tail of &tp->ucopy.prequeue
 		__skb_queue_tail(&tp->ucopy.prequeue, skb);
 		tp->ucopy.memory += skb->truesize;
 		if (tp->ucopy.memory > sk->sk_rcvbuf) {
@@ -921,7 +923,8 @@ static const char *statename[]={
 	"Close Wait","Last ACK","Listen","Closing"
 };
 #endif
-
+// dyc: set sk->sk_state and do some statistics
+//      for TCP_CLOSE, call inet_put_port() to delete from bind_hash
 static inline void tcp_set_state(struct sock *sk, int state)
 {
 	int oldstate = sk->sk_state;
@@ -1025,17 +1028,19 @@ static inline int tcp_fin_time(const struct sock *sk)
 {
 	int fin_timeout = tcp_sk(sk)->linger2 ? : sysctl_tcp_fin_timeout;
 	const int rto = inet_csk(sk)->icsk_rto;
-
+    // dyc: fin_timeout = 3.5 * rto
 	if (fin_timeout < (rto << 2) - (rto >> 1))
 		fin_timeout = (rto << 2) - (rto >> 1);
 
 	return fin_timeout;
 }
 
+// dyc: return 1 means rejected
 static inline int tcp_paws_check(const struct tcp_options_received *rx_opt, int rst)
 {
 	if ((s32)(rx_opt->rcv_tsval - rx_opt->ts_recent) >= 0)
 		return 0;
+    // dyc: may be timestamp wrapped round
 	if (get_seconds() >= rx_opt->ts_recent_stamp + TCP_PAWS_24DAYS)
 		return 0;
 
@@ -1205,7 +1210,7 @@ static inline struct sk_buff *tcp_write_queue_head(struct sock *sk)
 		return NULL;
 	return skb;
 }
-
+// dyc: prev of the first element is the tail
 static inline struct sk_buff *tcp_write_queue_tail(struct sock *sk)
 {
 	struct sk_buff *skb = sk->sk_write_queue.prev;

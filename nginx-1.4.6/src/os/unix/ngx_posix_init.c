@@ -28,8 +28,7 @@ ngx_os_io_t ngx_os_io = {
     0
 };
 
-
-// dyc: get some system info
+// dyc: get system info: pagesize/cpu/cache_size/max_socket .. etc
 ngx_int_t
 ngx_os_init(ngx_log_t *log)
 {
@@ -40,7 +39,7 @@ ngx_os_init(ngx_log_t *log)
         return NGX_ERROR;
     }
 #endif
-
+    // dyc: copy string from environ[] to alloced memory
     ngx_init_setproctitle(log);
 
     ngx_pagesize = getpagesize();

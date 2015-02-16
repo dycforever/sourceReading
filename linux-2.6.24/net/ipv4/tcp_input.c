@@ -3162,6 +3162,7 @@ void tcp_parse_options(struct sk_buff *skb, struct tcp_options_received *opt_rx,
 {
 	unsigned char *ptr;
 	struct tcphdr *th = tcp_hdr(skb);
+    // dyc: length is tcp option's length
 	int length=(th->doff*4)-sizeof(struct tcphdr);
 
 	ptr = (unsigned char *)(th + 1);
@@ -3214,6 +3215,7 @@ void tcp_parse_options(struct sk_buff *skb, struct tcp_options_received *opt_rx,
 						if ((estab && opt_rx->tstamp_ok) ||
 						    (!estab && sysctl_tcp_timestamps)) {
 							opt_rx->saw_tstamp = 1;
+                            // dyc: parse TimeStamp Value and TimeStamp Echo Reply
 							opt_rx->rcv_tsval = ntohl(get_unaligned((__be32 *)ptr));
 							opt_rx->rcv_tsecr = ntohl(get_unaligned((__be32 *)(ptr+4)));
 						}
@@ -3411,7 +3413,7 @@ static void tcp_fin(struct sk_buff *skb, struct sock *sk, struct tcphdr *th)
 	struct tcp_sock *tp = tcp_sk(sk);
 
 	inet_csk_schedule_ack(sk);
-
+    // dyc: receive FIN, so peer won't send data any more
 	sk->sk_shutdown |= RCV_SHUTDOWN;
 	sock_set_flag(sk, SOCK_DONE);
 
@@ -3464,6 +3466,7 @@ static void tcp_fin(struct sk_buff *skb, struct sock *sk, struct tcphdr *th)
 	sk_stream_mem_reclaim(sk);
 
 	if (!sock_flag(sk, SOCK_DEAD)) {
+        // dyc: call sock_def_wakeup() to wake @sk->sk_sleep
 		sk->sk_state_change(sk);
 
 		/* Do not send POLL_HUP for half duplex close. */
@@ -4696,7 +4699,7 @@ discard:
 	__kfree_skb(skb);
 	return 0;
 }
-
+// dyc: usually for receive synack in 3-hands
 static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
 					 struct tcphdr *th, unsigned len)
 {
@@ -4858,7 +4861,7 @@ discard:
 			tcp_send_ack(sk);
 		}
 		return -1;
-	}
+	} // if th->ack
 
 	/* No ACK in the segment */
 
@@ -4947,7 +4950,8 @@ reset_and_undo:
  *	It's called from both tcp_v4_rcv and tcp_v6_rcv and should be
  *	address independent.
  */
-
+// dyc: return 1 means need reset?
+//      only be called in tcp_v4_do_rcv() and tcp_child_process()
 int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
 			  struct tcphdr *th, unsigned len)
 {
@@ -4962,7 +4966,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
 		goto discard;
 
 	case TCP_LISTEN:
-        // dyc: here, packet should be first syn
+        // dyc: ack shouldn't be received by this sk, should to half-connection sk
 		if (th->ack)
 			return 1;
 
@@ -5006,7 +5010,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
 		__kfree_skb(skb);
 		tcp_data_snd_check(sk);
 		return 0;
-	}
+	} // switch (sk->sk_state)
 
 	if (tcp_fast_parse_options(skb, th, tp) && tp->rx_opt.saw_tstamp &&
 	    tcp_paws_discard(sk, skb)) {
@@ -5107,6 +5111,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
 			break;
 
 		case TCP_FIN_WAIT1:
+            // dyc: unacked == write_seq, so all packet has been acked
 			if (tp->snd_una == tp->write_seq) {
 				tcp_set_state(sk, TCP_FIN_WAIT2);
 				sk->sk_shutdown |= SEND_SHUTDOWN;
@@ -5159,7 +5164,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
 				goto discard;
 			}
 			break;
-		}
+		} // switch (sk->sk_state)
 	} else
 		goto discard;
 

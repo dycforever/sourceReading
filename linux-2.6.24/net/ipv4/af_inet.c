@@ -205,7 +205,6 @@ int inet_listen(struct socket *sock, int backlog)
 	 * we can only allow the backlog to be adjusted.
 	 */
 	if (old_state != TCP_LISTEN) {
-        // dyc: for tcp, inet_csk_listen_start
 		err = inet_csk_listen_start(sk, backlog);
 		if (err)
 			goto out;
@@ -241,7 +240,7 @@ EXPORT_SYMBOL(build_ehash_secret);
 /*
  *	Create an inet socket.
  */
-
+// dyc: be called in __sock_create()
 static int inet_create(struct net *net, struct socket *sock, int protocol)
 {
 	struct sock *sk;
@@ -364,6 +363,7 @@ lookup_protocol:
 
 	sk_refcnt_debug_inc(sk);
 
+    // dyc: if is type SOCK_RAW
 	if (inet->num) {
 		/* It assumes that any protocol which allows
 		 * the user to assign a number at socket
@@ -372,9 +372,10 @@ lookup_protocol:
 		 */
 		inet->sport = htons(inet->num);
 		/* Add to protocol hash chains. */
+        // dyc: call tcp_v4_hash(), add sk to @hashinfo->listening_hash[]
 		sk->sk_prot->hash(sk);
 	}
-
+    // dyc: for tcp, call tcp_v4_init_sock()
 	if (sk->sk_prot->init) {
 		err = sk->sk_prot->init(sk);
 		if (err)
@@ -415,6 +416,7 @@ int inet_release(struct socket *sock)
 		    !(current->flags & PF_EXITING))
 			timeout = sk->sk_lingertime;
 		sock->sk = NULL;
+        // dyc: call tcp_close()
 		sk->sk_prot->close(sk, timeout);
 	}
 	return 0;
@@ -484,7 +486,7 @@ int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 		inet->saddr = 0;  /* Use device */
 
 	/* Make sure we are allowed to bind here. */
-    // dyc: call inet_csk_get_port() in ./inet_connection_sock.c
+    // dyc: call tcp_v4_get_port() -> inet_csk_get_port()
 	if (sk->sk_prot->get_port(sk, snum)) {
 		inet->saddr = inet->rcv_saddr = 0;
 		err = -EADDRINUSE;
@@ -577,6 +579,7 @@ int inet_stream_connect(struct socket *sock, struct sockaddr *uaddr,
 		if (sk->sk_state != TCP_CLOSE)
 			goto out;
 
+        // dyc: for tcp, call tcp_connect()
 		err = sk->sk_prot->connect(sk, uaddr, addr_len);
 		if (err < 0)
 			goto out;

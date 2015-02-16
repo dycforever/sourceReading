@@ -7,6 +7,7 @@
 
 struct tvec_t_base_s;
 
+// dyc: when expired, execute @function(@data)
 struct timer_list {
 	struct list_head entry;
 	unsigned long expires;

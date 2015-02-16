@@ -90,7 +90,8 @@ ngx_time_update(void)
     msec = tv.tv_usec / 1000;
 
     ngx_current_msec = (ngx_msec_t) sec * 1000 + msec;
-
+    // dyc: global variable slot
+    //      just update msec in same slot if same seconds
     tp = &cached_time[slot];
 
     if (tp->sec == sec) {
