@@ -1360,7 +1360,7 @@ loop_again:
 		 */
 		for (i = pgdat->nr_zones - 1; i >= 0; i--) {
 			struct zone *zone = pgdat->node_zones + i;
-
+            // dyc: return (!!zone->present_pages);
 			if (!populated_zone(zone))
 				continue;
 

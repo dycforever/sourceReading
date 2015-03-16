@@ -18,6 +18,7 @@ static inline int frozen(struct task_struct *p)
 /*
  * Check if there is a request to freeze a process
  */
+// dyc: check thread_info->flag
 static inline int freezing(struct task_struct *p)
 {
 	return test_tsk_thread_flag(p, TIF_FREEZE);

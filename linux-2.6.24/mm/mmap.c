@@ -331,10 +331,10 @@ void validate_mm(struct mm_struct *mm)
 #define validate_mm(mm) do { } while (0)
 #endif
 
-// ´ÓrbtreeÖĞÕÒµ½Ò»¸övma£¬ÖÁÉÙend±ÈaddrÒª´ó
-// ºóÈı¸ö²ÎÊı¶¼ÊÇÊä³öÓÃµÄ:
-// rb_link±íÊ¾addr´ú±íµÄvmaÔÚrbtreeÖĞµÄ²åÈëµã
-// rb_parent±íÊ¾²åÈëµãµÄ¸¸½áµã
+// ä»rbtreeä¸­æ‰¾åˆ°ä¸€ä¸ªvmaï¼Œè‡³å°‘endæ¯”addrè¦å¤§
+// åä¸‰ä¸ªå‚æ•°éƒ½æ˜¯è¾“å‡ºç”¨çš„:
+// rb_linkè¡¨ç¤ºaddrä»£è¡¨çš„vmaåœ¨rbtreeä¸­çš„æ’å…¥ç‚¹
+// rb_parentè¡¨ç¤ºæ’å…¥ç‚¹çš„çˆ¶ç»“ç‚¹
 static struct vm_area_struct *
 find_vma_prepare(struct mm_struct *mm, unsigned long addr,
 		struct vm_area_struct **pprev, struct rb_node ***rb_link,
@@ -410,7 +410,7 @@ static inline void __vma_link_file(struct vm_area_struct *vma)
 			mapping->i_mmap_writable++;
 
 		flush_dcache_mmap_lock(mapping);
-        // ²åÈëµ½·ÇÏßĞÔ£¬»òÕßÓÅÏÈ¼¶Ê÷
+        // æ’å…¥åˆ°éçº¿æ€§ï¼Œæˆ–è€…ä¼˜å…ˆçº§æ ‘
 		if (unlikely(vma->vm_flags & VM_NONLINEAR))
 			vma_nonlinear_insert(vma, &mapping->i_mmap_nonlinear);
 		else
@@ -424,11 +424,11 @@ __vma_link(struct mm_struct *mm, struct vm_area_struct *vma,
 	struct vm_area_struct *prev, struct rb_node **rb_link,
 	struct rb_node *rb_parent)
 {
-    // ¼ÓÈëµ½vma listÖĞ
+    // åŠ å…¥åˆ°vma listä¸­
 	__vma_link_list(mm, vma, prev, rb_parent);
-    // ¼ÓÈëµ½rbtreeÖĞ
+    // åŠ å…¥åˆ°rbtreeä¸­
 	__vma_link_rb(mm, vma, rb_link, rb_parent);
-    // ¼ÓÈëµ½ÄäÃûÒ³listÖĞ
+    // åŠ å…¥åˆ°åŒ¿åé¡µlistä¸­
 	__anon_vma_link(vma);
 }
 
@@ -448,7 +448,7 @@ static void vma_link(struct mm_struct *mm, struct vm_area_struct *vma,
 	anon_vma_lock(vma);
 
 	__vma_link(mm, vma, prev, rb_link, rb_parent);
-    // Èç¹ûÊÇÎÄ¼şÓ³Éä£¬¾ÍºÍÏà¹ØµÄaddress spaceÁªÏµÆğÀ´
+    // å¦‚æœæ˜¯æ–‡ä»¶æ˜ å°„ï¼Œå°±å’Œç›¸å…³çš„address spaceè”ç³»èµ·æ¥
 	__vma_link_file(vma);
 
 	anon_vma_unlock(vma);
@@ -915,18 +915,18 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr,
 	 *  mounted, in which case we dont add PROT_EXEC.)
 	 */
 	if ((prot & PROT_READ) && (current->personality & READ_IMPLIES_EXEC))
-        // Èç¹ûfileÊÇEXECµÄ, Ç°ÃæµÄÅĞ¶ÏfileÖ»ÊÇÎªÁË·ÀÖ¹·ÃÎÊ¿ÕÖ¸Õë
+        // å¦‚æœfileæ˜¯EXECçš„, å‰é¢çš„åˆ¤æ–­fileåªæ˜¯ä¸ºäº†é˜²æ­¢è®¿é—®ç©ºæŒ‡é’ˆ
 		if (!(file && (file->f_path.mnt->mnt_flags & MNT_NOEXEC)))
 			prot |= PROT_EXEC;
 
 	if (!len)
 		return -EINVAL;
 
-    //¹ØÓÚsecurityµÄ£¬¿ÉÒÔÌø¹ı
+    //å…³äºsecurityçš„ï¼Œå¯ä»¥è·³è¿‡
 	if (!(flags & MAP_FIXED))
 		addr = round_hint_to_min(addr);
 
-    // Ìø¹ı
+    // è·³è¿‡
 	error = arch_mmap_check(addr, len, flags);
 	if (error)
 		return error;
@@ -948,8 +948,8 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr,
 	 * that it represents a valid section of the address space.
 	 */
 	addr = get_unmapped_area(file, addr, len, pgoff, flags);
-    // ¸ßÎ»ÇåÁã, µ«ÊÇ²»Ã÷°×ÎªÊ²Ã´Òª·µ»Ø,¶øÇÒreturnÖµÊÇ±»µ±³ÉerrorµÄ
-    // ÒòÎªÓĞ¿ÉÄÜaddr = vma->vm_end£¬ÄÑµÀend±ØÈ»ÊÇÒ³¶ÔÆäµÄÃ´£¿
+    // é«˜ä½æ¸…é›¶, ä½†æ˜¯ä¸æ˜ç™½ä¸ºä»€ä¹ˆè¦è¿”å›,è€Œä¸”returnå€¼æ˜¯è¢«å½“æˆerrorçš„
+    // å› ä¸ºæœ‰å¯èƒ½addr = vma->vm_endï¼Œéš¾é“endå¿…ç„¶æ˜¯é¡µå¯¹å…¶çš„ä¹ˆï¼Ÿ
 	if (addr & ~PAGE_MASK)
 		return addr;
 
@@ -977,7 +977,7 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr,
 	}
 
 	inode = file ? file->f_path.dentry->d_inode : NULL;
-    // ×öÒ»Ğ©¼ì²é£¬ÉèÖÃÒ»Ğ©±ê¼Ç
+    // åšä¸€äº›æ£€æŸ¥ï¼Œè®¾ç½®ä¸€äº›æ ‡è®°
 	if (file) {
 		switch (flags & MAP_TYPE) {
 		case MAP_SHARED:
@@ -1035,7 +1035,7 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr,
 			return -EINVAL;
 		}
 	}
-        // ¿ÉÒÔºöÂÔ
+        // å¯ä»¥å¿½ç•¥
 	error = security_file_mmap(file, reqprot, prot, flags, addr, 0);
 	if (error)
 		return error;
@@ -1102,11 +1102,11 @@ munmap_back:
 	}
 
 	/* Check against address space limit. */
-    // ¾ÍÊÇ¼ì²éÒ»ÏÂ
+    // å°±æ˜¯æ£€æŸ¥ä¸€ä¸‹
 	if (!may_expand_vm(mm, len >> PAGE_SHIFT))
 		return -ENOMEM;
 
-    // ÉèÖÃÒ»Ğ©±ê¼Ç
+    // è®¾ç½®ä¸€äº›æ ‡è®°
 	if (accountable && (!(flags & MAP_NORESERVE) ||
 			    sysctl_overcommit_memory == OVERCOMMIT_NEVER)) {
 		if (vm_flags & VM_SHARED) {
@@ -1151,7 +1151,7 @@ munmap_back:
 	vma->vm_page_prot = vm_get_page_prot(vm_flags);
 	vma->vm_pgoff = pgoff;
 
-    // µ÷ÓÃÎÄ¼ş×Ô¼ºµÄmmapº¯Êı
+    // è°ƒç”¨æ–‡ä»¶è‡ªå·±çš„mmapå‡½æ•°
 	if (file) {
 		error = -EINVAL;
 		if (vm_flags & (VM_GROWSDOWN|VM_GROWSUP))
@@ -1259,21 +1259,21 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	if (len > TASK_SIZE)
 		return -ENOMEM;
     
-    // Ó³Éä»áÔÚ¹Ì¶¨Ó³ÉäÉÏ½¨Á¢
+    // æ˜ å°„ä¼šåœ¨å›ºå®šæ˜ å°„ä¸Šå»ºç«‹
 	if (flags & MAP_FIXED)
 		return addr;
 
 	if (addr) {
 		addr = PAGE_ALIGN(addr);
 		vma = find_vma(mm, addr);
-        // addrÖ®ºóÃ»ÓĞvmaÁË£¬»òÕßaddr µ½ lenµÄÕâ¶ÎÄÚ´æÃ»ÓĞºÍÏÖÓĞµÄvmaÖØµş
-        // ÄÇ¾ÍµÈÓÚµÃµ½ÁËÒ»Æ¬Ã»ÓĞÓ³ÉäµÄÄÚ´æµØÖ·
+        // addrä¹‹åæ²¡æœ‰vmaäº†ï¼Œæˆ–è€…addr åˆ° lençš„è¿™æ®µå†…å­˜æ²¡æœ‰å’Œç°æœ‰çš„vmaé‡å 
+        // é‚£å°±ç­‰äºå¾—åˆ°äº†ä¸€ç‰‡æ²¡æœ‰æ˜ å°„çš„å†…å­˜åœ°å€
 		if (TASK_SIZE - len >= addr &&
 		    (!vma || addr + len <= vma->vm_start))
 			return addr;
 	}
     
-    // Ö®Ç°µÄ¼òµ¥ËÑË÷£¬Ã»ÓĞÕÒµ½²»ÖØºÏµÄvma£¬¾Í¿´Ò»ÏÂcache
+    // ä¹‹å‰çš„ç®€å•æœç´¢ï¼Œæ²¡æœ‰æ‰¾åˆ°ä¸é‡åˆçš„vmaï¼Œå°±çœ‹ä¸€ä¸‹cache
 	if (len > mm->cached_hole_size) {
 	        start_addr = addr = mm->free_area_cache;
 	} else {
@@ -1282,7 +1282,7 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	}
 
 full_search:
-    // ±éÀúËùÓĞµÄvma
+    // éå†æ‰€æœ‰çš„vma
 	for (vma = find_vma(mm, addr); ; vma = vma->vm_next) {
 		/* At this point:  (!vma || addr < vma->vm_end). */
 		if (TASK_SIZE - len < addr) {
@@ -1290,8 +1290,8 @@ full_search:
 			 * Start a new search - just in case we missed
 			 * some holes.
 			 */
-            // ÒòÎªÒªËÑË÷Ã¿Ò»¸övmaÖĞ¼äµÄ¶´£¬Èç¹ûstart²»ÊÇ´ÓBASE¿ªÊ¼µÄ
-            // ÄÇËµÃ÷ÊÇ´ÓÁ´±íµÄÖĞ¼ä¿ªÊ¼µÄ£¬ÄÇ¾ÍÒª´ÓÍ·ÔÙÀ´Ò»±é
+            // å› ä¸ºè¦æœç´¢æ¯ä¸€ä¸ªvmaä¸­é—´çš„æ´ï¼Œå¦‚æœstartä¸æ˜¯ä»BASEå¼€å§‹çš„
+            // é‚£è¯´æ˜æ˜¯ä»é“¾è¡¨çš„ä¸­é—´å¼€å§‹çš„ï¼Œé‚£å°±è¦ä»å¤´å†æ¥ä¸€é
 			if (start_addr != TASK_UNMAPPED_BASE) {
 				addr = TASK_UNMAPPED_BASE;
 			        start_addr = addr;
@@ -1300,16 +1300,16 @@ full_search:
 			}
 			return -ENOMEM;
 		}
-        // ÕâÊÇÕı³£Âß¼­
+        // è¿™æ˜¯æ­£å¸¸é€»è¾‘
 		if (!vma || addr + len <= vma->vm_start) {
 			/*
 			 * Remember the place where we stopped the search:
 			 */
-            // ÏÂ´ÎÔÙÕÒ¿Õ¶´£¬¿ÉÒÔ´ÓÕâ¸öµØ·½¿ªÊ¼ÕÒ
+            // ä¸‹æ¬¡å†æ‰¾ç©ºæ´ï¼Œå¯ä»¥ä»è¿™ä¸ªåœ°æ–¹å¼€å§‹æ‰¾
 			mm->free_area_cache = addr + len;
 			return addr;
 		}
-        // ¼ÇÂ¼·¢ÏÖµÄ×î´óµÄ¿Õ¶´µÄsize
+        // è®°å½•å‘ç°çš„æœ€å¤§çš„ç©ºæ´çš„size
 		if (addr + mm->cached_hole_size < vma->vm_start)
 		        mm->cached_hole_size = vma->vm_start - addr;
 		addr = vma->vm_end;
@@ -1440,7 +1440,7 @@ get_unmapped_area(struct file *file, unsigned long addr, unsigned long len,
 				  unsigned long, unsigned long, unsigned long);
 
 	get_area = current->mm->get_unmapped_area;
-    // Èç¹ûÓĞfileÇÒfileÖ¸¶¨ÁËget unmapped areaº¯Êı£¬¾ÍÓÃfileµÄ
+    // å¦‚æœæœ‰fileä¸”fileæŒ‡å®šäº†get unmapped areaå‡½æ•°ï¼Œå°±ç”¨fileçš„
 	if (file && file->f_op && file->f_op->get_unmapped_area)
 		get_area = file->f_op->get_unmapped_area;
 	addr = get_area(file, addr, len, pgoff, flags);
@@ -1458,8 +1458,8 @@ get_unmapped_area(struct file *file, unsigned long addr, unsigned long len,
 EXPORT_SYMBOL(get_unmapped_area);
 
 /* Look up the first VMA which satisfies  addr < vm_end,  NULL if none. */
-// ÕÒµ½end´óÓÚµÈÓÚaddrµÄµÚÒ»¸övma
-// Èç¹ûÃ»ÕÒµ½£¬¾Í·µ»Ømm->mmap,¾ÍÊÇvma listÖĞµÄµÚÒ»¸ö£¬Ò²¾ÍÊÇend×îĞ¡µÄÄÇ¸ö
+// æ‰¾åˆ°endå¤§äºç­‰äºaddrçš„ç¬¬ä¸€ä¸ªvma
+// å¦‚æœæ²¡æ‰¾åˆ°ï¼Œå°±è¿”å›mm->mmap,å°±æ˜¯vma listä¸­çš„ç¬¬ä¸€ä¸ªï¼Œä¹Ÿå°±æ˜¯endæœ€å°çš„é‚£ä¸ª
 struct vm_area_struct * find_vma(struct mm_struct * mm, unsigned long addr)
 {
 	struct vm_area_struct *vma = NULL;
@@ -1497,9 +1497,9 @@ struct vm_area_struct * find_vma(struct mm_struct * mm, unsigned long addr)
 
 EXPORT_SYMBOL(find_vma);
 
-// ÕÒµ½end´óÓÚµÈÓÚaddrµÄµÚÒ»¸övma£¬Í¬Ê±prevÖ¸Ïò´ËvmaµÄÇ°Ò»¸ö,´ËÊ±prev¾ÍÊÇendÒªĞ¡ÓÚaddr
-// Ò²ÓĞ¿ÉÄÜprevÖ¸ÏòµÄÄÇ¸ö¾ÍÊÇ·ûºÏÒªÇóµÄ£¬ÄÇ¾Í·µ»ØNULL
-// Èç¹ûÃ»ÕÒµ½£¬¾Í·µ»Ømm->mmap,¾ÍÊÇvma listÖĞµÄµÚÒ»¸ö£¬Ò²¾ÍÊÇend×îĞ¡µÄÄÇ¸ö
+// æ‰¾åˆ°endå¤§äºç­‰äºaddrçš„ç¬¬ä¸€ä¸ªvmaï¼ŒåŒæ—¶prevæŒ‡å‘æ­¤vmaçš„å‰ä¸€ä¸ª,æ­¤æ—¶prevå°±æ˜¯endè¦å°äºaddr
+// ä¹Ÿæœ‰å¯èƒ½prevæŒ‡å‘çš„é‚£ä¸ªå°±æ˜¯ç¬¦åˆè¦æ±‚çš„ï¼Œé‚£å°±è¿”å›NULL
+// å¦‚æœæ²¡æ‰¾åˆ°ï¼Œå°±è¿”å›mm->mmap,å°±æ˜¯vma listä¸­çš„ç¬¬ä¸€ä¸ªï¼Œä¹Ÿå°±æ˜¯endæœ€å°çš„é‚£ä¸ª
 /* Same as find_vma, but also return a pointer to the previous VMA in *pprev. */
 struct vm_area_struct *
 find_vma_prev(struct mm_struct *mm, unsigned long addr,
@@ -1511,7 +1511,7 @@ find_vma_prev(struct mm_struct *mm, unsigned long addr,
 		goto out;
 
 	/* Guard against addr being lower than the first VMA */
-    // Õâ±íÊ¾vma listÖĞµÄµÚÒ»¸ö 
+    // è¿™è¡¨ç¤ºvma listä¸­çš„ç¬¬ä¸€ä¸ª 
 	vma = mm->mmap;
 
 	/* Go through the RB tree quickly. */
@@ -1533,7 +1533,7 @@ find_vma_prev(struct mm_struct *mm, unsigned long addr,
 
 out:
 	*pprev = prev;
-    // Õâ¸öµØ·½Èç¹ûprevµÈÓÚNULL£¬±íÊ¾Ö®Ç°¾ÍÃ»ÓĞÓöµ½end±ÈaddrĞ¡µÄ
+    // è¿™ä¸ªåœ°æ–¹å¦‚æœprevç­‰äºNULLï¼Œè¡¨ç¤ºä¹‹å‰å°±æ²¡æœ‰é‡åˆ°endæ¯”addrå°çš„
 	return prev ? prev->vm_next : vma;
 }
 
@@ -1746,7 +1746,7 @@ find_extend_vma(struct mm_struct * mm, unsigned long addr)
  *
  * Called with the mm semaphore held.
  */
-// °ÑvmaÒÔ¼°ËünextµÄËùÓĞvma¶¼ÊÍ·Åµô
+// æŠŠvmaä»¥åŠå®ƒnextçš„æ‰€æœ‰vmaéƒ½é‡Šæ”¾æ‰
 static void remove_vma_list(struct mm_struct *mm, struct vm_area_struct *vma)
 {
 	/* Update high watermark before we lower total_vm */
@@ -1758,7 +1758,7 @@ static void remove_vma_list(struct mm_struct *mm, struct vm_area_struct *vma)
 		if (vma->vm_flags & VM_LOCKED)
 			mm->locked_vm -= nrpages;
 		vm_stat_account(mm, vma->vm_flags, vma->vm_file, -nrpages);
-        // ·µ»ØÖµÊÇvmaµÄnext
+        // è¿”å›å€¼æ˜¯vmaçš„next
 		vma = remove_vma(vma);
 	} while (vma);
 	validate_mm(mm);
@@ -1791,7 +1791,7 @@ static void unmap_region(struct mm_struct *mm,
  * Create a list of vma's touched by the unmap, removing them from the mm's
  * vma list as we go..
  */
-// ´ÓÖ¸¶¨µÄvma¿ªÊ¼µ½endµØÖ·½áÊø£¬°ÑÕâĞ©vma¶¼´ÓrbtreeÖĞÉ¾³ı
+// ä»æŒ‡å®šçš„vmaå¼€å§‹åˆ°endåœ°å€ç»“æŸï¼ŒæŠŠè¿™äº›vmaéƒ½ä»rbtreeä¸­åˆ é™¤
 static void
 detach_vmas_to_be_unmapped(struct mm_struct *mm, struct vm_area_struct *vma,
 	struct vm_area_struct *prev, unsigned long end)
@@ -1800,9 +1800,9 @@ detach_vmas_to_be_unmapped(struct mm_struct *mm, struct vm_area_struct *vma,
 	struct vm_area_struct *tail_vma = NULL;
 	unsigned long addr;
 
-    // °Ñvmaºó¸ùµÄËùÓĞstart < vma->end µÄvma¶¼É¾µô
-    // Ö®ºóµÄÆäËûvma¶¼²åÈëµ½insertion_pointÖ¸¶¨µÄÎ»ÖÃ
-    // µÈÓÚ°ÑÁ´±íÖĞ¼äµÄÒ»¶ÎremoveµôÁË
+    // æŠŠvmaåæ ¹çš„æ‰€æœ‰start < vma->end çš„vmaéƒ½åˆ æ‰
+    // ä¹‹åçš„å…¶ä»–vmaéƒ½æ’å…¥åˆ°insertion_pointæŒ‡å®šçš„ä½ç½®
+    // ç­‰äºæŠŠé“¾è¡¨ä¸­é—´çš„ä¸€æ®µremoveæ‰äº†
 	insertion_point = (prev ? &prev->vm_next : &mm->mmap);
 	do {
 		rb_erase(&vma->vm_rb, &mm->mm_rb);
@@ -1812,7 +1812,7 @@ detach_vmas_to_be_unmapped(struct mm_struct *mm, struct vm_area_struct *vma,
 	} while (vma && vma->vm_start < end);
 	*insertion_point = vma;
 	tail_vma->vm_next = NULL;
-    // ²é¿´ÊÇ·ñÊÇÕâ¸öº¯Êı
+    // æŸ¥çœ‹æ˜¯å¦æ˜¯è¿™ä¸ªå‡½æ•°
 	if (mm->unmap_area == arch_unmap_area)
 		addr = prev ? prev->vm_end : mm->mmap_base;
 	else
@@ -1825,7 +1825,7 @@ detach_vmas_to_be_unmapped(struct mm_struct *mm, struct vm_area_struct *vma,
  * Split a vma into two pieces at address 'addr', a new vma is allocated
  * either for the first part or the tail.
  */
-// °Ñvma´ÓµØÖ·addr¿ªÊ¼·Ö³ÉÁ½¸ö£¬Ò»¸öÊÇ¾ÉµÄ£¬ÁíÒ»¸öÊÇĞÂµÄ
+// æŠŠvmaä»åœ°å€addrå¼€å§‹åˆ†æˆä¸¤ä¸ªï¼Œä¸€ä¸ªæ˜¯æ—§çš„ï¼Œå¦ä¸€ä¸ªæ˜¯æ–°çš„
 int split_vma(struct mm_struct * mm, struct vm_area_struct * vma,
 	      unsigned long addr, int new_below)
 {
@@ -1835,7 +1835,7 @@ int split_vma(struct mm_struct * mm, struct vm_area_struct * vma,
 	if (is_vm_hugetlb_page(vma) && (addr & ~HPAGE_MASK))
 		return -EINVAL;
 
-    // ÒÑ¾­Ó³ÉäµÄÏßĞÔÇøÊıÁ¿
+    // å·²ç»æ˜ å°„çš„çº¿æ€§åŒºæ•°é‡
 	if (mm->map_count >= sysctl_max_map_count)
 		return -ENOMEM;
 
@@ -1852,8 +1852,8 @@ int split_vma(struct mm_struct * mm, struct vm_area_struct * vma,
 		new->vm_start = addr;
 		new->vm_pgoff += ((addr - vma->vm_start) >> PAGE_SHIFT);
 	}
-    //¾ÍÊÇÈç¹ûÕâ¸övmaÓĞpolicyµÄ»°£¬Òªµ¥¶Àcopy´¦ÀíÒ»ÏÂ
-                    // ·µ»Ø(vma)->vm_policy
+    //å°±æ˜¯å¦‚æœè¿™ä¸ªvmaæœ‰policyçš„è¯ï¼Œè¦å•ç‹¬copyå¤„ç†ä¸€ä¸‹
+                    // è¿”å›(vma)->vm_policy
 	pol = mpol_copy(vma_policy(vma));
 	if (IS_ERR(pol)) {
 		kmem_cache_free(vm_area_cachep, new);
@@ -1861,7 +1861,7 @@ int split_vma(struct mm_struct * mm, struct vm_area_struct * vma,
 	}
 	vma_set_policy(new, pol);
 
-    // Èç¹ûÓĞÓ³ÉäµÄÎÄ¼ş,ÒıÓÃ¼ÆÊı¼ÓÒ»
+    // å¦‚æœæœ‰æ˜ å°„çš„æ–‡ä»¶,å¼•ç”¨è®¡æ•°åŠ ä¸€
 	if (new->vm_file)
 		get_file(new->vm_file);
 
@@ -1882,9 +1882,9 @@ int split_vma(struct mm_struct * mm, struct vm_area_struct * vma,
  * work.  This now handles partial unmappings.
  * Jeremy Fitzhardinge <jeremy@goop.org>
  */
-// È¡Ïûstart¿ªÊ¼³¤¶ÈÎªlenµÄµØÖ·Ó³Éä
-// Ã²ËÆ»áÏÈ¼ì²éÖ¸¶¨µÄµØÖ··¶Î§£¬Èç¹û·¢ÏÖÓĞµØÖ·Ã»ÓĞ±»ÏàÓ¦µÄvma¶ÔÓ¦
-// ¾Í»á°ÑÃ»±»Ó³ÉäµÄ²¿·ÖnewÒ»¸övma£¬²åÈë£¬ÔÙÍ³Ò»É¾³ı
+// å–æ¶ˆstartå¼€å§‹é•¿åº¦ä¸ºlençš„åœ°å€æ˜ å°„
+// è²Œä¼¼ä¼šå…ˆæ£€æŸ¥æŒ‡å®šçš„åœ°å€èŒƒå›´ï¼Œå¦‚æœå‘ç°æœ‰åœ°å€æ²¡æœ‰è¢«ç›¸åº”çš„vmaå¯¹åº”
+// å°±ä¼šæŠŠæ²¡è¢«æ˜ å°„çš„éƒ¨åˆ†newä¸€ä¸ªvmaï¼Œæ’å…¥ï¼Œå†ç»Ÿä¸€åˆ é™¤
 int do_munmap(struct mm_struct *mm, unsigned long start, size_t len)
 {
 	unsigned long end;
@@ -1897,16 +1897,16 @@ int do_munmap(struct mm_struct *mm, unsigned long start, size_t len)
 		return -EINVAL;
 
 	/* Find the first overlapping VMA */
-    // ·µ»ØµÚÒ»¸öend´óÓÚstart²ÎÊıµÄvma£¬prevÖ¸Ïò´ËvmaµÄÇ°Ò»¸ö
-    // ÒòÎªvmaÔÚrbtreeÖĞÊÇ°´ÕÕandÉıĞòÅÅÁĞµÄ£¬ËùÒÔprevÖ¸ÏòµÄÄÇ¸öendĞ¡ÓÚstart²ÎÊı
+    // è¿”å›ç¬¬ä¸€ä¸ªendå¤§äºstartå‚æ•°çš„vmaï¼ŒprevæŒ‡å‘æ­¤vmaçš„å‰ä¸€ä¸ª
+    // å› ä¸ºvmaåœ¨rbtreeä¸­æ˜¯æŒ‰ç…§andå‡åºæ’åˆ—çš„ï¼Œæ‰€ä»¥prevæŒ‡å‘çš„é‚£ä¸ªendå°äºstartå‚æ•°
 	vma = find_vma_prev(mm, start, &prev);
-    // Èç¹û·µ»ØNULL£¬±íÊ¾Ã»ÓĞÒ»¸övmaµÄend´óÓÚstart£¬ÄÇ¾Í²»¿ÉÄÜÖØ¸´
+    // å¦‚æœè¿”å›NULLï¼Œè¡¨ç¤ºæ²¡æœ‰ä¸€ä¸ªvmaçš„endå¤§äºstartï¼Œé‚£å°±ä¸å¯èƒ½é‡å¤
 	if (!vma)
 		return 0;
 	/* we have  start < vma->vm_end  */
 
 	/* if it doesn't overlap, we have nothing.. */
-    // start + len ÔÚvma->vm_startÖ®ÉÏ£¬±íÊ¾Ã»ÓĞÖØµşµÄ²¿·Ö
+    // start + len åœ¨vma->vm_startä¹‹ä¸Šï¼Œè¡¨ç¤ºæ²¡æœ‰é‡å çš„éƒ¨åˆ†
 	end = start + len;
 	if (vma->vm_start >= end)
 		return 0;
@@ -1918,24 +1918,24 @@ int do_munmap(struct mm_struct *mm, unsigned long start, size_t len)
 	 * unmapped vm_area_struct will remain in use: so lower split_vma
 	 * places tmp vma above, and higher split_vma places tmp vma below.
 	 */
-    // ´ÓÏÂÃæÁ½´¦µ÷ÓÃµÄµØ·½¿´£¬¿ÉÒÔ·¢ÏÖsplitµÄÔ­ÔòÊÇ£¬²»ÆÆ»µµÄÒÑÓĞvmaµÄstartºÍend
-    // Èç¹ûÓĞÖØµş£¬¾Í°Ñ²ÎÊıÖ¸¶¨µÄÄÚ´æÇøÓòÖĞ£¬ÄÇ²¿·ÖÖØµşµÄÇøÓò¸øÈ¥µô
+    // ä»ä¸‹é¢ä¸¤å¤„è°ƒç”¨çš„åœ°æ–¹çœ‹ï¼Œå¯ä»¥å‘ç°splitçš„åŸåˆ™æ˜¯ï¼Œä¸ç ´åçš„å·²æœ‰vmaçš„startå’Œend
+    // å¦‚æœæœ‰é‡å ï¼Œå°±æŠŠå‚æ•°æŒ‡å®šçš„å†…å­˜åŒºåŸŸä¸­ï¼Œé‚£éƒ¨åˆ†é‡å çš„åŒºåŸŸç»™å»æ‰
 	if (start > vma->vm_start) {
-        // µ½ÕâÀï£¬ËµÃ÷ startÂäÔÚvmaµÄstartºÍendÖ®¼ä
-        // ÉêÇëµÄÉÏ°ë¶ÎºÍÒÑÓĞµÄÏÂ°ë¶ÎÖØºÏ
-        // ´Ëº¯ÊıÔÚstart´¦ÇĞ·Ö,
+        // åˆ°è¿™é‡Œï¼Œè¯´æ˜ startè½åœ¨vmaçš„startå’Œendä¹‹é—´
+        // ç”³è¯·çš„ä¸ŠåŠæ®µå’Œå·²æœ‰çš„ä¸‹åŠæ®µé‡åˆ
+        // æ­¤å‡½æ•°åœ¨startå¤„åˆ‡åˆ†,
 		int error = split_vma(mm, vma, start, 0);
 		if (error)
 			return error;
 		prev = vma;
 	}
 
-    // µ½ÕâÀï¾ÍËµÃ÷£¬startÔÚvmaµÄstartÇ°Ãæ
+    // åˆ°è¿™é‡Œå°±è¯´æ˜ï¼Œstartåœ¨vmaçš„startå‰é¢
 	/* Does it split the last one? */
 	last = find_vma(mm, end);
 	if (last && end > last->vm_start) {
-        // µ½ÕâÀï£¬ËµÃ÷ÏëÉêÇëµÄ´Óstart¿ªÊ¼µ½start + len = endÕâ¶Îarea
-        // ËüµÄºó°ë¶Î»áºÍÏÖÓĞµÄvmaµÄÉÏ°ë¶ÎÖØµş
+        // åˆ°è¿™é‡Œï¼Œè¯´æ˜æƒ³ç”³è¯·çš„ä»startå¼€å§‹åˆ°start + len = endè¿™æ®µarea
+        // å®ƒçš„ååŠæ®µä¼šå’Œç°æœ‰çš„vmaçš„ä¸ŠåŠæ®µé‡å 
 		int error = split_vma(mm, last, end, 1);
 		if (error)
 			return error;
@@ -1945,14 +1945,14 @@ int do_munmap(struct mm_struct *mm, unsigned long start, size_t len)
 	/*
 	 * Remove the vma's, and unmap the actual pages
 	 */
-    // °Ñvma¿ªÊ¼£¬ËùÓĞÂú×ãvma->startµÄvma¶¼´Óvma listÁ´±íÖĞÉ¾³ı
-    // ËùÒÔÏÂÃæ»áÊÍ·Åvma list
+    // æŠŠvmaå¼€å§‹ï¼Œæ‰€æœ‰æ»¡è¶³vma->startçš„vmaéƒ½ä»vma listé“¾è¡¨ä¸­åˆ é™¤
+    // æ‰€ä»¥ä¸‹é¢ä¼šé‡Šæ”¾vma list
 	detach_vmas_to_be_unmapped(mm, vma, prev, end);
-    // ½â³ıÒ³±íÓ³Éä
+    // è§£é™¤é¡µè¡¨æ˜ å°„
 	unmap_region(mm, vma, prev, start, end);
 
 	/* Fix up all other VM information */
-    // °ÑvmaÒÔ¼°ºó¼ÌµÄvma¶¼ÊÍ·Åµô
+    // æŠŠvmaä»¥åŠåç»§çš„vmaéƒ½é‡Šæ”¾æ‰
 	remove_vma_list(mm, vma);
 
 	return 0;
@@ -1976,7 +1976,7 @@ asmlinkage long sys_munmap(unsigned long addr, size_t len)
 static inline void verify_mm_writelocked(struct mm_struct *mm)
 {
 #ifdef CONFIG_DEBUG_VM
-    // return 1 ±íÊ¾³É¹¦ 
+    // return 1 è¡¨ç¤ºæˆåŠŸ 
 	if (unlikely(down_read_trylock(&mm->mmap_sem))) {
 		WARN_ON(1);
 		up_read(&mm->mmap_sem);
@@ -2005,18 +2005,18 @@ unsigned long do_brk(unsigned long addr, unsigned long len)
 	if ((addr + len) > TASK_SIZE || (addr + len) < addr)
 		return -EINVAL;
 
-    // ¿ÉÒÔºöÂÔ
+    // å¯ä»¥å¿½ç•¥
 	if (is_hugepage_only_range(mm, addr, len))
 		return -EINVAL;
 
-    // ¿ÉÒÔºöÂÔ
+    // å¯ä»¥å¿½ç•¥
 	error = security_file_mmap(0, 0, 0, 0, addr, 1);
 	if (error)
 		return error;
 
 	flags = VM_DATA_DEFAULT_FLAGS | VM_ACCOUNT | mm->def_flags;
 
-    // ¿ÉÒÔºöÂÔ
+    // å¯ä»¥å¿½ç•¥
 	error = arch_mmap_check(addr, len, flags);
 	if (error)
 		return error;
@@ -2038,17 +2038,17 @@ unsigned long do_brk(unsigned long addr, unsigned long len)
 	 * mm->mmap_sem is required to protect against another thread
 	 * changing the mappings in case we sleep.
 	 */
-    // debugÓÃ£¬¿ÉºöÂÔ 
+    // debugç”¨ï¼Œå¯å¿½ç•¥ 
 	verify_mm_writelocked(mm);
 
 	/*
 	 * Clear old maps.  this also does some error checking for us
 	 */
  munmap_back:
-    // ´ÓrbtreeÖĞÕÒµ½Ò»¸övma£¬ÖÁÉÙend±ÈaddrÒª´ó
-    // ºóÈı¸ö²ÎÊı¶¼ÊÇÊä³öÓÃµÄ
+    // ä»rbtreeä¸­æ‰¾åˆ°ä¸€ä¸ªvmaï¼Œè‡³å°‘endæ¯”addrè¦å¤§
+    // åä¸‰ä¸ªå‚æ•°éƒ½æ˜¯è¾“å‡ºç”¨çš„
 	vma = find_vma_prepare(mm, addr, &prev, &rb_link, &rb_parent);
-    // Èç¹ûaddrÂäÔÚ´ËvmaÖĞ£¬°ÑÕâ²¿·ÖµØÖ·ÖĞÒÑÓĞµÄ²¿·Ö½â³ıÓ³Éä
+    // å¦‚æœaddrè½åœ¨æ­¤vmaä¸­ï¼ŒæŠŠè¿™éƒ¨åˆ†åœ°å€ä¸­å·²æœ‰çš„éƒ¨åˆ†è§£é™¤æ˜ å°„
 	if (vma && vma->vm_start < addr + len) {
 		if (do_munmap(mm, addr, len))
 			return -ENOMEM;
@@ -2056,7 +2056,7 @@ unsigned long do_brk(unsigned long addr, unsigned long len)
 	}
 
 	/* Check against address space limits *after* clearing old maps... */
-    // ¾ÍÊÇ¼ì²éÒ»ÏÂ£¬µ±Ç°½ø³ÌÓµÓĞµÄÒÑ¾­½¨Á¢Ó³ÉäµÄÒ³ÃæÊı£¬ÓĞÃ»ÓĞ³¬¹ıÏŞ¶î
+    // å°±æ˜¯æ£€æŸ¥ä¸€ä¸‹ï¼Œå½“å‰è¿›ç¨‹æ‹¥æœ‰çš„å·²ç»å»ºç«‹æ˜ å°„çš„é¡µé¢æ•°ï¼Œæœ‰æ²¡æœ‰è¶…è¿‡é™é¢
 	if (!may_expand_vm(mm, len >> PAGE_SHIFT))
 		return -ENOMEM;
 
@@ -2155,10 +2155,10 @@ int insert_vm_struct(struct mm_struct * mm, struct vm_area_struct * vma)
 		vma->vm_pgoff = vma->vm_start >> PAGE_SHIFT;
 	}
     
-    // rb_link±íÊ¾vmaÔÚrbtreeÖĞµÄ²åÈëµã
-    // rb_parent±íÊ¾²åÈëµãµÄ¸¸½áµã
+    // rb_linkè¡¨ç¤ºvmaåœ¨rbtreeä¸­çš„æ’å…¥ç‚¹
+    // rb_parentè¡¨ç¤ºæ’å…¥ç‚¹çš„çˆ¶ç»“ç‚¹
 	__vma = find_vma_prepare(mm,vma->vm_start,&prev,&rb_link,&rb_parent);
-    // Èç¹ûÒª²åÈëµÄvmaÓëÒÑ¾­´æÔÚµÄvmaÓĞÖØµş
+    // å¦‚æœè¦æ’å…¥çš„vmaä¸å·²ç»å­˜åœ¨çš„vmaæœ‰é‡å 
 	if (__vma && __vma->vm_start < vma->vm_end)
 		return -ENOMEM;
 	if ((vma->vm_flags & VM_ACCOUNT) &&
@@ -2226,7 +2226,7 @@ struct vm_area_struct *copy_vma(struct vm_area_struct **vmap,
  * Return true if the calling process may expand its vm space by the passed
  * number of pages
  */
-// ¾ÍÊÇ¿´Ò»ÏÂÓĞÃ»ÓĞ³¬ÏŞ
+// å°±æ˜¯çœ‹ä¸€ä¸‹æœ‰æ²¡æœ‰è¶…é™
 int may_expand_vm(struct mm_struct *mm, unsigned long npages)
 {
 	unsigned long cur = mm->total_vm;	/* pages */
