@@ -409,9 +409,11 @@ static __inline__ int atomic_add_unless(atomic_t *v, int a, int u)
 	int c, old;
 	c = atomic_read(v);
 	for (;;) {
+        // dyc: set failed
 		if (unlikely(c == (u)))
 			break;
 		old = atomic_cmpxchg((v), c, c + (a));
+        // dyc: set seccess 
 		if (likely(old == c))
 			break;
 		c = old;

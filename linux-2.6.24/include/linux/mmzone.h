@@ -213,6 +213,7 @@ enum zone_type {
 
 struct zone {
 	/* Fields commonly accessed by the page allocator */
+    // dyc: page count of [min/low/high]water_mark
 	unsigned long		pages_min, pages_low, pages_high;
 	/*
 	 * We don't know if the memory that we're going to allocate will be freeable

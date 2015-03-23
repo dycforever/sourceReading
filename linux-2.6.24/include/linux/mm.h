@@ -224,6 +224,7 @@ static inline int put_page_testzero(struct page *page)
  * Try to grab a ref unless the page has a refcount of zero, return false if
  * that is the case.
  */
+// dyc: comment above, increase page->_count with 1 if not zero
 static inline int get_page_unless_zero(struct page *page)
 {
 	VM_BUG_ON(PageCompound(page));

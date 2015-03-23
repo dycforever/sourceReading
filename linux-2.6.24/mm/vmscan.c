@@ -186,7 +186,7 @@ unsigned long shrink_slab(unsigned long scanned, gfp_t gfp_mask,
 		 */
 		if (shrinker->nr > max_pass * 2)
 			shrinker->nr = max_pass * 2;
-
+        // dyc: total count that need to scan this time
 		total_scan = shrinker->nr;
 		shrinker->nr = 0;
 
@@ -461,6 +461,7 @@ static unsigned long shrink_page_list(struct list_head *page_list,
 		page = lru_to_page(page_list);
 		list_del(&page->lru);
 
+        // dyc: if locked, add page back to page->lru
 		if (TestSetPageLocked(page))
 			goto keep;
 
@@ -603,7 +604,7 @@ keep_locked:
 keep:
 		list_add(&page->lru, &ret_pages);
 		VM_BUG_ON(PageLRU(page));
-	}
+	} // while (!list_empty(page_list))
 	list_splice(&ret_pages, page_list);
 	if (pagevec_count(&freed_pvec))
 		__pagevec_release_nonlru(&freed_pvec);
@@ -626,6 +627,7 @@ keep:
  *
  * returns 0 on success, -ve errno on failure.
  */
+// dyc: get page and clear PG_lru flag
 static int __isolate_lru_page(struct page *page, int mode)
 {
 	int ret = -EINVAL;
@@ -643,12 +645,14 @@ static int __isolate_lru_page(struct page *page, int mode)
 		return ret;
 
 	ret = -EBUSY;
+    // dyc: increase page->_count with 1 if page->_count is not zero
 	if (likely(get_page_unless_zero(page))) {
 		/*
 		 * Be careful not to clear PageLRU until after we're
 		 * sure the page is not being freed elsewhere -- the
 		 * page release code relies on it.
 		 */
+        // dyc: clear_bit(PG_lru, &(page)->flags)
 		ClearPageLRU(page);
 		ret = 0;
 	}
@@ -782,6 +786,9 @@ static unsigned long clear_active_flags(struct list_head *page_list)
  * shrink_inactive_list() is a helper for shrink_zone().  It returns the number
  * of reclaimed pages
  */
+// dyc: taken(isolate) pages from zone->inactive_list,
+//      try to free,
+//      return back can't be freed 
 static unsigned long shrink_inactive_list(unsigned long max_scan,
 				struct zone *zone, struct scan_control *sc)
 {
@@ -800,15 +807,16 @@ static unsigned long shrink_inactive_list(unsigned long max_scan,
 		unsigned long nr_scan;
 		unsigned long nr_freed;
 		unsigned long nr_active;
-
+        // dyc: nr_taken is taken from inactive list
 		nr_taken = isolate_lru_pages(sc->swap_cluster_max,
 			     &zone->inactive_list,
 			     &page_list, &nr_scan, sc->order,
 			     (sc->order > PAGE_ALLOC_COSTLY_ORDER)?
 					     ISOLATE_BOTH : ISOLATE_INACTIVE);
+        // dyc: nr_active is taken from active_list to inactive_list
 		nr_active = clear_active_flags(&page_list);
 		__count_vm_events(PGDEACTIVATE, nr_active);
-
+        // dyc: declared in vmstat.h
 		__mod_zone_page_state(zone, NR_ACTIVE, -nr_active);
 		__mod_zone_page_state(zone, NR_INACTIVE,
 						-(nr_taken - nr_active));
@@ -1140,6 +1148,7 @@ static unsigned long shrink_zone(int priority, struct zone *zone,
 			nr_to_scan = min(nr_inactive,
 					(unsigned long)sc->swap_cluster_max);
 			nr_inactive -= nr_to_scan;
+            // dyc: real free action here
 			nr_reclaimed += shrink_inactive_list(nr_to_scan, zone,
 								sc);
 		}
@@ -1360,12 +1369,18 @@ loop_again:
 		 * Scan in the highmem->dma direction for the highest
 		 * zone which needs scanning
 		 */
+        // dyc: comments above, for interoperating with
+        //      the page allocator fallback scheme to ensure that aging of pages is balanced
+        //      across the zones.
+
 		for (i = pgdat->nr_zones - 1; i >= 0; i--) {
 			struct zone *zone = pgdat->node_zones + i;
-            // dyc: return (!!zone->present_pages);
+            // dyc: return (!!zone->present_pages), so if has present_pages
 			if (!populated_zone(zone))
 				continue;
-	        // dyc: test_bit(ZONE_ALL_UNRECLAIMABLE, &zone->flags);
+	        // dyc: test_bit(ZONE_ALL_UNRECLAIMABLE, &zone->flags); this flag will be set below,
+            //      if this zone is zone_all_unreclaimable and priority != DEF_PRIORITY,
+            //      means it is set in previous for-loop, so just skip this unreclaimable zone
 			if (zone_is_all_unreclaimable(zone) &&
 			    priority != DEF_PRIORITY)
 				continue;
@@ -1407,8 +1422,9 @@ loop_again:
 				continue;
 
 			if (!zone_watermark_ok(zone, order, zone->pages_high,
-					       end_zone, 0))
+					       end_zone, 0)) {
 				all_zones_ok = 0;
+            }
 			temp_priority[i] = priority;
 			sc.nr_scanned = 0;
 			note_zone_scanning_priority(zone, priority);
@@ -1417,15 +1433,20 @@ loop_again:
 			 * zone has way too many pages free already.
 			 */
 			if (!zone_watermark_ok(zone, order, 8*zone->pages_high,
-						end_zone, 0))
+						end_zone, 0)) {
+                // dyc: real free action here
 				nr_reclaimed += shrink_zone(priority, zone, &sc);
+            }
 			reclaim_state->reclaimed_slab = 0;
+            // dyc: return shrunk count
 			nr_slab = shrink_slab(sc.nr_scanned, GFP_KERNEL,
 						lru_pages);
+            // dyc: useless ??
 			nr_reclaimed += reclaim_state->reclaimed_slab;
 			total_scanned += sc.nr_scanned;
 			if (zone_is_all_unreclaimable(zone))
 				continue;
+            // dyc: pages_scanned is calculated in shrink_active_list() and shrink_inactive_list()
 			if (nr_slab == 0 && zone->pages_scanned >=
 				(zone_page_state(zone, NR_ACTIVE)
 				+ zone_page_state(zone, NR_INACTIVE)) * 6)
@@ -1439,7 +1460,7 @@ loop_again:
 			if (total_scanned > SWAP_CLUSTER_MAX * 2 &&
 			    total_scanned > nr_reclaimed + nr_reclaimed / 2)
 				sc.may_writepage = 1;
-		}
+		} // for (i from 0 to end_zone)
 		if (all_zones_ok)
 			break;		/* kswapd: all done */
 		/*
@@ -1457,7 +1478,7 @@ loop_again:
 		 */
 		if (nr_reclaimed >= SWAP_CLUSTER_MAX)
 			break;
-	}
+	} // for (priority from DEF_PRIORITY to 0)
 out:
 	/*
 	 * Note within each zone the priority level at which this zone was
@@ -1607,6 +1628,7 @@ static unsigned long shrink_all_zones(unsigned long nr_pages, int prio,
 				zone->nr_scan_active = 0;
 				nr_to_scan = min(nr_pages,
 					zone_page_state(zone, NR_ACTIVE));
+                // dyc: calculte zone->pages_scanned
 				shrink_active_list(nr_to_scan, zone, sc, prio);
 			}
 		}
