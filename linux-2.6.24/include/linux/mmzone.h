@@ -637,7 +637,7 @@ static inline int is_normal_idx(enum zone_type idx)
 static inline int is_highmem(struct zone *zone)
 {
 #ifdef CONFIG_HIGHMEM
-    //£ú£ï£î£åÊÇÔÚpglist_dataµÄÒ»¸öÊı×éÖĞ£¬ËùÒÔ¼õÈ¥Êı×éÃû£¬¾ÍÖªµÀ±¾£ú£ï£î£åÊÇÊı×éÖĞµÄµÚ¼¸ÏîÁË
+    //ï½šï½ï½ï½…æ˜¯åœ¨pglist_dataçš„ä¸€ä¸ªæ•°ç»„ä¸­ï¼Œæ‰€ä»¥å‡å»æ•°ç»„åï¼Œå°±çŸ¥é“æœ¬ï½šï½ï½ï½…æ˜¯æ•°ç»„ä¸­çš„ç¬¬å‡ é¡¹äº†
 	int zone_idx = zone - zone->zone_pgdat->node_zones;
 	return zone_idx == ZONE_HIGHMEM ||
 		(zone_idx == ZONE_MOVABLE && zone_movable_is_highmem());
@@ -934,7 +934,7 @@ unsigned long __init node_memmap_size_bytes(int, unsigned long, unsigned long);
  * pfn_valid_within() should be used in this case; we optimise this away
  * when we have no holes within a MAX_ORDER_NR_PAGES block.
  */
-// ¼ì²âÊÇ·ñpageÔÚholeÖĞ 
+// æ£€æµ‹æ˜¯å¦pageåœ¨holeä¸­ 
 #ifdef CONFIG_HOLES_IN_ZONE
 #define pfn_valid_within(pfn) pfn_valid(pfn)
 #else

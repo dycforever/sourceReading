@@ -1192,7 +1192,7 @@ struct task_struct {
  * priority to a value higher than any user task. Note:
  * MAX_RT_PRIO must not be smaller than MAX_USER_RT_PRIO.
  */
-// RTµÄ×î¸ßÖµ±ÈÆÕÍ¨µÄÐ¡40
+// RTçš„æœ€é«˜å€¼æ¯”æ™®é€šçš„å°40
 #define MAX_USER_RT_PRIO	100
 #define MAX_RT_PRIO		MAX_USER_RT_PRIO
 
@@ -1205,7 +1205,7 @@ static inline int rt_prio(int prio)
 		return 1;
 	return 0;
 }
-// ·µ»ØÊÇ²»ÊÇ RT ÈÎÎñ 
+// è¿”å›žæ˜¯ä¸æ˜¯ RT ä»»åŠ¡ 
 static inline int rt_task(struct task_struct *p)
 {
 	return rt_prio(p->prio);
