@@ -1349,8 +1349,10 @@ loop_again:
 		unsigned long lru_pages = 0;
 
 		/* The swap token gets in the way of swapout... */
-		if (!priority)
+		if (!priority) {
+            // dyc: set swap_token_mm to NULL
 			disable_swap_token();
+        }
 
 		all_zones_ok = 1;
 
@@ -1360,10 +1362,10 @@ loop_again:
 		 */
 		for (i = pgdat->nr_zones - 1; i >= 0; i--) {
 			struct zone *zone = pgdat->node_zones + i;
-
+	        // dyc: return (!!zone->present_pages);
 			if (!populated_zone(zone))
 				continue;
-
+	        // dyc: test_bit(ZONE_ALL_UNRECLAIMABLE, &zone->flags);
 			if (zone_is_all_unreclaimable(zone) &&
 			    priority != DEF_PRIORITY)
 				continue;

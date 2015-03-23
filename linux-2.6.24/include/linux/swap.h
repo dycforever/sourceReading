@@ -269,7 +269,7 @@ static inline void put_swap_token(struct mm_struct *mm)
 	if (has_swap_token(mm))
 		__put_swap_token(mm);
 }
-
+// dyc: set swap_token_mm to NULL
 static inline void disable_swap_token(void)
 {
 	put_swap_token(swap_token_mm);
