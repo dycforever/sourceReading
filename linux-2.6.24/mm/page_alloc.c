@@ -1282,9 +1282,8 @@ int zone_watermark_ok(struct zone *z, int order, unsigned long mark,
 		/* At the next order, this order's pages become unavailable */
 		free_pages -= z->free_area[o].nr_free << o;
 		/* Require fewer higher order pages to be free */
-        //不明白为什么要折半
+        // 正常理解，应该是min =- z->free_area[o].nr_free << o，但是这个算法的策略不在乎低阶内存究竟有多少；假设现在0阶的内存非常多，如果按理想方案来实施，min可能会变成负数，现在这种实现保证了，哪怕0阶的内存再多，对于1/2以及更上阶的内存，依然有最小的限制。
 		min >>= 1;
-
 		if (free_pages <= min)
 			return 0;
 	}

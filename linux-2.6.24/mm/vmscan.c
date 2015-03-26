@@ -685,7 +685,7 @@ static unsigned long isolate_lru_pages(unsigned long nr_to_scan,
 {
 	unsigned long nr_taken = 0;
 	unsigned long scan;
-
+    // dyc: iterate by list_move()
 	for (scan = 0; scan < nr_to_scan && !list_empty(src); scan++) {
 		struct page *page;
 		unsigned long pfn;
@@ -694,12 +694,14 @@ static unsigned long isolate_lru_pages(unsigned long nr_to_scan,
 		int zone_id;
 
 		page = lru_to_page(src);
+        // dyc: prefetch page->flags
 		prefetchw_prev_lru_page(page, src, flags);
 
 		VM_BUG_ON(!PageLRU(page));
 
 		switch (__isolate_lru_page(page, mode)) {
 		case 0:
+            // dyc: iterate page list
 			list_move(&page->lru, dst);
 			nr_taken++;
 			break;
@@ -757,8 +759,8 @@ static unsigned long isolate_lru_pages(unsigned long nr_to_scan,
 			default:
 				break;
 			}
-		}
-	}
+		} // for (; pfn < end_pfn; pfn++)
+	} // for (scan from 0 to nr_to_scan)
 
 	*scanned = scan;
 	return nr_taken;
