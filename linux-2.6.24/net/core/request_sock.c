@@ -35,7 +35,7 @@
 int sysctl_max_syn_backlog = 256;
 
 // dyc: alloc memory and init members of queue
-//      nr_table_entries is the size of syn_table[]
+//      nr_table_entries is the size of queue->listen_opt->syn_table[]
 int reqsk_queue_alloc(struct request_sock_queue *queue,
 		      unsigned int nr_table_entries)
 {

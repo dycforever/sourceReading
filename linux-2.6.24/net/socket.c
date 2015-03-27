@@ -1366,8 +1366,10 @@ asmlinkage long sys_listen(int fd, int backlog)
 			backlog = sysctl_somaxconn;
 
 		err = security_socket_listen(sock, backlog);
-		if (!err)
+		if (!err) {
+            // dyc: for tcp, is inet_listen()
 			err = sock->ops->listen(sock, backlog);
+        }
 
 		fput_light(sock->file, fput_needed);
 	}
