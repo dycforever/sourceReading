@@ -227,11 +227,13 @@ void fastcall lru_cache_add_active(struct page *page)
  * Either "cpu" is the current CPU, and preemption has already been
  * disabled; or "cpu" is being hot-unplugged, and is already dead.
  */
+// dyc: move pages from cpu's pagevecs to zone->active/inactive list,then try to free them(decrease their ref count)
 static void drain_cpu_pagevecs(int cpu)
 {
 	struct pagevec *pvec;
 
 	pvec = &per_cpu(lru_add_pvecs, cpu);
+    // dyc: if (pvec->nr), 
 	if (pagevec_count(pvec))
 		__pagevec_lru_add(pvec);
 
@@ -253,6 +255,7 @@ static void drain_cpu_pagevecs(int cpu)
 void lru_add_drain(void)
 {
 	drain_cpu_pagevecs(get_cpu());
+    // preempy_enable()
 	put_cpu();
 }
 
@@ -313,7 +316,7 @@ void release_pages(struct page **pages, int nr, int cold)
 			put_compound_page(page);
 			continue;
 		}
-
+        // dyc: if page->ref not zero, continue
 		if (!put_page_testzero(page))
 			continue;
 
@@ -330,7 +333,7 @@ void release_pages(struct page **pages, int nr, int cold)
 			__ClearPageLRU(page);
 			del_page_from_lru(zone, page);
 		}
-
+        // dyc: if no space available after adding
 		if (!pagevec_add(&pages_to_free, page)) {
 			if (zone) {
 				spin_unlock_irqrestore(&zone->lru_lock, flags);
@@ -339,7 +342,7 @@ void release_pages(struct page **pages, int nr, int cold)
 			__pagevec_free(&pages_to_free);
 			pagevec_reinit(&pages_to_free);
   		}
-	}
+	} // for (i = 0; i < nr; i++)
 	if (zone)
 		spin_unlock_irqrestore(&zone->lru_lock, flags);
 
@@ -350,7 +353,7 @@ void release_pages(struct page **pages, int nr, int cold)
  * The pages which we're about to release may be in the deferred lru-addition
  * queues.  That would prevent them from really being freed right now.  That's
  * OK from a correctness point of view but is inefficient - those pages may be
- * cache-warm and we want to give them back to the page allocator ASAP.
+ * cache-warm and we want to give them back to the page allocator as soon as possible
  *
  * So __pagevec_release() will drain those queues here.  __pagevec_lru_add()
  * and __pagevec_lru_add_active() call release_pages() directly to avoid
@@ -360,6 +363,7 @@ void __pagevec_release(struct pagevec *pvec)
 {
 	lru_add_drain();
 	release_pages(pvec->pages, pagevec_count(pvec), pvec->cold);
+    // dyc: set pvec->nr to 0
 	pagevec_reinit(pvec);
 }
 
@@ -395,11 +399,11 @@ void __pagevec_lru_add(struct pagevec *pvec)
 {
 	int i;
 	struct zone *zone = NULL;
-
+    // dyc: iterate all pages and add them to inactive list
 	for (i = 0; i < pagevec_count(pvec); i++) {
 		struct page *page = pvec->pages[i];
 		struct zone *pagezone = page_zone(page);
-
+        // dyc: lock/unlock until next zone
 		if (pagezone != zone) {
 			if (zone)
 				spin_unlock_irq(&zone->lru_lock);
@@ -407,7 +411,9 @@ void __pagevec_lru_add(struct pagevec *pvec)
 			spin_lock_irq(&zone->lru_lock);
 		}
 		VM_BUG_ON(PageLRU(page));
+        // dyc: set pg LRU flag
 		SetPageLRU(page);
+        // dyc: add to inactive list and increase vm_stat
 		add_page_to_inactive_list(zone, page);
 	}
 	if (zone)
@@ -418,6 +424,7 @@ void __pagevec_lru_add(struct pagevec *pvec)
 
 EXPORT_SYMBOL(__pagevec_lru_add);
 
+// dyc: just like __pagevec_lru_add() above
 void __pagevec_lru_add_active(struct pagevec *pvec)
 {
 	int i;
