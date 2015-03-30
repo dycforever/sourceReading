@@ -252,6 +252,7 @@ static void drain_cpu_pagevecs(int cpu)
 	}
 }
 
+// dyc: move pages from cpu's pagevecs to zone->active/inactive list,then try to free them
 void lru_add_drain(void)
 {
 	drain_cpu_pagevecs(get_cpu());

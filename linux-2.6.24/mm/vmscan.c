@@ -61,6 +61,7 @@ struct scan_control {
 	 * suspend, we effectively ignore SWAP_CLUSTER_MAX.
 	 * In this context, it doesn't matter that we scan the
 	 * whole list at once. */
+    // dyc: at least scan count
 	int swap_cluster_max;
 
 	int swappiness;
@@ -633,6 +634,7 @@ static int __isolate_lru_page(struct page *page, int mode)
 	int ret = -EINVAL;
 
 	/* Only take pages on the LRU. */
+    // dyc: pages in hole will not in LRU ??
 	if (!PageLRU(page))
 		return ret;
 
@@ -686,6 +688,7 @@ static unsigned long isolate_lru_pages(unsigned long nr_to_scan,
 	unsigned long nr_taken = 0;
 	unsigned long scan;
     // dyc: iterate by list_move()
+    //      select a page, move all surrounding pages to dst
 	for (scan = 0; scan < nr_to_scan && !list_empty(src); scan++) {
 		struct page *page;
 		unsigned long pfn;
@@ -728,6 +731,7 @@ static unsigned long isolate_lru_pages(unsigned long nr_to_scan,
 		 * it from its zone id and abort this block scan.
 		 */
 		zone_id = page_zone_id(page);
+        // dyc: page frame number
 		page_pfn = page_to_pfn(page);
 		pfn = page_pfn & ~((1 << order) - 1);
 		end_pfn = pfn + (1 << order);
@@ -1024,8 +1028,9 @@ static void shrink_active_list(unsigned long nr_pages, struct zone *zone,
 		if (swap_tendency >= 100)
 force_reclaim_mapped:
 			reclaim_mapped = 1;
-	}
+	} // if (sc->may_swap)
 
+    // dyc: move pages from cpu's pagevecs to zone->active/inactive list,then try to free them
 	lru_add_drain();
 	spin_lock_irq(&zone->lru_lock);
 	pgmoved = isolate_lru_pages(nr_pages, &zone->active_list,
@@ -1122,13 +1127,18 @@ static unsigned long shrink_zone(int priority, struct zone *zone,
 	 * Add one to `nr_to_scan' just to make sure that the kernel will
 	 * slowly sift through the active list.
 	 */
+    // dyc: +1 in case priority==0
 	zone->nr_scan_active +=
 		(zone_page_state(zone, NR_ACTIVE) >> priority) + 1;
 	nr_active = zone->nr_scan_active;
-	if (nr_active >= sc->swap_cluster_max)
+    // dyc: if nr_active < sc->swap_cluster_max, nr_active = 0, 
+    //      so won't scan below. 
+	if (nr_active >= sc->swap_cluster_max) {
+        // dyc: reset to 0, means will scan this list soon
 		zone->nr_scan_active = 0;
-	else
+    } else {
 		nr_active = 0;
+    }
 
 	zone->nr_scan_inactive +=
 		(zone_page_state(zone, NR_INACTIVE) >> priority) + 1;
