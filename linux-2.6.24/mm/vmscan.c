@@ -224,6 +224,7 @@ static inline int page_mapping_inuse(struct page *page)
 		return 1;
 
 	/* Be more reluctant to reclaim swapcache than pagecache */
+    // dyc: test_bit(PG_swapcache) or 0 if no CONFIG_SWAP
 	if (PageSwapCache(page))
 		return 1;
 
@@ -449,8 +450,9 @@ static unsigned long shrink_page_list(struct list_head *page_list,
 	unsigned long nr_reclaimed = 0;
 
 	cond_resched();
-
+    // dyc: cold = 1
 	pagevec_init(&freed_pvec, 1);
+    // dyc: init a cold pvec, move useless page into it, then free them
 	while (!list_empty(page_list)) {
 		struct address_space *mapping;
 		struct page *page;
@@ -601,6 +603,7 @@ activate_locked:
 		SetPageActive(page);
 		pgactivate++;
 keep_locked:
+        // dyc: means keep this locked page
 		unlock_page(page);
 keep:
 		list_add(&page->lru, &ret_pages);
@@ -643,6 +646,7 @@ static int __isolate_lru_page(struct page *page, int mode)
 	 * dealing with comparible boolean values.  Take the logical not
 	 * of each.
 	 */
+    // dyc: ISOLATE_BOTH will isolate active pages
 	if (mode != ISOLATE_BOTH && (!PageActive(page) != !mode))
 		return ret;
 
@@ -681,6 +685,7 @@ static int __isolate_lru_page(struct page *page, int mode)
  *
  * returns how many pages were moved onto *@dst.
  */
+// dyc: return page and its surrounding pages
 static unsigned long isolate_lru_pages(unsigned long nr_to_scan,
 		struct list_head *src, struct list_head *dst,
 		unsigned long *scanned, int order, int mode)
@@ -794,7 +799,7 @@ static unsigned long clear_active_flags(struct list_head *page_list)
  */
 // dyc: taken(isolate) pages from zone->inactive_list,
 //      try to free,
-//      return back can't be freed 
+//      return back the count of freed 
 static unsigned long shrink_inactive_list(unsigned long max_scan,
 				struct zone *zone, struct scan_control *sc)
 {
@@ -813,13 +818,15 @@ static unsigned long shrink_inactive_list(unsigned long max_scan,
 		unsigned long nr_scan;
 		unsigned long nr_freed;
 		unsigned long nr_active;
-        // dyc: nr_taken is taken from inactive list
+        // dyc: nr_taken pages are taken from inactive list
+        //      if ISOLATE_BOTH, active pages will be taken too
 		nr_taken = isolate_lru_pages(sc->swap_cluster_max,
 			     &zone->inactive_list,
 			     &page_list, &nr_scan, sc->order,
 			     (sc->order > PAGE_ALLOC_COSTLY_ORDER)?
 					     ISOLATE_BOTH : ISOLATE_INACTIVE);
-        // dyc: nr_active is taken from active_list to inactive_list
+        // dyc: nr_active pages are taken from active_list to inactive_list
+        //      if use ISOLATE_BOTH above, may be some active pages are in page_list
 		nr_active = clear_active_flags(&page_list);
 		__count_vm_events(PGDEACTIVATE, nr_active);
         // dyc: declared in vmstat.h
@@ -830,6 +837,7 @@ static unsigned long shrink_inactive_list(unsigned long max_scan,
 		spin_unlock_irq(&zone->lru_lock);
 
 		nr_scanned += nr_scan;
+        // dyc: free list of inactive pages, freed pages are removed from page_list
 		nr_freed = shrink_page_list(&page_list, sc, PAGEOUT_IO_ASYNC);
 
 		/*
@@ -838,6 +846,7 @@ static unsigned long shrink_inactive_list(unsigned long max_scan,
 		 * for IO to complete. This will stall high-order allocations
 		 * but that should be acceptable to the caller
 		 */
+        // dyc: when freeing large pages
 		if (nr_freed < nr_taken && !current_is_kswapd() &&
 					sc->order > PAGE_ALLOC_COSTLY_ORDER) {
 			congestion_wait(WRITE, HZ/10);
@@ -1033,6 +1042,7 @@ force_reclaim_mapped:
     // dyc: move pages from cpu's pagevecs to zone->active/inactive list,then try to free them
 	lru_add_drain();
 	spin_lock_irq(&zone->lru_lock);
+    // dyc: move pages from active_list to l_hold
 	pgmoved = isolate_lru_pages(nr_pages, &zone->active_list,
 			    &l_hold, &pgscanned, sc->order, ISOLATE_ACTIVE);
 	zone->pages_scanned += pgscanned;
@@ -1043,7 +1053,10 @@ force_reclaim_mapped:
 		cond_resched();
 		page = lru_to_page(&l_hold);
 		list_del(&page->lru);
+        // dyc: if this page in the pagetable of some process
 		if (page_mapped(page)) {
+            // dyc: this mapped page is unreclaimable, or no swap, or 
+            //      referenced before
 			if (!reclaim_mapped ||
 			    (total_swap_pages == 0 && PageAnon(page)) ||
 			    page_referenced(page, 0)) {
@@ -1053,7 +1066,8 @@ force_reclaim_mapped:
 		}
 		list_add(&page->lru, &l_inactive);
 	}
-
+    // dyc: here we have split old active page list into a new active list
+    //      and a new inactive list, then we need to put them into zone's active/inactive list
 	pagevec_init(&pvec, 1);
 	pgmoved = 0;
 	spin_lock_irq(&zone->lru_lock);
@@ -1067,6 +1081,7 @@ force_reclaim_mapped:
 
 		list_move(&page->lru, &zone->inactive_list);
 		pgmoved++;
+        // dyc: if pvec full, release pages now then continue
 		if (!pagevec_add(&pvec, page)) {
 			__mod_zone_page_state(zone, NR_INACTIVE, pgmoved);
 			spin_unlock_irq(&zone->lru_lock);
@@ -1074,6 +1089,7 @@ force_reclaim_mapped:
 			pgmoved = 0;
 			if (buffer_heads_over_limit)
 				pagevec_strip(&pvec);
+            // dyc: if page ref_count == 0, return to buddy system 
 			__pagevec_release(&pvec);
 			spin_lock_irq(&zone->lru_lock);
 		}
@@ -1108,7 +1124,7 @@ force_reclaim_mapped:
 	__count_zone_vm_events(PGREFILL, zone, pgscanned);
 	__count_vm_events(PGDEACTIVATE, pgdeactivate);
 	spin_unlock_irq(&zone->lru_lock);
-
+    // dyc: if page ref_count == 0, return to buddy system 
 	pagevec_release(&pvec);
 }
 
@@ -1153,6 +1169,8 @@ static unsigned long shrink_zone(int priority, struct zone *zone,
 			nr_to_scan = min(nr_active,
 					(unsigned long)sc->swap_cluster_max);
 			nr_active -= nr_to_scan;
+            // dyc: This moves pages from the active list to the inactive list if it is reclaimable or 
+            //      not referenced for a while
 			shrink_active_list(nr_to_scan, zone, sc, priority);
 		}
 
@@ -1160,7 +1178,6 @@ static unsigned long shrink_zone(int priority, struct zone *zone,
 			nr_to_scan = min(nr_inactive,
 					(unsigned long)sc->swap_cluster_max);
 			nr_inactive -= nr_to_scan;
-            // dyc: real free action here
 			nr_reclaimed += shrink_inactive_list(nr_to_scan, zone,
 								sc);
 		}

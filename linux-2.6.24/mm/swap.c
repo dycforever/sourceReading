@@ -320,7 +320,7 @@ void release_pages(struct page **pages, int nr, int cold)
         // dyc: if page->ref not zero, continue
 		if (!put_page_testzero(page))
 			continue;
-
+        // dyc: if in url, remove from it
 		if (PageLRU(page)) {
 			struct zone *pagezone = page_zone(page);
 			if (pagezone != zone) {
@@ -340,6 +340,7 @@ void release_pages(struct page **pages, int nr, int cold)
 				spin_unlock_irqrestore(&zone->lru_lock, flags);
 				zone = NULL;
 			}
+            // dyc: return page to buddy system
 			__pagevec_free(&pages_to_free);
 			pagevec_reinit(&pages_to_free);
   		}

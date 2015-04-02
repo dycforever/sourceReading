@@ -622,6 +622,7 @@ static inline int page_mapcount(struct page *page)
 /*
  * Return true if this page is mapped into pagetables.
  */
+// dyc: if this page in the pagetable of some process
 static inline int page_mapped(struct page *page)
 {
 	return atomic_read(&(page)->_mapcount) >= 0;
