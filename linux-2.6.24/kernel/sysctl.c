@@ -1789,6 +1789,7 @@ static int __do_proc_dointvec(void *tbl_data, struct ctl_table *table,
 			if (conv(&neg, &lval, i, 1, data))
 				break;
 		} else {
+            // dyc: not write, read ?
 			p = buf;
 			if (!first)
 				*p++ = '\t';

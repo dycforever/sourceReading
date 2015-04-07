@@ -510,7 +510,7 @@ parse_target(transfer_map_t *ip_port, char *addr)
             ip_port->src_mac);
     parse_ip_port_pair(addr2, &ip_port->target_ip, &ip_port->target_port,
             ip_port->dst_mac);
-
+    // dyc: address is 127.0.0.1
     if (ip_port->target_ip == LOCALHOST) {
         clt_settings.target_localhost = 1;
         tc_log_info(LOG_WARN, 0, "target host is 127.0.0.1");
@@ -1103,6 +1103,8 @@ main(int argc, char **argv)
     } 
 
     if (is_continue) {
+        // dyc: add timer, create hash_table, connect to intercept, 
+        //      create send/recv raw socket
         ret = tcp_copy_init(&event_loop);
         if (ret == TC_ERR) {
             is_continue = 0;

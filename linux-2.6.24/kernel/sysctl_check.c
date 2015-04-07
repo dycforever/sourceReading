@@ -1243,7 +1243,7 @@ static struct trans_ctl_table trans_root_table[] = {
 
 
 
-
+// dyc: return depth of current table item
 static int sysctl_depth(struct ctl_table *table)
 {
 	struct ctl_table *tmp;

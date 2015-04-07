@@ -44,13 +44,14 @@ get_test_pair(transfer_maps_t *tf, uint32_t ip, uint16_t port)
     }
     return NULL;
 }
-
+// dyc: online is where copied data comes from
+//      target is where copied data goes to
 static inline int
 check_pack_src(transfer_maps_t *tf, uint32_t ip, uint16_t port, int src_flag)
 {
     int              i, ret;
     transfer_map_t  *pair, **map;
-
+    // dyc: TC_CLT == 0
     ret = TC_UNKNOWN;
     map = tf->map;
 

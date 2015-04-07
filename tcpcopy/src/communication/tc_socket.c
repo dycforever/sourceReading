@@ -129,7 +129,7 @@ tc_pcap_socket_in_init(pcap_t **pd, char *device,
     return fd;
 }
 
-#endif
+#endif // if (TC_PCAP)
 
 int
 tc_raw_socket_in_init(int type)
