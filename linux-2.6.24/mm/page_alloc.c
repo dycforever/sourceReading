@@ -1588,7 +1588,7 @@ restart:
 	/* This allocation should allow future memory freeing. */
 
 rebalance:
-    // p是当前进程,设置了PF_MEMALLOC,分配内存的时候会比较积极
+    // p是当前进程,设置了PF_MEMALLOC,分配内存的时候会比较积极，一般是kswapd
 	if (((p->flags & PF_MEMALLOC) || unlikely(test_thread_flag(TIF_MEMDIE))) //这边用括号包起来了，与下面的条件表示不能处于中断上下文
             //就是preempt_count() & (HARDIRQ_MASK | SOFTIRQ_MASK)), preempt_count非0表示不可抢占
 			&& !in_interrupt()) {
