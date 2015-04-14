@@ -150,6 +150,7 @@ static inline void reqsk_queue_unlink(struct request_sock_queue *queue,
 	write_unlock(&queue->syn_wait_lock);
 }
 // dyc: sk->sk_ack_backlog++;
+//      be called in inet_csk_reqsk_queue_add()
 static inline void reqsk_queue_add(struct request_sock_queue *queue,
 				   struct request_sock *req,
 				   struct sock *parent,

@@ -2369,7 +2369,7 @@ tc_proc_ingress(tc_iph_t *ip, tc_tcph_t *tcp)
                 return false;
             }
         }
-    } else {
+    } else {  // dyc: if a syn
         s  = hash_find(sess_table, key);
         if (s) {
             if (s->sm.timeout) {

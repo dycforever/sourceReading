@@ -467,7 +467,8 @@ ngx_http_upstream_init(ngx_http_request_t *r)
     ngx_http_upstream_init_request(r);
 }
 
-
+// dyc: init request to be sent to upstream
+//      this request is received from client, upstream related info save in r->upstream and r->ctx[module.index]
 static void
 ngx_http_upstream_init_request(ngx_http_request_t *r)
 {
@@ -523,7 +524,8 @@ ngx_http_upstream_init_request(ngx_http_request_t *r)
     if (r->request_body) {
         u->request_bufs = r->request_body->bufs;
     }
-
+    // dyc: such as ngx_http_memcached_create_request()
+    //      create r->upstream->request_bufs and ctx->key
     if (u->create_request(r) != NGX_OK) {
         ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
         return;
@@ -1131,7 +1133,7 @@ ngx_http_upstream_check_broken_connection(ngx_http_request_t *r,
     }
 }
 
-
+// dyc: u = r->upstream
 static void
 ngx_http_upstream_connect(ngx_http_request_t *r, ngx_http_upstream_t *u)
 {
@@ -1160,6 +1162,7 @@ ngx_http_upstream_connect(ngx_http_request_t *r, ngx_http_upstream_t *u)
     u->state->response_sec = tp->sec;
     u->state->response_msec = tp->msec;
     // dyc: connect upstream server
+    //      EINPROGRESS return NGX_AGAIN
     rc = ngx_event_connect_peer(&u->peer);
 
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
@@ -1192,7 +1195,7 @@ ngx_http_upstream_connect(ngx_http_request_t *r, ngx_http_upstream_t *u)
 
     c->write->handler = ngx_http_upstream_handler;
     c->read->handler = ngx_http_upstream_handler;
-
+    // dyc: called in ngx_http_upstream_handler()
     u->write_event_handler = ngx_http_upstream_send_request_handler;
     u->read_event_handler = ngx_http_upstream_process_header;
 
@@ -1258,7 +1261,7 @@ ngx_http_upstream_connect(ngx_http_request_t *r, ngx_http_upstream_t *u)
     }
 
     u->request_sent = 0;
-
+    // dyc: connect upstream return EINPROGRESS
     if (rc == NGX_AGAIN) {
         ngx_add_timer(c->write, u->conf->connect_timeout);
         return;
@@ -1433,7 +1436,7 @@ ngx_http_upstream_send_request(ngx_http_request_t *r, ngx_http_upstream_t *u)
     }
 
     c->log->action = "sending request to upstream";
-
+    // dyc: u->output.output_filter = ngx_chain_writer
     rc = ngx_output_chain(&u->output, u->request_sent ? NULL : u->request_bufs);
 
     u->request_sent = 1;
@@ -1604,7 +1607,7 @@ ngx_http_upstream_process_header(ngx_http_request_t *r, ngx_http_upstream_t *u)
 #if 0
             ngx_add_timer(rev, u->read_timeout);
 #endif
-
+            // dyc: add to epoll
             if (ngx_handle_read_event(c->read, 0) != NGX_OK) {
                 ngx_http_upstream_finalize_request(r, u,
                                                NGX_HTTP_INTERNAL_SERVER_ERROR);
@@ -2072,7 +2075,7 @@ ngx_http_upstream_process_body_in_memory(ngx_http_request_t *r,
         if (!rev->ready) {
             break;
         }
-    }
+    }  // for (;;)
 
     if (u->length == 0) {
         ngx_http_upstream_finalize_request(r, u, 0);

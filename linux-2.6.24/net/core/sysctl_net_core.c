@@ -15,6 +15,7 @@
 
 #ifdef CONFIG_SYSCTL
 
+// dyc: struct ctl_table defined in sysctl.h
 ctl_table core_table[] = {
 #ifdef CONFIG_NET
 	{

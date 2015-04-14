@@ -377,6 +377,7 @@ int seq_path(struct seq_file *m,
 	if (m->count < m->size) {
 		char *s = m->buf + m->count;
 		char *p = d_path(dentry, mnt, s, m->size - m->count);
+        // dyc: copy from p to s
 		if (!IS_ERR(p)) {
 			while (s <= p) {
 				char c = *p++;
@@ -385,10 +386,13 @@ int seq_path(struct seq_file *m,
 					m->count = s - m->buf;
 					return s - p;
 				} else if (!strchr(esc, c)) {
+                    // dyc: copy if c is not in string(esc)
+                    //      so all chars in esc will be skipped
 					*s++ = c;
 				} else if (s + 4 > p) {
 					break;
 				} else {
+                    // dyc: print char in string(esc) Oct such as "\234"
 					*s++ = '\\';
 					*s++ = '0' + ((c & 0300) >> 6);
 					*s++ = '0' + ((c & 070) >> 3);

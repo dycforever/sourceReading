@@ -119,7 +119,7 @@ static bool send_version(int fd) {
     return true;
 }
 
-
+// dyc: connect to servers run interceptor
 static int
 connect_to_server(tc_event_loop_t *ev_lp)
 {
@@ -127,7 +127,7 @@ connect_to_server(tc_event_loop_t *ev_lp)
     uint32_t         target_ip;
     conns_t         *conns;
     uint16_t         target_port;
-
+    // dyc: real servers are servers which run interceptor
     for (i = 0; i < clt_settings.real_servers.num; i++) {
 
         conns = &(clt_settings.real_servers.conns[i]);
@@ -157,6 +157,7 @@ connect_to_server(tc_event_loop_t *ev_lp)
         clt_settings.real_servers.conns[i].remained_num = 0;
 
         for (j = 0; j < clt_settings.par_conns; j++) {
+            // dyc: build tcp connection
             fd = tc_message_init(ev_lp, target_ip, target_port);
             if (fd == TC_INVALID_SOCK) {
                 return TC_ERR;
@@ -189,7 +190,7 @@ restore_work(tc_event_timer_t *evt)
     clt_settings.tries++;
 }
 
-
+// dyc: add timer, create hash_table, connect to intercept, create send/recv raw socket
 int
 tcp_copy_init(tc_event_loop_t *ev_lp)
 {
@@ -205,6 +206,7 @@ tcp_copy_init(tc_event_loop_t *ev_lp)
         return TC_ERR;
     }
 
+    // dyc: build tcp connection to interceptor
     if (connect_to_server(ev_lp) == TC_ERR) {
         return TC_ERR;
     }

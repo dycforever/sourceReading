@@ -170,6 +170,7 @@ extern int _event_debug_mode_on;
 struct event_base {
 	/** Function pointers and other data to describe this event_base's
 	 * backend. */
+    // dyc: such as epoll/select
 	const struct eventop *evsel;
 	/** Pointer to backend-specific data. */
 	void *evbase;

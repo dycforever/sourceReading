@@ -11,6 +11,7 @@
 #include <ngx_event_connect.h>
 
 // dyc: create a socket and connection to upstream server
+//      pc->connection = ngx_get_connection(s, pc->log);
 ngx_int_t
 ngx_event_connect_peer(ngx_peer_connection_t *pc)
 {

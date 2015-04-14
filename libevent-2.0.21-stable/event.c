@@ -588,6 +588,7 @@ event_base_new_with_config(const struct event_config *cfg)
 	should_check_environment =
 	    !(cfg && (cfg->flags & EVENT_BASE_FLAG_IGNORE_ENV));
 
+    // dyc: once a backend's init() success, this loop will break
 	for (i = 0; eventops[i] && !base->evbase; i++) {
 		if (cfg != NULL) {
 			/* determine if this backend should be avoided */
@@ -605,7 +606,7 @@ event_base_new_with_config(const struct event_config *cfg)
 			continue;
 
 		base->evsel = eventops[i];
-
+        // dyc: once init success, this loop will break
 		base->evbase = base->evsel->init(base);
 	}
 

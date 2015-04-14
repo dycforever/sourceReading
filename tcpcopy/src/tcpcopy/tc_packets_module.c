@@ -39,7 +39,7 @@ device_set(tc_event_loop_t *event_loop, device_t *device)
     }
 
     pcap_map[fd] = device->pcap;
-
+    // dyc: alloc tc_event_t from pool, with read_handler [proc_pcap_pack]
     ev = tc_event_create(event_loop->pool, fd, proc_pcap_pack, NULL);
     if (ev == NULL) {
         return TC_ERR;
@@ -54,7 +54,8 @@ device_set(tc_event_loop_t *event_loop, device_t *device)
 }
 #endif
 
-
+// dyc: create a raw socket for send, 
+//      then a raw socket for recv and add it to event loop
 int
 tc_packets_init(tc_event_loop_t *event_loop)
 {
@@ -271,7 +272,7 @@ replicate_packs(tc_iph_t *ip, tc_udpt_t *udp_header, int replica_num)
     }
 }
 
-
+// dyc: if udp
 static int
 dispose_packet(unsigned char *packet, int ip_rcv_len, int *p_valid_flag)
 {
@@ -337,6 +338,7 @@ replicate_packs(tc_iph_t *ip, tc_tcph_t *tcp, int replica_num)
 
 static unsigned char pack_buffer2[IP_RCV_BUF_SIZE];
 
+// dyc: if not udp
 static int
 dispose_packet(unsigned char *packet, int ip_rcv_len, int *p_valid_flag)
 {
@@ -355,6 +357,7 @@ dispose_packet(unsigned char *packet, int ip_rcv_len, int *p_valid_flag)
     }
 
     ip   = (tc_iph_t *) packet;
+    // dyc: if a valid packet
     if (tc_check_ingress_pack_needed(ip)) {
 
         replica_num = clt_settings.replica_num;
@@ -415,7 +418,7 @@ dispose_packet(unsigned char *packet, int ip_rcv_len, int *p_valid_flag)
                 }
             }
         }
-    }
+    }   // if ingress
 
     if (p_valid_flag) {
         *p_valid_flag = (packet_valid == true ? 1 : 0);

@@ -380,7 +380,7 @@ static inline u32 inet_synq_hash(const __be32 raddr, const __be16 rport,
 #else
 #define AF_INET_FAMILY(fam) 1
 #endif
-// dyc: search in listening sock's sys_table and find a match one
+// dyc: search in listening sock's syn_table and find a match one
 //      item is added into syn_table[] in tcp_v4_conn_request()
 //      @sk is the listening socket
 struct request_sock *inet_csk_search_req(const struct sock *sk,
