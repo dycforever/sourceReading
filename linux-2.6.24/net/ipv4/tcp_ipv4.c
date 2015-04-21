@@ -2462,6 +2462,7 @@ void tcp4_proc_exit(void)
 
 DEFINE_PROTO_INUSE(tcp)
 // dyc: no tcp_bind() !
+//      struct proto defined in include/net/sock.h
 struct proto tcp_prot = {
 	.name			= "TCP",
 	.owner			= THIS_MODULE,

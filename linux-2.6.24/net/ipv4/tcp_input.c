@@ -505,11 +505,11 @@ void tcp_rcv_space_adjust(struct sock *sk)
 	if (time < (tp->rcv_rtt_est.rtt >> 3) ||
 	    tp->rcv_rtt_est.rtt == 0)
 		return;
-
+    // dyc: tp->rcvq_space.seq is buffer header, and tp->copied_seq is read pointer
 	space = 2 * (tp->copied_seq - tp->rcvq_space.seq);
 
 	space = max(tp->rcvq_space.space, space);
-
+    // dyc: if there is still some data in tp->rcvq_space
 	if (tp->rcvq_space.space != space) {
 		int rcvmem;
 

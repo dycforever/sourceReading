@@ -29,6 +29,7 @@
 #include <linux/if_tr.h>
 #endif
 
+// dyc: struct ctl_table is defined in include/linux/sysctl.h
 struct ctl_table net_table[] = {
 	{
 		.ctl_name	= NET_CORE,

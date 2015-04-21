@@ -256,6 +256,7 @@ static int strategy_allowed_congestion_control(ctl_table *table, int __user *nam
 
 }
 
+// dyc: struct ctl_table is defined in include/linux/sysctl.h
 ctl_table ipv4_table[] = {
 	{
 		.ctl_name	= NET_IPV4_TCP_TIMESTAMPS,
