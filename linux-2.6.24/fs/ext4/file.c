@@ -108,6 +108,7 @@ force_commit:
 
 const struct file_operations ext4_file_operations = {
 	.llseek		= generic_file_llseek,
+    // dyc: use aio_read and wait to implememt sync_read
 	.read		= do_sync_read,
 	.write		= do_sync_write,
 	.aio_read	= generic_file_aio_read,
