@@ -292,6 +292,9 @@ static int __tcp_grow_window(const struct sock *sk, const struct sk_buff *skb)
 	int truesize = tcp_win_from_space(skb->truesize)/2;
 	int window = tcp_win_from_space(sysctl_tcp_rmem[2])/2;
 
+    // dyc: cut half truesize and window, 
+    //      increase rwnd if (tp->rcv_ssthresh <= window && truesize <= skb->len)
+    //      else return 0, do not increase
 	while (tp->rcv_ssthresh <= window) {
 		if (truesize <= skb->len)
 			return 2 * inet_csk(sk)->icsk_ack.rcv_mss;
@@ -562,6 +565,7 @@ static void tcp_event_data_recv(struct sock *sk, struct sk_buff *skb)
 	struct inet_connection_sock *icsk = inet_csk(sk);
 	u32 now;
 
+	// dyc: inet_csk(sk)->icsk_ack.pending |= ICSK_ACK_SCHED;
 	inet_csk_schedule_ack(sk);
 
 	tcp_measure_rcv_mss(sk, skb);
@@ -2555,8 +2559,10 @@ static void tcp_ack_saw_tstamp(struct sock *sk, int flag)
 	struct tcp_sock *tp = tcp_sk(sk);
 	const __u32 seq_rtt = tcp_time_stamp - tp->rx_opt.rcv_tsecr;
 	tcp_rtt_estimator(sk, seq_rtt);
+	// dyc: inet_csk(sk)->icsk_rto = (tp->srtt >> 3) + tp->rttvar;
 	tcp_set_rto(sk);
 	inet_csk(sk)->icsk_backoff = 0;
+    // dyc: inet_csk(sk)->icsk_rto must <= TCP_RTO_MAX
 	tcp_bound_rto(sk);
 }
 
@@ -4488,6 +4494,7 @@ int tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
 
 		/* Check timestamp */
 		if (tcp_header_len == sizeof(struct tcphdr) + TCPOLEN_TSTAMP_ALIGNED) {
+            // dyc: ptr point to tcp options
 			__be32 *ptr = (__be32 *)(th + 1);
 
 			/* No? Slow path! */

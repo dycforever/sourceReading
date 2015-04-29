@@ -652,6 +652,8 @@ unsigned long radix_tree_next_hole(struct radix_tree_root *root,
 }
 EXPORT_SYMBOL(radix_tree_next_hole);
 
+// dyc: @index is the start index
+//      寻找单个叶子节点中，从@index开始，最多max_items个的page
 static unsigned int
 __lookup(struct radix_tree_node *slot, void **results, unsigned long index,
 	unsigned int max_items, unsigned long *next_index)
@@ -670,7 +672,9 @@ __lookup(struct radix_tree_node *slot, void **results, unsigned long index,
 		for (;;) {
 			if (slot->slots[i] != NULL)
 				break;
+            // dyc: 只保留shift以左的bit，低位清零；
 			index &= ~((1UL << shift) - 1);
+            // dyc: index是下面循环的起始搜索位置，所以如果这边slot的下标i加1，index就要跳过 1UL<<shift 这么多
 			index += 1UL << shift;
 			if (index == 0)
 				goto out;	/* 32-bit wraparound */
@@ -750,6 +754,9 @@ radix_tree_gang_lookup(struct radix_tree_root *root, void **results,
 
 		if (cur_index > max_index)
 			break;
+
+        // dyc: 寻找单个叶子节点中，从cur_index开始，最多max_items个的page
+        //      所以外面还要有个循环来找多个叶子节点
 		nr_found = __lookup(node, results + ret, cur_index,
 					max_items - ret, &next_index);
 		ret += nr_found;

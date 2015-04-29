@@ -724,10 +724,13 @@ unsigned find_get_pages(struct address_space *mapping, pgoff_t start,
 	unsigned int ret;
 
 	read_lock_irq(&mapping->tree_lock);
+    // dyc: get pages [start, ret), ret <= nr_pages
 	ret = radix_tree_gang_lookup(&mapping->page_tree,
 				(void **)pages, start, nr_pages);
-	for (i = 0; i < ret; i++)
+	for (i = 0; i < ret; i++) {
+        // dyc: call get_page() to atomic_inc(&page->_count)
 		page_cache_get(pages[i]);
+    }
 	read_unlock_irq(&mapping->tree_lock);
 	return ret;
 }
