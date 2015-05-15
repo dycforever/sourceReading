@@ -207,8 +207,10 @@ void fastcall lru_cache_add(struct page *page)
 	struct pagevec *pvec = &get_cpu_var(lru_add_pvecs);
 
 	page_cache_get(page);
-	if (!pagevec_add(pvec, page))
+    // dyc: if no space left in pvec, add all pages into inactive list
+	if (!pagevec_add(pvec, page)) {
 		__pagevec_lru_add(pvec);
+    }
 	put_cpu_var(lru_add_pvecs);
 }
 
@@ -397,6 +399,7 @@ void __pagevec_release_nonlru(struct pagevec *pvec)
  * Add the passed pages to the LRU, then drop the caller's refcount
  * on them.  Reinitialises the caller's pagevec.
  */
+// dyc: add all pages into inactive list
 void __pagevec_lru_add(struct pagevec *pvec)
 {
 	int i;

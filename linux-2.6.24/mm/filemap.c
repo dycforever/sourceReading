@@ -450,6 +450,7 @@ int filemap_write_and_wait_range(struct address_space *mapping,
  *
  * This function does not add the page to the LRU.  The caller must do that.
  */
+// dyc: add page to radix_tree
 int add_to_page_cache(struct page *page, struct address_space *mapping,
 		pgoff_t offset, gfp_t gfp_mask)
 {
@@ -464,6 +465,7 @@ int add_to_page_cache(struct page *page, struct address_space *mapping,
 			page->mapping = mapping;
 			page->index = offset;
 			mapping->nrpages++;
+            // dyc: increase stat by 1
 			__inc_zone_page_state(page, NR_FILE_PAGES);
 		}
 		write_unlock_irq(&mapping->tree_lock);
@@ -915,7 +917,9 @@ find_page:
 			if (unlikely(page == NULL))
 				goto no_cached_page;
 		}
+        // dyc: test_bit(PG_readahead, &(page)->flags)
 		if (PageReadahead(page)) {
+            // dyc: read ahead
 			page_cache_async_readahead(mapping,
 					ra, filp, page,
 					index, last_index - index);
@@ -942,6 +946,7 @@ page_ok:
 		/* nr is the maximum number of bytes to copy from this page */
 		nr = PAGE_CACHE_SIZE;
 		if (index == end_index) {
+            // dyc: rest bytes in tail of file
 			nr = ((isize - 1) & ~PAGE_CACHE_MASK) + 1;
 			if (nr <= offset) {
 				page_cache_release(page);
@@ -975,6 +980,7 @@ page_ok:
 		 * "pos" here (the actor routine has to update the user buffer
 		 * pointers and the remaining count).
 		 */
+        // dyc: usually file_read_actor(), return bytes have been copy to user
 		ret = actor(desc, page, offset, nr);
 		offset += ret;
 		index += offset >> PAGE_CACHE_SHIFT;
@@ -998,6 +1004,7 @@ page_not_up_to_date:
 		}
 
 		/* Did somebody else fill it already? */
+        // test_bit(PG_uptodate, &(page)->flags)
 		if (PageUptodate(page)) {
 			unlock_page(page);
 			goto page_ok;
@@ -1066,6 +1073,7 @@ no_cached_page:
 	}
 
 out:
+    // dyc: prev_index = index
 	ra->prev_pos = prev_index;
 	ra->prev_pos <<= PAGE_CACHE_SHIFT;
 	ra->prev_pos |= prev_offset;

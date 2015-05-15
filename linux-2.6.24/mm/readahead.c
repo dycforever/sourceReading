@@ -82,6 +82,7 @@ int read_cache_pages(struct address_space *mapping, struct list_head *pages,
 
 EXPORT_SYMBOL(read_cache_pages);
 
+// dyc: add page into radix_tree and zone->inactive_list, then read
 static int read_pages(struct address_space *mapping, struct file *filp,
 		struct list_head *pages, unsigned nr_pages)
 {
@@ -89,6 +90,7 @@ static int read_pages(struct address_space *mapping, struct file *filp,
 	int ret;
 
 	if (mapping->a_ops->readpages) {
+        // dyc: call ext4_readpages()->mpage_readpages()
 		ret = mapping->a_ops->readpages(filp, mapping, pages, nr_pages);
 		/* Clean up the remaining pages */
 		put_pages_list(pages);
@@ -98,6 +100,7 @@ static int read_pages(struct address_space *mapping, struct file *filp,
 	for (page_idx = 0; page_idx < nr_pages; page_idx++) {
 		struct page *page = list_to_page(pages);
 		list_del(&page->lru);
+        // dyc: add page into radix_tree and zone->inactive_list, then read
 		if (!add_to_page_cache_lru(page, mapping,
 					page->index, GFP_KERNEL)) {
 			mapping->a_ops->readpage(filp, page);
@@ -120,6 +123,7 @@ out:
  * do_page_cache_readahead() returns -1 if it encountered request queue
  * congestion.
  */
+// dyc: alloc @nr_to_read pages and add into radix tree/inactive list
 static int
 __do_page_cache_readahead(struct address_space *mapping, struct file *filp,
 			pgoff_t offset, unsigned long nr_to_read,
@@ -131,6 +135,7 @@ __do_page_cache_readahead(struct address_space *mapping, struct file *filp,
 	LIST_HEAD(page_pool);
 	int page_idx;
 	int ret = 0;
+    // dyc: read inode->i_size
 	loff_t isize = i_size_read(inode);
 
 	if (isize == 0)
@@ -156,6 +161,7 @@ __do_page_cache_readahead(struct address_space *mapping, struct file *filp,
 		page = page_cache_alloc_cold(mapping);
 		if (!page)
 			break;
+        // dyc: index is the offset within mapping
 		page->index = page_offset;
 		list_add(&page->lru, &page_pool);
 		if (page_idx == nr_to_read - lookahead_size)
@@ -168,8 +174,10 @@ __do_page_cache_readahead(struct address_space *mapping, struct file *filp,
 	 * uptodate then the caller will launch readpage again, and
 	 * will then handle the error.
 	 */
-	if (ret)
+	if (ret) {
+        // dyc: add pages in page_pool into radix_tree and zone->inactive_list, then read
 		read_pages(mapping, filp, &page_pool, ret);
+    }
 	BUG_ON(!list_empty(&page_pool));
 out:
 	return ret;
@@ -242,6 +250,7 @@ subsys_initcall(readahead_init);
 /*
  * Submit IO for the read-ahead request in file_ra_state.
  */
+// dyc: alloc @ra->size pages and add into radix tree/inactive list
 static unsigned long ra_submit(struct file_ra_state *ra,
 		       struct address_space *mapping, struct file *filp)
 {
@@ -333,6 +342,7 @@ static unsigned long get_next_ra_size(struct file_ra_state *ra,
 /*
  * A minimal readahead algorithm for trivial sequential/random reads.
  */
+// dyc: implememt some readahead strategy and read data by ra_submit()
 static unsigned long
 ondemand_readahead(struct address_space *mapping,
 		   struct file_ra_state *ra, struct file *filp,
@@ -402,6 +412,7 @@ ondemand_readahead(struct address_space *mapping,
 	ra->async_size = ra->size > req_size ? ra->size - req_size : ra->size;
 
 readit:
+    // dyc: alloc @ra->size pages and add into radix tree/inactive list
 	return ra_submit(ra, mapping, filp);
 }
 
