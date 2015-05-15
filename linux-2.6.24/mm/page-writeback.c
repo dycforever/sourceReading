@@ -623,7 +623,7 @@ static void wb_kupdate(unsigned long arg)
 		.for_kupdate	= 1,
 		.range_cyclic	= 1,
 	};
-
+    // dyc: sync super blocks
 	sync_supers();
 
 	oldest_jif = jiffies - dirty_expire_interval;
@@ -635,6 +635,7 @@ static void wb_kupdate(unsigned long arg)
 	while (nr_to_write > 0) {
 		wbc.encountered_congestion = 0;
 		wbc.nr_to_write = MAX_WRITEBACK_PAGES;
+        // dyc: write back inodes' data
 		writeback_inodes(&wbc);
 		if (wbc.nr_to_write > 0) {
 			if (wbc.encountered_congestion)
