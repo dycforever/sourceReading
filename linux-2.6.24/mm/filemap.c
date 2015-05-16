@@ -450,6 +450,7 @@ int filemap_write_and_wait_range(struct address_space *mapping,
  *
  * This function does not add the page to the LRU.  The caller must do that.
  */
+// dyc: add page to radix_tree
 int add_to_page_cache(struct page *page, struct address_space *mapping,
 		pgoff_t offset, gfp_t gfp_mask)
 {
@@ -464,6 +465,7 @@ int add_to_page_cache(struct page *page, struct address_space *mapping,
 			page->mapping = mapping;
 			page->index = offset;
 			mapping->nrpages++;
+            // dyc: increase stat by 1
 			__inc_zone_page_state(page, NR_FILE_PAGES);
 		}
 		write_unlock_irq(&mapping->tree_lock);
@@ -724,10 +726,13 @@ unsigned find_get_pages(struct address_space *mapping, pgoff_t start,
 	unsigned int ret;
 
 	read_lock_irq(&mapping->tree_lock);
+    // dyc: get pages [start, ret), ret <= nr_pages
 	ret = radix_tree_gang_lookup(&mapping->page_tree,
 				(void **)pages, start, nr_pages);
-	for (i = 0; i < ret; i++)
+	for (i = 0; i < ret; i++) {
+        // dyc: call get_page() to atomic_inc(&page->_count)
 		page_cache_get(pages[i]);
+    }
 	read_unlock_irq(&mapping->tree_lock);
 	return ret;
 }
@@ -869,6 +874,7 @@ static void shrink_readahead_size_eio(struct file *filp,
  * Note the struct file* is only passed for the use of readpage.
  * It may be NULL.
  */
+// dyc: called by do_generic_file_read()
 void do_generic_mapping_read(struct address_space *mapping,
 			     struct file_ra_state *ra,
 			     struct file *filp,
@@ -898,8 +904,12 @@ void do_generic_mapping_read(struct address_space *mapping,
 
 		cond_resched();
 find_page:
+        // dyc: looking in mapping->page_tree(radix_tree)
 		page = find_get_page(mapping, index);
 		if (!page) {
+            // dyc: call mapping->a_ops->readpage() to read pages ahead
+            //      but actually we don't wait the read to finish,  
+            //      so find_get_page() may be failed again
 			page_cache_sync_readahead(mapping,
 					ra, filp,
 					index, last_index - index);
@@ -907,7 +917,9 @@ find_page:
 			if (unlikely(page == NULL))
 				goto no_cached_page;
 		}
+        // dyc: test_bit(PG_readahead, &(page)->flags)
 		if (PageReadahead(page)) {
+            // dyc: read ahead
 			page_cache_async_readahead(mapping,
 					ra, filp, page,
 					index, last_index - index);
@@ -935,6 +947,7 @@ page_ok:
 		/* nr is the maximum number of bytes to copy from this page */
 		nr = PAGE_CACHE_SIZE;
 		if (index == end_index) {
+            // dyc: rest bytes in tail of file
 			nr = ((isize - 1) & ~PAGE_CACHE_MASK) + 1;
 			if (nr <= offset) {
 				page_cache_release(page);
@@ -968,6 +981,7 @@ page_ok:
 		 * "pos" here (the actor routine has to update the user buffer
 		 * pointers and the remaining count).
 		 */
+        // dyc: usually file_read_actor(), return bytes have been copy to user
 		ret = actor(desc, page, offset, nr);
 		offset += ret;
 		index += offset >> PAGE_CACHE_SHIFT;
@@ -991,6 +1005,7 @@ page_not_up_to_date:
 		}
 
 		/* Did somebody else fill it already? */
+        // test_bit(PG_uptodate, &(page)->flags)
 		if (PageUptodate(page)) {
 			unlock_page(page);
 			goto page_ok;
@@ -1045,6 +1060,7 @@ no_cached_page:
 			desc->error = -ENOMEM;
 			goto out;
 		}
+        // dyc: init page's member and insert into radiex_tree
 		error = add_to_page_cache_lru(page, mapping,
 						index, GFP_KERNEL);
 		if (error) {
@@ -1058,6 +1074,7 @@ no_cached_page:
 	}
 
 out:
+    // dyc: prev_index = index
 	ra->prev_pos = prev_index;
 	ra->prev_pos <<= PAGE_CACHE_SHIFT;
 	ra->prev_pos |= prev_offset;
@@ -1155,6 +1172,7 @@ EXPORT_SYMBOL(generic_segment_checks);
  * This is the "read()" routine for all filesystems
  * that can use the page cache directly.
  */
+// dyc: generic filesystem read routine, use this aio_read and wait to implememt sync_read
 ssize_t
 generic_file_aio_read(struct kiocb *iocb, const struct iovec *iov,
 		unsigned long nr_segs, loff_t pos)
@@ -1205,6 +1223,7 @@ generic_file_aio_read(struct kiocb *iocb, const struct iovec *iov,
 			if (desc.count == 0)
 				continue;
 			desc.error = 0;
+            // dyc: call do_generic_mapping_read()
 			do_generic_file_read(filp,ppos,&desc,file_read_actor);
 			retval += desc.written;
 			if (desc.error) {

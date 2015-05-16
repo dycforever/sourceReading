@@ -89,6 +89,7 @@ struct pdflush_work {
 	unsigned long when_i_went_to_sleep;
 };
 
+// dyc: run in each pdflush thread
 static int __pdflush(struct pdflush_work *my_work)
 {
 	current->flags |= PF_FLUSHER | PF_SWAPWRITE;
@@ -103,12 +104,15 @@ static int __pdflush(struct pdflush_work *my_work)
 		struct pdflush_work *pdf;
 
 		set_current_state(TASK_INTERRUPTIBLE);
+        // dyc: move to pdflush_list when idle
 		list_move(&my_work->list, &pdflush_list);
 		my_work->when_i_went_to_sleep = jiffies;
 		spin_unlock_irq(&pdflush_lock);
 		schedule();
+        // dyc: just return 0
 		try_to_freeze();
 		spin_lock_irq(&pdflush_lock);
+        // dyc: so if we are still in pdflush_list
 		if (!list_empty(&my_work->list)) {
 			/*
 			 * Someone woke us up, but without removing our control
@@ -148,6 +152,7 @@ static int __pdflush(struct pdflush_work *my_work)
 		 */
 		if (list_empty(&pdflush_list))
 			continue;
+        // dyc: less than MIN, don't need to create new thread
 		if (nr_pdflush_threads <= MIN_PDFLUSH_THREADS)
 			continue;
 		pdf = list_entry(pdflush_list.prev, struct pdflush_work, list);
@@ -156,7 +161,7 @@ static int __pdflush(struct pdflush_work *my_work)
 			pdf->when_i_went_to_sleep = jiffies;
 			break;					/* exeunt */
 		}
-	}
+	} // for (;;)
 	nr_pdflush_threads--;
 	spin_unlock_irq(&pdflush_lock);
 	return 0;
@@ -198,6 +203,8 @@ static int pdflush(void *dummy)
  * Returns zero if it indeed managed to find a worker thread, and passed your
  * payload to it.
  */
+// dyc: wake up a idle pdflush_thread in pdflush_list, do *fn()
+//      mainly wb_kupdate()
 int pdflush_operation(void (*fn)(unsigned long), unsigned long arg0)
 {
 	unsigned long flags;
@@ -224,6 +231,9 @@ int pdflush_operation(void (*fn)(unsigned long), unsigned long arg0)
 	return ret;
 }
 
+// dyc: create a new pdflush_thread, without specify a task
+//      actually work(function fun()) is assigned by pdflush_operation()
+//      like a thread_pool !!
 static void start_one_pdflush_thread(void)
 {
 	kthread_run(pdflush, NULL, "pdflush");
