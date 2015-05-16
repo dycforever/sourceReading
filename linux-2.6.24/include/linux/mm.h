@@ -162,6 +162,7 @@ struct vm_fault {
 struct vm_operations_struct {
 	void (*open)(struct vm_area_struct * area);
 	void (*close)(struct vm_area_struct * area);
+    // dyc: most important !!
 	int (*fault)(struct vm_area_struct *vma, struct vm_fault *vmf);
 	struct page *(*nopage)(struct vm_area_struct *area,
 			unsigned long address, int *type);

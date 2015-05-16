@@ -98,16 +98,22 @@ struct page {
  */
 struct vm_area_struct {
 	struct mm_struct * vm_mm;	/* The address space we belong to. */
+    // dyc: [vm_start, vm_end) is the address range of this vm_area_struct
 	unsigned long vm_start;		/* Our start address within vm_mm. */
-	unsigned long vm_end;		/* The first byte after our end address
-					   within vm_mm. */
+	unsigned long vm_end;		/* The first byte after our end address within vm_mm. */
 
 	/* linked list of VM areas per task, sorted by address */
 	struct vm_area_struct *vm_next;
 
 	pgprot_t vm_page_prot;		/* Access permissions of this VMA. */
-	unsigned long vm_flags;		/* Flags, listed below. */
 
+    // dyc: vm_flags can be values listed below
+    //      #define VM_READ		0x00000001	/* currently active flags */
+    //      #define VM_WRITE	0x00000002
+    //      #define VM_EXEC		0x00000004
+    //      #define VM_SHARED	0x00000008
+    // and others can be found in mm.h
+	unsigned long vm_flags;	
 	struct rb_node vm_rb;
 
 	/*
@@ -123,6 +129,12 @@ struct vm_area_struct {
 			struct vm_area_struct *head;
 		} vm_set;
 
+        // struct raw_prio_tree_node {
+        // 	struct prio_tree_node	*left;
+        // 	struct prio_tree_node	*right;
+        // 	struct prio_tree_node	*parent;
+        // }
+        // dyc: use prio_tree to reverse map a vm_area_struct to all processes
 		struct raw_prio_tree_node prio_tree_node;
 	} shared;
 
@@ -132,6 +144,8 @@ struct vm_area_struct {
 	 * can only be in the i_mmap tree.  An anonymous MAP_PRIVATE, stack
 	 * or brk vma (with NULL file) can only be in an anon_vma list.
 	 */
+    // dyc: use to manage anonymous shared pages
+    //      the mapping field of an anonymous page points to this anon_vma
 	struct list_head anon_vma_node;	/* Serialized by anon_vma->lock */
 	struct anon_vma *anon_vma;	/* Serialized by page_table_lock */
 
@@ -139,8 +153,7 @@ struct vm_area_struct {
 	struct vm_operations_struct * vm_ops;
 
 	/* Information about our backing store: */
-	unsigned long vm_pgoff;		/* Offset (within vm_file) in PAGE_SIZE
-					   units, *not* PAGE_CACHE_SIZE */
+	unsigned long vm_pgoff;		/* Offset (within vm_file) in PAGE_SIZE units, *not* PAGE_CACHE_SIZE */
 	struct file * vm_file;		/* File we map to (can be NULL). */
 	void * vm_private_data;		/* was vm_pte (shared mem) */
 	unsigned long vm_truncate_count;/* truncate_count or restart_addr */

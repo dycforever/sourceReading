@@ -912,6 +912,7 @@ find_page:
 					ra, filp, page,
 					index, last_index - index);
 		}
+        // dyc: !test_bit(PG_uptodate, &(page)->flags)
 		if (!PageUptodate(page))
 			goto page_not_up_to_date;
 page_ok:
