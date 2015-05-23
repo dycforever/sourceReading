@@ -201,6 +201,7 @@ static void move_expired_inodes(struct list_head *delaying_queue,
 /*
  * Queue all expired dirty inodes for io, eldest first.
  */
+// dyc: move inodes that older_than_this from sb->s_dirty to sb->s_io
 static void queue_io(struct super_block *sb,
 				unsigned long *older_than_this)
 {
@@ -408,8 +409,10 @@ sync_sb_inodes(struct super_block *sb, struct writeback_control *wbc)
 {
 	const unsigned long start = jiffies;	/* livelock avoidance */
 
-	if (!wbc->for_kupdate || list_empty(&sb->s_io))
+	if (!wbc->for_kupdate || list_empty(&sb->s_io)) {
+        // dyc: move inodes that older_than_this from sb->s_dirty to sb->s_io
 		queue_io(sb, wbc->older_than_this);
+    }
 
 	while (!list_empty(&sb->s_io)) {
 		struct inode *inode = list_entry(sb->s_io.prev,
@@ -504,6 +507,7 @@ sync_sb_inodes(struct super_block *sb, struct writeback_control *wbc)
  * sync_sb_inodes will seekout the blockdev which matches `bdi'.  Maybe not
  * super-efficient but we're about to do a ton of I/O...
  */
+// dyc: iterate all super_blocks and call sync_sb_inodes()
 void
 writeback_inodes(struct writeback_control *wbc)
 {

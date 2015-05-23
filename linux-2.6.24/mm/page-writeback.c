@@ -544,7 +544,7 @@ static void background_writeout(unsigned long _min_pages)
 	long min_pages = _min_pages;
 	struct writeback_control wbc = {
 		.bdi		= NULL,
-		.sync_mode	= WB_SYNC_NONE,
+		.sync_mode	= WB_SYNC_NONE, // dyc: skip locked inode
 		.older_than_this = NULL,
 		.nr_to_write	= 0,
 		.nonblocking	= 1,
@@ -608,6 +608,7 @@ static DEFINE_TIMER(laptop_mode_wb_timer, laptop_timer_fn, 0, 0);
  * older_than_this takes precedence over nr_to_write.  So we'll only write back
  * all dirty pages if they are all attached to "old" mappings.
  */
+// dyc: older_than_this takes precedence over nr_to_write.
 static void wb_kupdate(unsigned long arg)
 {
 	unsigned long oldest_jif;

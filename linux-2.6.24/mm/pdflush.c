@@ -204,7 +204,7 @@ static int pdflush(void *dummy)
  * payload to it.
  */
 // dyc: wake up a idle pdflush_thread in pdflush_list, do *fn()
-//      mainly wb_kupdate()
+//      mainly wb_kupdate() or background_writeout()
 int pdflush_operation(void (*fn)(unsigned long), unsigned long arg0)
 {
 	unsigned long flags;

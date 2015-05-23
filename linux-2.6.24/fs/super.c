@@ -405,7 +405,10 @@ restart:
 		if (sb->s_dirt) {
 			sb->s_count++;
 			spin_unlock(&sb_lock);
+            // dyc: down semaphore
 			down_read(&sb->s_umount);
+            // dyc: for ext3, journals updates to the superblock itself, 
+            //      so write_super() do nothing
 			write_super(sb);
 			up_read(&sb->s_umount);
 			spin_lock(&sb_lock);
