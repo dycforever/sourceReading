@@ -291,8 +291,9 @@ static unsigned long determine_dirtyable_memory(void)
 	return x + 1;	/* Ensure that we never return 0 */
 }
 
-// dyc: get available_memory and compute background from background_ratio, 
-//      dirty from dirty_ratio
+// dyc: get available_memory(NR_FREE_PAGES/NR_INACTIVE/NR_ACTIVE)
+//      then compute background pages from background_ratio, 
+//      dirty pages from dirty_ratio
 static void
 get_dirty_limits(long *pbackground, long *pdirty, long *pbdi_dirty,
 		 struct backing_dev_info *bdi)
@@ -581,9 +582,10 @@ static void background_writeout(unsigned long _min_pages)
  */
 int wakeup_pdflush(long nr_pages)
 {
-	if (nr_pages == 0)
+	if (nr_pages == 0) {
 		nr_pages = global_page_state(NR_FILE_DIRTY) +
 				global_page_state(NR_UNSTABLE_NFS);
+    }
 	return pdflush_operation(background_writeout, nr_pages);
 }
 
@@ -624,7 +626,8 @@ static void wb_kupdate(unsigned long arg)
 		.for_kupdate	= 1,
 		.range_cyclic	= 1,
 	};
-    // dyc: sync super blocks
+    // dyc: call write_super() for all super blocks to sync super blocks, 
+    //      for ext3 do nothing
 	sync_supers();
 
 	oldest_jif = jiffies - dirty_expire_interval;

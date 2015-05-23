@@ -167,6 +167,7 @@ static void redirty_tail(struct inode *inode)
 /*
  * requeue inode for re-scanning after sb->s_io list is exhausted.
  */
+// dyc: move to inode->i_sb->s_more_io
 static void requeue_io(struct inode *inode)
 {
 	list_move(&inode->i_list, &inode->i_sb->s_more_io);
@@ -184,6 +185,7 @@ static void inode_sync_complete(struct inode *inode)
 /*
  * Move expired dirty inodes from @delaying_queue to @dispatch_queue.
  */
+// dyc: move inodes that older_than_this from delaying_queue to dispatch_queue
 static void move_expired_inodes(struct list_head *delaying_queue,
 			       struct list_head *dispatch_queue,
 				unsigned long *older_than_this)
@@ -206,6 +208,7 @@ static void queue_io(struct super_block *sb,
 				unsigned long *older_than_this)
 {
 	list_splice_init(&sb->s_more_io, sb->s_io.prev);
+    // dyc: move inodes that older_than_this from sb->s_dirty to sb->s_io 
 	move_expired_inodes(&sb->s_dirty, &sb->s_io, older_than_this);
 }
 
@@ -243,11 +246,12 @@ __sync_single_inode(struct inode *inode, struct writeback_control *wbc)
 	inode->i_state &= ~I_DIRTY;
 
 	spin_unlock(&inode_lock);
-
+    // dyc: write data pages, call mapping->a_ops->writepages() or generic_writepages()
 	ret = do_writepages(mapping, wbc);
 
 	/* Don't write the inode if only I_DIRTY_PAGES was set */
 	if (dirty & (I_DIRTY_SYNC | I_DIRTY_DATASYNC)) {
+        // dyc: write inode itself to disk, call such as ext3_write_inode()
 		int err = write_inode(inode, wait);
 		if (ret == 0)
 			ret = err;
@@ -345,6 +349,7 @@ __writeback_single_inode(struct inode *inode, struct writeback_control *wbc)
 		 * We'll have another go at writing back this inode when we
 		 * completed a full scan of s_io.
 		 */
+        // dyc: move to inode->i_sb->s_more_io
 		requeue_io(inode);
 
 		/*
@@ -360,6 +365,7 @@ __writeback_single_inode(struct inode *inode, struct writeback_control *wbc)
 	/*
 	 * It's a data-integrity sync.  We must wait.
 	 */
+    // dyc: here means wbc->sync_mode == WB_SYNC_ALL
 	if (inode->i_state & I_SYNC) {
 		DEFINE_WAIT_BIT(wq, &inode->i_state, __I_SYNC);
 
@@ -408,7 +414,7 @@ static void
 sync_sb_inodes(struct super_block *sb, struct writeback_control *wbc)
 {
 	const unsigned long start = jiffies;	/* livelock avoidance */
-
+    // dyc: if called by wb_kupdate(), wbc->for_kupdate = 1
 	if (!wbc->for_kupdate || list_empty(&sb->s_io)) {
         // dyc: move inodes that older_than_this from sb->s_dirty to sb->s_io
 		queue_io(sb, wbc->older_than_this);
@@ -462,6 +468,7 @@ sync_sb_inodes(struct super_block *sb, struct writeback_control *wbc)
 			break;
 
 		BUG_ON(inode->i_state & I_FREEING);
+	    // dyc: atomic_inc(&inode->i_count);
 		__iget(inode);
 		pages_skipped = wbc->pages_skipped;
 		__writeback_single_inode(inode, wbc);
@@ -518,6 +525,7 @@ writeback_inodes(struct writeback_control *wbc)
 restart:
 	sb = sb_entry(super_blocks.prev);
 	for (; sb != sb_entry(&super_blocks); sb = sb_entry(sb->s_list.prev)) {
+        // dyc: if no inode is dirty or waiting for writing to disk
 		if (sb_has_dirty_inodes(sb)) {
 			/* we're making our own get_super here */
 			sb->s_count++;

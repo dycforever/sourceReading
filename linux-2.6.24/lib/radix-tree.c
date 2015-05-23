@@ -218,6 +218,7 @@ static inline int any_tag_set(struct radix_tree_node *node, unsigned int tag)
  *	Return the maximum key which can be store into a
  *	radix tree with height HEIGHT.
  */
+// dyc: compute the max index in this height 
 static inline unsigned long radix_tree_maxindex(unsigned int height)
 {
 	return height_to_maxindex[height];
@@ -234,6 +235,7 @@ static int radix_tree_extend(struct radix_tree_root *root, unsigned long index)
 
 	/* Figure out what the height should be.  */
 	height = root->height + 1;
+    // dyc: compute the max index in this height 
 	while (index > radix_tree_maxindex(height))
 		height++;
 
@@ -248,6 +250,7 @@ static int radix_tree_extend(struct radix_tree_root *root, unsigned long index)
 			return -ENOMEM;
 
 		/* Increase the height.  */
+        // dyc: node is the new root
 		node->slots[0] = radix_tree_indirect_to_ptr(root->rnode);
 
 		/* Propagate the aggregated tag info into the new root */

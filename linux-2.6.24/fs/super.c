@@ -395,6 +395,8 @@ static inline void write_super(struct super_block *sb)
  * hold up the sync while mounting a device. (The newly
  * mounted device won't need syncing.)
  */
+// dyc: call write_super() for all super blocks, 
+//      for ext3 do nothing
 void sync_supers(void)
 {
 	struct super_block *sb;
