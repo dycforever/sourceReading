@@ -3281,7 +3281,7 @@ end_io:
 			err = -EOPNOTSUPP;
 			goto end_io;
 		}
-
+        // dyc: call __make_request(), set in blk_queue_make_request()
 		ret = q->make_request_fn(q, bio);
 	} while (ret);
 }
@@ -3297,8 +3297,10 @@ end_io:
  * then a make_request is active, and new requests should be added
  * at the tail
  */
+// dyc: call __generic_make_request() for each bio in current->bio_list
 void generic_make_request(struct bio *bio)
 {
+    // dyc: if there is a make_request is active
 	if (current->bio_tail) {
 		/* make_request is active */
 		*(current->bio_tail) = bio;
@@ -3349,6 +3351,7 @@ EXPORT_SYMBOL(generic_make_request);
  * interfaces, @bio must be presetup and ready for I/O.
  *
  */
+// dyc: update account data and call generic_make_request()
 void submit_bio(int rw, struct bio *bio)
 {
 	int count = bio_sectors(bio);
@@ -3359,6 +3362,8 @@ void submit_bio(int rw, struct bio *bio)
 	 * If it's a regular read/write or a barrier with data attached,
 	 * go through the normal accounting stuff before submission.
 	 */
+    // dyc: it is a real read/write action, not a barrier cmd to disk
+    //      then update the account data
 	if (!bio_empty_barrier(bio)) {
 
 		BIO_BUG_ON(!bio->bi_size);

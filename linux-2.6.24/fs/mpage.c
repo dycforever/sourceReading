@@ -82,8 +82,11 @@ static void mpage_end_io_write(struct bio *bio, int err)
 	bio_put(bio);
 }
 
+// dyc: set finish callback and submit_bio
 static struct bio *mpage_bio_submit(int rw, struct bio *bio)
 {
+    // dyc: io finish callback function
+    //      set PG_update for each page in bio->bi_io_vec
 	bio->bi_end_io = mpage_end_io_read;
 	if (rw == WRITE)
 		bio->bi_end_io = mpage_end_io_write;
@@ -164,12 +167,16 @@ map_buffer_to_page(struct page *page, struct buffer_head *bh, int page_block)
  * represent the validity of its disk mapping and to decide when to do the next
  * get_block() call.
  */
+// dyc: @bio is the return value of the last call of do_mpage_readpage, and @bio is NULL for first call
+//      @map_bh->BH_Mapped is cleared and used for return value
+//      
 static struct bio *
 do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 		sector_t *last_block_in_bio, struct buffer_head *map_bh,
 		unsigned long *first_logical_block, get_block_t get_block)
 {
 	struct inode *inode = page->mapping->host;
+    // dyc: shift of block size
 	const unsigned blkbits = inode->i_blkbits;
 	const unsigned blocks_per_page = PAGE_CACHE_SIZE >> blkbits;
 	const unsigned blocksize = 1 << blkbits;
@@ -184,7 +191,7 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 	int fully_mapped = 1;
 	unsigned nblocks;
 	unsigned relative_block;
-
+    // dyc: if PagePrivate(page), which is test_bit(PG_private, &(page)->flags)
 	if (page_has_buffers(page))
 		goto confused;
 
@@ -198,6 +205,8 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 	/*
 	 * Map blocks using the result from the previous get_blocks call first.
 	 */
+    // dyc: in first call of this function, nblocks is uninitialized value
+    //      but BH_Mapped is also cleaned, so won't into the if below
 	nblocks = map_bh->b_size >> blkbits;
 	if (buffer_mapped(map_bh) && block_in_file > *first_logical_block &&
 			block_in_file < (*first_logical_block + nblocks)) {
@@ -222,6 +231,7 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 	/*
 	 * Then do more get_blocks calls until we are done with this page.
 	 */
+    // dyc: read into this page
 	map_bh->b_page = page;
 	while (page_block < blocks_per_page) {
 		map_bh->b_state = 0;
@@ -229,6 +239,8 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 
 		if (block_in_file < last_block) {
 			map_bh->b_size = (last_block-block_in_file) << blkbits;
+            // dyc: get_block is functions such as ext3_get_block(), ext4_get_block()
+            //      call get_block() to get the logic block id, which is the offset from the start of disk partition
 			if (get_block(inode, block_in_file, map_bh, 0))
 				goto confused;
 			*first_logical_block = block_in_file;
@@ -273,7 +285,7 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 			block_in_file++;
 		}
 		bdev = map_bh->b_bdev;
-	}
+	} // while (page_block < blocks_per_page) {
 
 	if (first_hole != blocks_per_page) {
 		zero_user_page(page, first_hole << blkbits,
@@ -319,8 +331,10 @@ out:
 confused:
 	if (bio)
 		bio = mpage_bio_submit(READ, bio);
-	if (!PageUptodate(page))
-	        block_read_full_page(page, get_block);
+	if (!PageUptodate(page)) {
+        // dyc: read a block one time
+	    block_read_full_page(page, get_block);
+    }
 	else
 		unlock_page(page);
 	goto out;
@@ -408,13 +422,14 @@ EXPORT_SYMBOL(mpage_readpages);
 /*
  * This isn't called much at all
  */
+// dyc: get_block is functions such as ext3_get_block(), ext4_get_block()
 int mpage_readpage(struct page *page, get_block_t get_block)
 {
 	struct bio *bio = NULL;
 	sector_t last_block_in_bio = 0;
 	struct buffer_head map_bh;
 	unsigned long first_logical_block = 0;
-
+    // dyc: clear BH_Mapped
 	clear_buffer_mapped(&map_bh);
 	bio = do_mpage_readpage(bio, page, 1, &last_block_in_bio,
 			&map_bh, &first_logical_block, get_block);

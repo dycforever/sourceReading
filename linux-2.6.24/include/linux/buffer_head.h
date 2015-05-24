@@ -25,7 +25,7 @@ enum bh_state_bits {
 			  * IO completion of other buffers in the page
 			  */
 
-	BH_Mapped,	/* Has a disk mapping */
+	BH_Mapped,	/* Has a disk mapping */ // dyc: has been mapped to a disk
 	BH_New,		/* Disk mapping was newly created by get_block */
 	BH_Async_Read,	/* Is under end_buffer_async_read I/O */
 	BH_Async_Write,	/* Is under end_buffer_async_write I/O */
@@ -66,7 +66,7 @@ struct buffer_head {
 	size_t b_size;			/* size of mapping */
 	char *b_data;			/* pointer to data within the page */
 
-	struct block_device *b_bdev;
+	struct block_device *b_bdev; 
 	bh_end_io_t *b_end_io;		/* I/O completion */
  	void *b_private;		/* reserved for b_end_io */
 	struct list_head b_assoc_buffers; /* associated with another mapping */

@@ -607,7 +607,7 @@ struct inode {
 	struct timespec		i_atime;
 	struct timespec		i_mtime;
 	struct timespec		i_ctime;
-	unsigned int		i_blkbits;
+	unsigned int		i_blkbits; // dyc: offset of block size
 	blkcnt_t		i_blocks;
 	unsigned short          i_bytes;
 	umode_t			i_mode;
@@ -1843,6 +1843,7 @@ static inline int xip_truncate_page(struct address_space *mapping, loff_t from)
 }
 #endif
 
+// dyc: called by generic_file_aio_read()
 static inline void do_generic_file_read(struct file * filp, loff_t *ppos,
 					read_descriptor_t * desc,
 					read_actor_t actor)

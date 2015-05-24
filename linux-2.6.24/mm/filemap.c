@@ -459,6 +459,7 @@ int add_to_page_cache(struct page *page, struct address_space *mapping,
 	if (error == 0) {
 		write_lock_irq(&mapping->tree_lock);
 		error = radix_tree_insert(&mapping->page_tree, offset, page);
+		// dyc: maybe failed if page is existed
 		if (!error) {
 			page_cache_get(page);
 			SetPageLocked(page);
@@ -875,6 +876,9 @@ static void shrink_readahead_size_eio(struct file *filp,
  * It may be NULL.
  */
 // dyc: called by do_generic_file_read()
+// 		just find page in radix-tree
+// 		if found 
+// 		if not found, 
 void do_generic_mapping_read(struct address_space *mapping,
 			     struct file_ra_state *ra,
 			     struct file *filp,
@@ -889,11 +893,17 @@ void do_generic_mapping_read(struct address_space *mapping,
 	unsigned long offset;      /* offset into pagecache page */
 	unsigned int prev_offset;
 	int error;
-
+	// dyc: get index of PAGE_SHIFT
 	index = *ppos >> PAGE_CACHE_SHIFT;
 	prev_index = ra->prev_pos >> PAGE_CACHE_SHIFT;
 	prev_offset = ra->prev_pos & (PAGE_CACHE_SIZE-1);
+	// dyc: for normal read
+	//		desc.written = 0;
+	//		desc.arg.buf = iov[seg].iov_base;
+	//		desc.count = iov[seg].iov_len;
+	//		so last_index is the index of last bytes will be read
 	last_index = (*ppos + desc->count + PAGE_CACHE_SIZE-1) >> PAGE_CACHE_SHIFT;
+	// dyc: offset in page
 	offset = *ppos & ~PAGE_CACHE_MASK;
 
 	for (;;) {
@@ -981,7 +991,7 @@ page_ok:
 		 * "pos" here (the actor routine has to update the user buffer
 		 * pointers and the remaining count).
 		 */
-        // dyc: usually file_read_actor(), return bytes have been copy to user
+        // dyc: usually file_read_actor() -> __copy_to_user(), return bytes have been copy to user
 		ret = actor(desc, page, offset, nr);
 		offset += ret;
 		index += offset >> PAGE_CACHE_SHIFT;
@@ -989,6 +999,7 @@ page_ok:
 		prev_offset = offset;
 
 		page_cache_release(page);
+		// dyc: this page is done, but still need to read more bytes
 		if (ret == nr && desc->count)
 			continue;
 		goto out;
@@ -1013,7 +1024,7 @@ page_not_up_to_date:
 
 readpage:
 		/* Start the actual read. The read will unlock the page. */
-        // dyc: such as ext3_readpage() -> mpage_readpage()
+        // dyc: such as ext4_readpage() -> mpage_readpage()
 		error = mapping->a_ops->readpage(filp, page);
 
 		if (unlikely(error)) {
@@ -1023,7 +1034,7 @@ readpage:
 			}
 			goto readpage_error;
 		}
-
+		// dyc: shouldn't be not updated
 		if (!PageUptodate(page)) {
 			lock_page(page);
 			if (!PageUptodate(page)) {
@@ -1065,6 +1076,7 @@ no_cached_page:
 		error = add_to_page_cache_lru(page, mapping,
 						index, GFP_KERNEL);
 		if (error) {
+			// dyc: maybe find page now, because of the page_cache_sync_readahead() above
 			page_cache_release(page);
 			if (error == -EEXIST)
 				goto find_page;
@@ -1218,6 +1230,7 @@ generic_file_aio_read(struct kiocb *iocb, const struct iovec *iov,
 
 	retval = 0;
 	if (count) {
+		// dyc: for normal read(), nr_segs is 1
 		for (seg = 0; seg < nr_segs; seg++) {
 			read_descriptor_t desc;
 
