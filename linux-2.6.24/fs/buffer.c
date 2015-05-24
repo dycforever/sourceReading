@@ -2868,7 +2868,7 @@ int submit_bh(int rw, struct buffer_head * bh)
 	BUG_ON(!buffer_locked(bh));
 	BUG_ON(!buffer_mapped(bh));
 	BUG_ON(!bh->b_end_io);
-
+    // dyc: in include/linux/buffer_head.h, test_bit BH_Ordered
 	if (buffer_ordered(bh) && (rw == WRITE))
 		rw = WRITE_BARRIER;
 
@@ -2904,6 +2904,7 @@ int submit_bh(int rw, struct buffer_head * bh)
 	if (bio_flagged(bio, BIO_EOPNOTSUPP))
 		ret = -EOPNOTSUPP;
 
+    // dyc: dec bio->bi_cnt
 	bio_put(bio);
 	return ret;
 }

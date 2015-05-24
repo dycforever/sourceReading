@@ -1013,6 +1013,7 @@ page_not_up_to_date:
 
 readpage:
 		/* Start the actual read. The read will unlock the page. */
+        // dyc: such as ext3_readpage() -> mpage_readpage()
 		error = mapping->a_ops->readpage(filp, page);
 
 		if (unlikely(error)) {
@@ -1172,7 +1173,8 @@ EXPORT_SYMBOL(generic_segment_checks);
  * This is the "read()" routine for all filesystems
  * that can use the page cache directly.
  */
-// dyc: generic filesystem read routine, use this aio_read and wait to implememt sync_read
+// dyc: generic filesystem read routine be assigned to aio_read in file_operations, such as ext3_file_operations
+//      use this aio_read and wait to implememt sync_read
 ssize_t
 generic_file_aio_read(struct kiocb *iocb, const struct iovec *iov,
 		unsigned long nr_segs, loff_t pos)
@@ -1184,6 +1186,8 @@ generic_file_aio_read(struct kiocb *iocb, const struct iovec *iov,
 	loff_t *ppos = &iocb->ki_pos;
 
 	count = 0;
+    // dyc: call access_ok() for each iovec in @iov,
+    //      @count is total valid bytes count
 	retval = generic_segment_checks(iov, &nr_segs, &count, VERIFY_WRITE);
 	if (retval)
 		return retval;
