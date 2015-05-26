@@ -185,9 +185,7 @@ int fsync_bdev(struct block_device *bdev)
 		drop_super(sb);
 		return res;
 	}
-	return sync_blockdev(bdev);
-}
-
+	return sync_blockdev(bdev); } 
 /**
  * freeze_bdev  --  lock a filesystem and force it into a consistent state
  * @bdev:	blockdevice to lock
@@ -514,6 +512,7 @@ still_busy:
 static void mark_buffer_async_read(struct buffer_head *bh)
 {
 	bh->b_end_io = end_buffer_async_read;
+    // dyc: set flag BH_Async_Read
 	set_buffer_async_read(bh);
 }
 
@@ -901,6 +900,7 @@ int remove_inode_buffers(struct inode *inode)
  * The retry flag is used to differentiate async IO (paging, swapping)
  * which may not fail from ordinary buffer allocations.
  */
+// dyc: alloc PAGE_SIZE/size buffer_heads and associate them with page
 struct buffer_head *alloc_page_buffers(struct page *page, unsigned long size,
 		int retry)
 {
@@ -910,12 +910,14 @@ struct buffer_head *alloc_page_buffers(struct page *page, unsigned long size,
 try_again:
 	head = NULL;
 	offset = PAGE_SIZE;
+    // dyc: size is block size, so alloc 4 buffer_head
 	while ((offset -= size) >= 0) {
 		bh = alloc_buffer_head(GFP_NOFS);
 		if (!bh)
 			goto no_grow;
 
 		bh->b_bdev = NULL;
+        // dyc: insert bh into buffer_head's list head
 		bh->b_this_page = head;
 		bh->b_blocknr = -1;
 		head = bh;
@@ -926,6 +928,7 @@ try_again:
 		bh->b_size = size;
 
 		/* Link the buffer to its page */
+        // dyc: set bh->b_page and bh->b_data
 		set_bh_page(bh, page, offset);
 
 		init_buffer(bh, NULL, NULL);
@@ -1524,13 +1527,15 @@ EXPORT_SYMBOL(block_invalidatepage);
  * __set_page_dirty_buffers() via private_lock.  try_to_free_buffers
  * is already excluded via the page lock.
  */
+// dyc: alloc list of buffer_head, associate them with page(page->private and PG_private)
 void create_empty_buffers(struct page *page,
 			unsigned long blocksize, unsigned long b_state)
 {
 	struct buffer_head *bh, *head, *tail;
-
+    // dyc: return a list buffer_head, connected by bh->b_this_page
 	head = alloc_page_buffers(page, blocksize, 1);
 	bh = head;
+    // dyc: iterate bh list to build cycle list, and set b_state
 	do {
 		bh->b_state |= b_state;
 		tail = bh;
@@ -1539,6 +1544,7 @@ void create_empty_buffers(struct page *page,
 	tail->b_this_page = head;
 
 	spin_lock(&page->mapping->private_lock);
+    // dyc: set update or dirty buffer_head of this page
 	if (PageUptodate(page) || PageDirty(page)) {
 		bh = head;
 		do {
@@ -1549,6 +1555,7 @@ void create_empty_buffers(struct page *page,
 			bh = bh->b_this_page;
 		} while (bh != head);
 	}
+    // dyc: assign page->private to buffer_head, and set PG_private
 	attach_page_buffers(page, head);
 	spin_unlock(&page->mapping->private_lock);
 }
@@ -2079,11 +2086,15 @@ int block_read_full_page(struct page *page, get_block_t *get_block)
 
 	BUG_ON(!PageLocked(page));
 	blocksize = 1 << inode->i_blkbits;
-	if (!page_has_buffers(page))
+	if (!page_has_buffers(page)) {
+        // dyc: alloc list of buffer_head, associate them with page(page->private and PG_private)
 		create_empty_buffers(page, blocksize, 0);
+    }
 	head = page_buffers(page);
 
+    // dyc: convert page index to block index, @index is the index of page in file
 	iblock = (sector_t)page->index << (PAGE_CACHE_SHIFT - inode->i_blkbits);
+    // dyc: i_size_read() return inode->i_size, block count of this inode
 	lblock = (i_size_read(inode)+blocksize-1) >> inode->i_blkbits;
 	bh = head;
 	nr = 0;
@@ -2092,13 +2103,15 @@ int block_read_full_page(struct page *page, get_block_t *get_block)
 	do {
 		if (buffer_uptodate(bh))
 			continue;
-
+        // dyc: if not mapped to disk
 		if (!buffer_mapped(bh)) {
 			int err = 0;
 
 			fully_mapped = 0;
 			if (iblock < lblock) {
 				WARN_ON(bh->b_size != blocksize);
+                // dyc: may set b_bh->b_bdev b_bh->b_size b_bh->blocknr
+                //      suck ext2_get_block()
 				err = get_block(inode, iblock, bh, 0);
 				if (err)
 					SetPageError(page);
@@ -2138,6 +2151,7 @@ int block_read_full_page(struct page *page, get_block_t *get_block)
 	for (i = 0; i < nr; i++) {
 		bh = arr[i];
 		lock_buffer(bh);
+        // dyc: mark flag BH_Async_Read
 		mark_buffer_async_read(bh);
 	}
 

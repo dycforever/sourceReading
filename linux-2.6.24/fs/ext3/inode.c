@@ -943,6 +943,25 @@ out:
 
 #define DIO_CREDITS (EXT3_RESERVE_TRANS_BLOCKS + 32)
 
+/* dyc: this comments copy from ext2_get_blocks()
+ *      Allocation strategy is simple: if we have to allocate something, we will
+ *      have to go the whole way to leaf. So let's do it before attaching anything
+ *      to tree, set linkage between the newborn blocks, write them if sync is
+ *      required, recheck the path, free and repeat if check fails, otherwise
+ *      set the last missing link (that will protect us from any truncate-generated
+ *      removals - all blocks on the path are immune now) and possibly force the
+ *      write on the parent block.
+ *      That has a nice additional property: no special recovery from the failed
+ *      allocations is needed - we simply release blocks and do not touch anything
+ *      reachable from inode.
+ *
+ *      `handle' can be NULL if create == 0.
+ *
+ *      The BKL may not be held on entry here.  Be sure to take it early.
+ *      return > 0, # of blocks mapped or allocated.
+ *      return = 0, if plain lookup failed.
+ *      return < 0, error case.
+ */
 static int ext3_get_block(struct inode *inode, sector_t iblock,
 			struct buffer_head *bh_result, int create)
 {

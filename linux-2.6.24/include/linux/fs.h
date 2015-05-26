@@ -688,6 +688,7 @@ extern void inode_double_unlock(struct inode *inode1, struct inode *inode2);
  * cmpxchg8b without the need of the lock prefix). For SMP compiles
  * and 64bit archs it makes no difference if preempt is enabled or not.
  */
+// dyc: return inode->i_size
 static inline loff_t i_size_read(const struct inode *inode)
 {
 #if BITS_PER_LONG==32 && defined(CONFIG_SMP)
