@@ -1504,8 +1504,10 @@ void block_invalidatepage(struct page *page, unsigned long offset)
 		/*
 		 * is this block fully invalidated?
 		 */
-		if (offset <= curr_off)
+		if (offset <= curr_off) {
+            // dyc: clear Mapped/Req/New/Delay/Unwritten flags and bh->b_bdev
 			discard_buffer(bh);
+        }
 		curr_off = next_off;
 		bh = next;
 	} while (bh != head);
@@ -1515,8 +1517,9 @@ void block_invalidatepage(struct page *page, unsigned long offset)
 	 * The get_block cached value has been unconditionally invalidated,
 	 * so real IO is not possible anymore.
 	 */
-	if (offset == 0)
+	if (offset == 0) {
 		try_to_release_page(page, 0);
+    }
 out:
 	return;
 }
@@ -3052,8 +3055,10 @@ drop_buffers(struct page *page, struct buffer_head **buffers_to_free)
 	do {
 		struct buffer_head *next = bh->b_this_page;
 
-		if (!list_empty(&bh->b_assoc_buffers))
+		if (!list_empty(&bh->b_assoc_buffers)) {
+	        // dyc: list_del_init(&bh->b_assoc_buffers);
 			__remove_assoc_queue(bh);
+        }
 		bh = next;
 	} while (bh != head);
 	*buffers_to_free = head;
@@ -3104,6 +3109,7 @@ out:
 
 		do {
 			struct buffer_head *next = bh->b_this_page;
+            // dyc: kmem_cache_free()
 			free_buffer_head(bh);
 			bh = next;
 		} while (bh != buffers_to_free);

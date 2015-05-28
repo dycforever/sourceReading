@@ -1111,6 +1111,7 @@ int file_read_actor(read_descriptor_t *desc, struct page *page,
 	 * Faults on the destination of a read are common, so do it before
 	 * taking the kmap.
 	 */
+    // dyc: access one bytes to trigger page fault
 	if (!fault_in_pages_writeable(desc->arg.buf, size)) {
 		kaddr = kmap_atomic(page, KM_USER0);
 		left = __copy_to_user_inatomic(desc->arg.buf,

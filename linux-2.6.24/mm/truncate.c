@@ -34,13 +34,17 @@
  * point.  Because the caller is about to free (and possibly reuse) those
  * blocks on-disk.
  */
+// dyc: 
+//      caller ensure no dirty or I/O outside the offset
 void do_invalidatepage(struct page *page, unsigned long offset)
 {
 	void (*invalidatepage)(struct page *, unsigned long);
 	invalidatepage = page->mapping->a_ops->invalidatepage;
 #ifdef CONFIG_BLOCK
-	if (!invalidatepage)
+	if (!invalidatepage) {
+        // dyc: block_invalidatepage() clear Mapped/Req/New/Delay/Unwritten flags and bh->b_bdev
 		invalidatepage = block_invalidatepage;
+    }
 #endif
 	if (invalidatepage)
 		(*invalidatepage)(page, offset);
@@ -100,8 +104,11 @@ truncate_complete_page(struct address_space *mapping, struct page *page)
 
 	cancel_dirty_page(page, PAGE_CACHE_SIZE);
 
-	if (PagePrivate(page))
+	if (PagePrivate(page)) {
+        // dyc: default call block_invalidatepage() to clear flags for all buffer in this page
+        //      then call mapping->a_ops->releasepage() to try to release this page
 		do_invalidatepage(page, 0);
+    }
 
 	remove_from_page_cache(page);
 	ClearPageUptodate(page);
