@@ -79,6 +79,7 @@ struct buffer_head {
  * macro tricks to expand the set_buffer_foo(), clear_buffer_foo()
  * and buffer_foo() functions.
  */
+// dyc: operations below are all atomic
 #define BUFFER_FNS(bit, name)						\
 static inline void set_buffer_##name(struct buffer_head *bh)		\
 {									\

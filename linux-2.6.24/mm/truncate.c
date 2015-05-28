@@ -267,6 +267,7 @@ EXPORT_SYMBOL(truncate_inode_pages_range);
  *
  * Called under (and serialised by) inode->i_mutex.
  */
+// dyc; truncate range [lstart, end)
 void truncate_inode_pages(struct address_space *mapping, loff_t lstart)
 {
 	truncate_inode_pages_range(mapping, lstart, (loff_t)-1);

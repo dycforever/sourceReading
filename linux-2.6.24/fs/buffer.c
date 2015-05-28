@@ -406,6 +406,7 @@ static void end_buffer_async_read(struct buffer_head *bh, int uptodate)
 	clear_buffer_async_read(bh);
 	unlock_buffer(bh);
 	tmp = bh;
+    // dyc: check if all buffer head of this page is up to date 
 	do {
 		if (!buffer_uptodate(tmp))
 			page_uptodate = 0;
@@ -512,7 +513,7 @@ still_busy:
 static void mark_buffer_async_read(struct buffer_head *bh)
 {
 	bh->b_end_io = end_buffer_async_read;
-    // dyc: set flag BH_Async_Read
+    // dyc: atomic set flag BH_Async_Read
 	set_buffer_async_read(bh);
 }
 
@@ -2078,6 +2079,7 @@ EXPORT_SYMBOL(generic_write_end);
  * set/clear_buffer_uptodate() functions propagate buffer state into the
  * page struct once IO has completed.
  */
+// dyc: alloc buffer heads for this page, then submit_bh() if bh is not updated
 int block_read_full_page(struct page *page, get_block_t *get_block)
 {
 	struct inode *inode = page->mapping->host;
@@ -2093,11 +2095,12 @@ int block_read_full_page(struct page *page, get_block_t *get_block)
         // dyc: alloc list of buffer_head, associate them with page(page->private and PG_private)
 		create_empty_buffers(page, blocksize, 0);
     }
+    // dyc: get page->private
 	head = page_buffers(page);
 
     // dyc: convert page index to block index, @index is the index of page in file
 	iblock = (sector_t)page->index << (PAGE_CACHE_SHIFT - inode->i_blkbits);
-    // dyc: i_size_read() return inode->i_size, block count of this inode
+    // dyc: block count of this inode, i_size_read() return inode->i_size
 	lblock = (i_size_read(inode)+blocksize-1) >> inode->i_blkbits;
 	bh = head;
 	nr = 0;
@@ -2114,7 +2117,7 @@ int block_read_full_page(struct page *page, get_block_t *get_block)
 			if (iblock < lblock) {
 				WARN_ON(bh->b_size != blocksize);
                 // dyc: may set b_bh->b_bdev b_bh->b_size b_bh->blocknr
-                //      suck ext2_get_block()
+                //      such as ext2_get_block()
 				err = get_block(inode, iblock, bh, 0);
 				if (err)
 					SetPageError(page);
@@ -2133,6 +2136,7 @@ int block_read_full_page(struct page *page, get_block_t *get_block)
 			if (buffer_uptodate(bh))
 				continue;
 		}
+        // dyc: arr is array of buffer that need to read 
 		arr[nr++] = bh;
 	} while (i++, iblock++, (bh = bh->b_this_page) != head);
 
@@ -2165,10 +2169,13 @@ int block_read_full_page(struct page *page, get_block_t *get_block)
 	 */
 	for (i = 0; i < nr; i++) {
 		bh = arr[i];
-		if (buffer_uptodate(bh))
+		if (buffer_uptodate(bh)) {
+            // dyc: read completion handler()
 			end_buffer_async_read(bh, 1);
-		else
+        } else {
+            // dyc: start read 
 			submit_bh(READ, bh);
+        }
 	}
 	return 0;
 }

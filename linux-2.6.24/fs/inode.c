@@ -1068,6 +1068,7 @@ void generic_delete_inode(struct inode *inode)
 		 * internally */
 		delete(inode);
 	} else {
+        // dyc; truncate range [0, end)
 		truncate_inode_pages(&inode->i_data, 0);
 		clear_inode(inode);
 	}
