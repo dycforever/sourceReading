@@ -278,6 +278,7 @@ out:
  *
  *	Insert an item into the radix tree at position @index.
  */
+// dyc: may return -EEXIST
 int radix_tree_insert(struct radix_tree_root *root,
 			unsigned long index, void *item)
 {

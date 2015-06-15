@@ -463,6 +463,7 @@ int elv_merge(struct request_queue *q, struct request **req, struct bio *bio)
 	if (q->last_merge) {
 		ret = elv_try_merge(q->last_merge, bio);
 		if (ret != ELEVATOR_NO_MERGE) {
+            // dyc: need merge
 			*req = q->last_merge;
 			return ret;
 		}

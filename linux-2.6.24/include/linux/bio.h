@@ -71,6 +71,7 @@ typedef void (bio_destructor_t) (struct bio *);
  * main unit of I/O for the block layer and lower layers (ie drivers and
  * stacking drivers)
  */
+// dyc: 每个bio结构都包含一个磁盘存储区标识符（存储区中的起始扇区号和扇区数目）和一个或多个描述与I/O操作相关的内存区的段
 struct bio {
 	sector_t		bi_sector;	/* device address in 512 byte
 						   sectors */
@@ -94,6 +95,7 @@ struct bio {
 	 */
 	unsigned short		bi_hw_segments;
 
+    // dyc: this is data count to transport
 	unsigned int		bi_size;	/* residual I/O count */
 
 	/*

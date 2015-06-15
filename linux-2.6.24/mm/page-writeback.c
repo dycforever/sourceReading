@@ -820,6 +820,7 @@ int write_cache_pages(struct address_space *mapping,
 		scanned = 1;
 	}
 retry:
+    // dyc: call find_get_pages_tag()
 	while (!done && (index <= end) &&
 	       (nr_pages = pagevec_lookup_tag(&pvec, mapping, &index,
 					      PAGECACHE_TAG_DIRTY,

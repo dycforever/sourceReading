@@ -1824,6 +1824,7 @@ void page_zero_new_buffers(struct page *page, unsigned from, unsigned to)
 }
 EXPORT_SYMBOL(page_zero_new_buffers);
 
+// dyc: @start is write start of file, @end is write end of file
 static int __block_prepare_write(struct inode *inode, struct page *page,
 		unsigned from, unsigned to, get_block_t *get_block)
 {
@@ -1837,18 +1838,20 @@ static int __block_prepare_write(struct inode *inode, struct page *page,
 	BUG_ON(from > PAGE_CACHE_SIZE);
 	BUG_ON(to > PAGE_CACHE_SIZE);
 	BUG_ON(from > to);
-
 	blocksize = 1 << inode->i_blkbits;
 	if (!page_has_buffers(page))
 		create_empty_buffers(page, blocksize, 0);
 	head = page_buffers(page);
 
 	bbits = inode->i_blkbits;
+    // dyc: convert page index to block index
 	block = (sector_t)page->index << (PAGE_CACHE_SHIFT - bbits);
 
 	for(bh = head, block_start = 0; bh != head || !block_start;
 	    block++, block_start=block_end, bh = bh->b_this_page) {
 		block_end = block_start + blocksize;
+        // dyc: if [from, to) out of this block's range
+        //      it means there is no intersection !!
 		if (block_end <= from || block_start >= to) {
 			if (PageUptodate(page)) {
 				if (!buffer_uptodate(bh))
@@ -1858,6 +1861,7 @@ static int __block_prepare_write(struct inode *inode, struct page *page,
 		}
 		if (buffer_new(bh))
 			clear_buffer_new(bh);
+        // dyc: if buffer_head is mapped, b_dev and b_blocknr is valid
 		if (!buffer_mapped(bh)) {
 			WARN_ON(bh->b_size != blocksize);
 			err = get_block(inode, block, bh, 1);
@@ -1872,9 +1876,12 @@ static int __block_prepare_write(struct inode *inode, struct page *page,
 					mark_buffer_dirty(bh);
 					continue;
 				}
+                // dyc: if some bytes fall in [buffer_start, buffer_end)
+                //      but not in [from, to)
+                //      such as: --- buffer_start -- from -- to -- buffer_end ---
 				if (block_end > to || block_start < from) {
+                    // dyc: set those bytes to 0
 					void *kaddr;
-
 					kaddr = kmap_atomic(page, KM_USER0);
 					if (block_end > to)
 						memset(kaddr+to, 0,
@@ -1887,7 +1894,7 @@ static int __block_prepare_write(struct inode *inode, struct page *page,
 				}
 				continue;
 			}
-		}
+		} // if buffer_mapped()
 		if (PageUptodate(page)) {
 			if (!buffer_uptodate(bh))
 				set_buffer_uptodate(bh);
@@ -1975,6 +1982,8 @@ int block_write_begin(struct file *file, struct address_space *mapping,
 	page = *pagep;
 	if (page == NULL) {
 		ownpage = 1;
+        // dyc: find page in mapping, or alloc it and 
+        //      insert it into mapping and zone->inactive list
 		page = __grab_cache_page(mapping, index);
 		if (!page) {
 			status = -ENOMEM;
@@ -1985,6 +1994,7 @@ int block_write_begin(struct file *file, struct address_space *mapping,
 		BUG_ON(!PageLocked(page));
 
 	status = __block_prepare_write(inode, page, start, end, get_block);
+    // dyc: unlock and release page if write failed
 	if (unlikely(status)) {
 		ClearPageUptodate(page);
 
@@ -2080,6 +2090,7 @@ EXPORT_SYMBOL(generic_write_end);
  * page struct once IO has completed.
  */
 // dyc: alloc buffer heads for this page, then submit_bh() if bh is not updated
+//      read a single page !
 int block_read_full_page(struct page *page, get_block_t *get_block)
 {
 	struct inode *inode = page->mapping->host;
@@ -2106,6 +2117,7 @@ int block_read_full_page(struct page *page, get_block_t *get_block)
 	nr = 0;
 	i = 0;
 
+    // dyc: iterate all buffer_head in this page and map them(record in $arr)
 	do {
 		if (buffer_uptodate(bh))
 			continue;
@@ -2884,6 +2896,7 @@ static void end_bio_bh_io_sync(struct bio *bio, int err)
 	bio_put(bio);
 }
 
+// dyc: alloc bio and submit_bio(rw, bio);
 int submit_bh(int rw, struct buffer_head * bh)
 {
 	struct bio *bio;

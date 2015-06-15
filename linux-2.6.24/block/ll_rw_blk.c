@@ -3264,6 +3264,7 @@ end_io:
 		 * If this device has partitions, remap block n
 		 * of partition p to block n+start(p) of the disk.
 		 */
+        // dyc: remap n to n+start(partition) 
 		blk_partition_remap(bio);
 
 		if (old_sector != -1)
@@ -3281,7 +3282,7 @@ end_io:
 			err = -EOPNOTSUPP;
 			goto end_io;
 		}
-        // dyc: call __make_request(), set in blk_queue_make_request()
+        // dyc: call __make_request(), set in blk_init_queue_node()->blk_queue_make_request()
 		ret = q->make_request_fn(q, bio);
 	} while (ret);
 }
@@ -3303,6 +3304,7 @@ void generic_make_request(struct bio *bio)
     // dyc: if there is a make_request is active
 	if (current->bio_tail) {
 		/* make_request is active */
+        // dyc: add bio to the tail of current->bio_list
 		*(current->bio_tail) = bio;
 		bio->bi_next = NULL;
 		current->bio_tail = &bio->bi_next;
@@ -3333,6 +3335,7 @@ void generic_make_request(struct bio *bio)
 			current->bio_tail = &current->bio_list;
 		else
 			bio->bi_next = NULL;
+        // dyc: __generic_make_request may indeed add some more bios recursivly
 		__generic_make_request(bio);
 		bio = current->bio_list;
 	} while (bio);

@@ -207,7 +207,7 @@ void fastcall lru_cache_add(struct page *page)
 	struct pagevec *pvec = &get_cpu_var(lru_add_pvecs);
 
 	page_cache_get(page);
-    // dyc: if no space left in pvec, add all pages into inactive list
+    // dyc: if no space left in pvec, add all pages into zone's inactive list
 	if (!pagevec_add(pvec, page)) {
 		__pagevec_lru_add(pvec);
     }
@@ -505,6 +505,7 @@ unsigned pagevec_lookup_tag(struct pagevec *pvec, struct address_space *mapping,
 {
 	pvec->nr = find_get_pages_tag(mapping, index, tag,
 					nr_pages, pvec->pages);
+	// dyc: return pvec->nr;
 	return pagevec_count(pvec);
 }
 
