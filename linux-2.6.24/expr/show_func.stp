@@ -1,0 +1,20 @@
+global count
+probe begin
+{
+    count = 0
+    printf("probe begin\n")
+}
+
+probe kernel.function("*@fs/open.c").call
+{
+    if (pid() == target()) {
+        printf ("%s\n", probefunc());
+        count = count + 1
+        if (count == 30) {
+            exit()
+        }
+
+    }
+}
+
+

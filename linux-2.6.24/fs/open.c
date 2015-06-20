@@ -1053,6 +1053,7 @@ asmlinkage long sys_open(const char __user *filename, int flags, int mode)
 {
 	long ret;
 
+    // dyc: if in 64-bit
 	if (force_o_largefile())
 		flags |= O_LARGEFILE;
 
@@ -1068,6 +1069,7 @@ asmlinkage long sys_openat(int dfd, const char __user *filename, int flags,
 {
 	long ret;
 
+    // dyc: if in 64-bit
 	if (force_o_largefile())
 		flags |= O_LARGEFILE;
 
