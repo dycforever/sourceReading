@@ -15,13 +15,16 @@ struct open_intent {
 enum { MAX_NESTED_LINKS = 8 };
 
 struct nameidata {
-	struct dentry	*dentry;
-	struct vfsmount *mnt;
+    // dyc: two fields below is assigned in path_lookup()
+	struct dentry	*dentry;  // dyc: last item in path, currently
+	struct vfsmount *mnt;   // dyc: mounted system of last item in path, currently
+
 	struct qstr	last;
+    // dyc: such as LOOKUP_CREATE
 	unsigned int	flags;
-	int		last_type;
-	unsigned	depth;
-	char *saved_names[MAX_NESTED_LINKS + 1];
+	int		last_type;   // 路径中最后一个分量的类型
+	unsigned	depth;   // 符号链接的嵌套深度
+	char *saved_names[MAX_NESTED_LINKS + 1];    // 用于嵌套符号链接的路径名
 
 	/* Intent data */
 	union {
@@ -51,7 +54,7 @@ enum {LAST_NORM, LAST_ROOT, LAST_DOT, LAST_DOTDOT, LAST_BIND};
 #define LOOKUP_FOLLOW		 1
 #define LOOKUP_DIRECTORY	 2
 #define LOOKUP_CONTINUE		 4
-#define LOOKUP_PARENT		16
+#define LOOKUP_PARENT		16 // dyc: means we want to operate parent, such delete a file
 #define LOOKUP_NOALT		32
 #define LOOKUP_REVAL		64
 /*

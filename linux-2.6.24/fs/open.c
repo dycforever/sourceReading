@@ -756,6 +756,7 @@ static struct file *__dentry_open(struct dentry *dentry, struct vfsmount *mnt,
 	f->f_path.mnt = mnt;
 	f->f_pos = 0;
 	f->f_op = fops_get(inode->i_fop);
+    // dyc: insert @f by file->f_u.fu_list into @inode->i_sb->s_files
 	file_move(f, &inode->i_sb->s_files);
 
 	error = security_dentry_open(f);
@@ -771,7 +772,7 @@ static struct file *__dentry_open(struct dentry *dentry, struct vfsmount *mnt,
 	}
 
 	f->f_flags &= ~(O_CREAT | O_EXCL | O_NOCTTY | O_TRUNC);
-
+    // dyc: init parameter about read ahead
 	file_ra_state_init(&f->f_ra, f->f_mapping->host->i_mapping);
 
 	/* NB: we're sure to have correct a_ops only after f_op->open */
@@ -821,9 +822,10 @@ static struct file *do_filp_open(int dfd, const char *filename, int flags,
 	struct nameidata nd;
 
 	namei_flags = flags;
+    // dyc: O_ACCMODE is 0x3, so if namei_flags is read-write
 	if ((namei_flags+1) & O_ACCMODE)
 		namei_flags++;
-
+    // dyc: no permissionss for symlinks, check permission later
 	error = open_namei(dfd, filename, namei_flags, mode, &nd);
 	if (!error)
 		return nameidata_to_filp(&nd, flags);
@@ -1041,6 +1043,7 @@ long do_sys_open(int dfd, const char __user *filename, int flags, int mode)
 				fd = PTR_ERR(f);
 			} else {
 				fsnotify_open(f->f_path.dentry);
+                // dyc: files_fdtable(current->files)->fd[fd] = file
 				fd_install(fd, f);
 			}
 		}

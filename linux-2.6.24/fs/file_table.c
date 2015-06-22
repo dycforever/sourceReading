@@ -240,7 +240,7 @@ void fastcall __fput(struct file *file)
 	dput(dentry);
 	mntput(mnt);
 }
-
+// dyc: return struct file by @fd
 struct file fastcall *fget(unsigned int fd)
 {
 	struct file *file;
@@ -269,6 +269,7 @@ EXPORT_SYMBOL(fget);
  * and a flag is returned to be passed to the corresponding fput_light().
  * There must not be a cloning between an fget_light/fput_light pair.
  */
+// dyc: return (@fd)-th file struct from current->files
 struct file fastcall *fget_light(unsigned int fd, int *fput_needed)
 {
 	struct file *file;

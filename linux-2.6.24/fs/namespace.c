@@ -96,6 +96,7 @@ void free_vfsmnt(struct vfsmount *mnt)
  * find the first or last mount at @dentry on vfsmount @mnt depending on
  * @dir. If @dir is set return the first mount else return the last mount.
  */
+// dyc: find vfsmount in mount_hashtable that is mounted under @mnt and who's dentry is @dentry
 struct vfsmount *__lookup_mnt(struct vfsmount *mnt, struct dentry *dentry,
 			      int dir)
 {
@@ -121,6 +122,7 @@ struct vfsmount *__lookup_mnt(struct vfsmount *mnt, struct dentry *dentry,
  * lookup_mnt increments the ref count before returning
  * the vfsmount struct.
  */
+// dyc: find vfsmount in mount_hashtable that is mounted under @mnt and who's dentry is @dentry
 struct vfsmount *lookup_mnt(struct vfsmount *mnt, struct dentry *dentry)
 {
 	struct vfsmount *child_mnt;
