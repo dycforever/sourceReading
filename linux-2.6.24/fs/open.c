@@ -825,8 +825,10 @@ static struct file *do_filp_open(int dfd, const char *filename, int flags,
 		namei_flags++;
 
 	error = open_namei(dfd, filename, namei_flags, mode, &nd);
-	if (!error)
+	if (!error) {
+        // dyc: if open_namei() success
 		return nameidata_to_filp(&nd, flags);
+    }
 
 	return ERR_PTR(error);
 }
