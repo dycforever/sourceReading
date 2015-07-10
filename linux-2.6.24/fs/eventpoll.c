@@ -1118,6 +1118,7 @@ error_return:
  * the eventpoll file that enables the insertion/removal/change of
  * file descriptors inside the interest set.
  */
+// dyc: The target fd must support poll
 asmlinkage long sys_epoll_ctl(int epfd, int op, int fd,
 			      struct epoll_event __user *event)
 {
@@ -1216,7 +1217,7 @@ error_return:
  * Implement the event wait interface for the eventpoll file. It is the kernel
  * part of the user space epoll_wait(2).
  */
-// dyc: check can write events, file can epoll
+// dyc: check maxevents and if @epfd can epoll
 //      then call ep_poll with file's private_data
 asmlinkage long sys_epoll_wait(int epfd, struct epoll_event __user *events,
 			       int maxevents, int timeout)

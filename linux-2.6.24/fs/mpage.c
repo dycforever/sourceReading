@@ -125,6 +125,8 @@ mpage_alloc(struct block_device *bdev,
  * them.  So when the buffer is up to date and the page size == block size,
  * this marks the page up to date instead of adding new buffers.
  */
+// dyc: get the (@page_block)th buffer_head in this page
+//      set its member to @bh
 static void 
 map_buffer_to_page(struct page *page, struct buffer_head *bh, int page_block) 
 {
@@ -142,10 +144,14 @@ map_buffer_to_page(struct page *page, struct buffer_head *bh, int page_block)
 			SetPageUptodate(page);    
 			return;
 		}
+        // dyc: alloc list of buffer_head, 
+        //      associate them with page(page->private and PG_private)
 		create_empty_buffers(page, 1 << inode->i_blkbits, 0);
 	}
 	head = page_buffers(page);
 	page_bh = head;
+    // dyc: get the (@page_block)th buffer_head in this page
+    //      set the its member to @bh
 	do {
 		if (block == page_block) {
 			page_bh->b_state = bh->b_state;
@@ -168,7 +174,7 @@ map_buffer_to_page(struct page *page, struct buffer_head *bh, int page_block)
  * get_block() call.
  */
 // dyc: @bio is the return value of the last call of do_mpage_readpage, and @bio is NULL for first call
-//      @map_bh->BH_Mapped is cleared and used for return value
+//      @map_bh->BH_Mapped is cleared when passed in and used for return value
 //      
 static struct bio *
 do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
@@ -195,6 +201,7 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 	if (page_has_buffers(page))
 		goto confused;
 
+    // dyc: block id of this file
 	block_in_file = (sector_t)page->index << (PAGE_CACHE_SHIFT - blkbits);
 	last_block = block_in_file + nr_pages * blocks_per_page;
 	last_block_in_file = (i_size_read(inode) + blocksize - 1) >> blkbits;
@@ -208,6 +215,7 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
     // dyc: in first call of this function, nblocks is uninitialized value
     //      but BH_Mapped is also cleaned, so won't into the if below
 	nblocks = map_bh->b_size >> blkbits;
+    // dyc: if we want to read block in range [*first_logical_block, *first_logical_block + nblocks)
 	if (buffer_mapped(map_bh) && block_in_file > *first_logical_block &&
 			block_in_file < (*first_logical_block + nblocks)) {
 		unsigned map_offset = block_in_file - *first_logical_block;
@@ -236,7 +244,7 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 	while (page_block < blocks_per_page) {
 		map_bh->b_state = 0;
 		map_bh->b_size = 0;
-
+        // dyc: if not the last block
 		if (block_in_file < last_block) {
 			map_bh->b_size = (last_block-block_in_file) << blkbits;
             // dyc: get_block is functions such as ext3_get_block(), ext4_get_block()
@@ -245,7 +253,8 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 				goto confused;
 			*first_logical_block = block_in_file;
 		}
-
+        // dyc: map_bh is re-assigned by get_block()
+        //      if map_bh is not mapped, it is a hole
 		if (!buffer_mapped(map_bh)) {
 			fully_mapped = 0;
 			if (first_hole == blocks_per_page)
@@ -263,30 +272,46 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 		 * so readpage doesn't have to repeat the get_block call
 		 */
 		if (buffer_uptodate(map_bh)) {
+            // dyc: get the (@page_block)th buffer_head in this page
+            //      set its member to @bh
 			map_buffer_to_page(page, map_bh, page_block);
 			goto confused;
 		}
-	
-		if (first_hole != blocks_per_page)
+        // dyc: if first_hole != blocks_per_page, means this a hole
+		if (first_hole != blocks_per_page) {
 			goto confused;		/* hole -> non-hole */
+        }
 
 		/* Contiguous blocks? */
+        // dyc: page_block is loop id, so this block isn't the first block in this page
 		if (page_block && blocks[page_block-1] != map_bh->b_blocknr-1)
 			goto confused;
+        // dyc: if blocks[page_block-1] == map_bh->b_blocknr-1, 
+        //      they are Contiguous blocks !
+
+        // dyc:  map_bh->b_size is assigned above, means block count need to read
+        //      map_bh->b_size = (last_block-block_in_file) << blkbits;
 		nblocks = map_bh->b_size >> blkbits;
 		for (relative_block = 0; ; relative_block++) {
 			if (relative_block == nblocks) {
+                // dyc: this block is the last block we need to read
+                //      and we don't need to continue the while-loop outside
 				clear_buffer_mapped(map_bh);
 				break;
-			} else if (page_block == blocks_per_page)
+			} else if (page_block == blocks_per_page) {
+                // dyc: this block is the last block in this page
+                //      and we don't need to continue the while-loop outside
 				break;
+            }
+            // dyc: blocks is array of logic block id need to read
 			blocks[page_block] = map_bh->b_blocknr+relative_block;
 			page_block++;
 			block_in_file++;
 		}
 		bdev = map_bh->b_bdev;
-	} // while (page_block < blocks_per_page) {
+	} // while (page_block < blocks_per_page)
 
+    // dyc: if there is no hole, first_hole == blocks_per_page
 	if (first_hole != blocks_per_page) {
 		zero_user_page(page, first_hole << blkbits,
 				PAGE_CACHE_SIZE - (first_hole << blkbits),
@@ -303,8 +328,10 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 	/*
 	 * This page will go to BIO.  Do we need to send this BIO off first?
 	 */
-	if (bio && (*last_block_in_bio != blocks[0] - 1))
+	if (bio && (*last_block_in_bio != blocks[0] - 1)) {
+        // dyc: bio will = NULL
 		bio = mpage_bio_submit(READ, bio);
+    }
 
 alloc_new:
 	if (bio == NULL) {
@@ -315,22 +342,29 @@ alloc_new:
 			goto confused;
 	}
 
+    // dyc: if there is no hole, first_hole == blocks_per_page
 	length = first_hole << blkbits;
+    // dyc: add new entry of bio->bi_io_vec, return $length if success
+    //      so all this $page can be a entry of bio->bi_io_vec[]
 	if (bio_add_page(bio, page, length, 0) < length) {
+        // dyc: bio will = NULL
 		bio = mpage_bio_submit(READ, bio);
 		goto alloc_new;
 	}
 
-	if (buffer_boundary(map_bh) || (first_hole != blocks_per_page))
+	if (buffer_boundary(map_bh) || (first_hole != blocks_per_page)) {
+        // dyc: bio will = NULL
 		bio = mpage_bio_submit(READ, bio);
-	else
+    } else
 		*last_block_in_bio = blocks[blocks_per_page - 1];
 out:
 	return bio;
 
 confused:
-	if (bio)
+	if (bio) {
+        // dyc: bio will = NULL
 		bio = mpage_bio_submit(READ, bio);
+    }
 	if (!PageUptodate(page)) {
         // dyc: read a block one time
 	    block_read_full_page(page, get_block);
@@ -397,19 +431,24 @@ mpage_readpages(struct address_space *mapping, struct list_head *pages,
 	unsigned long first_logical_block = 0;
 
 	clear_buffer_mapped(&map_bh);
+    // dyc: iterate all pages
 	for (page_idx = 0; page_idx < nr_pages; page_idx++) {
 		struct page *page = list_entry(pages->prev, struct page, lru);
 
 		prefetchw(&page->flags);
 		list_del(&page->lru);
+        // dyc: add page to radix-tree and inactive list
+        //      may return -EEXIST
 		if (!add_to_page_cache_lru(page, mapping,
 					page->index, GFP_KERNEL)) {
+            // dyc: why nr_pages - page_idx ?
 			bio = do_mpage_readpage(bio, page,
 					nr_pages - page_idx,
 					&last_block_in_bio, &map_bh,
 					&first_logical_block,
 					get_block);
 		}
+        // dyc: put_page
 		page_cache_release(page);
 	}
 	BUG_ON(!list_empty(pages));
@@ -431,6 +470,7 @@ int mpage_readpage(struct page *page, get_block_t get_block)
 	unsigned long first_logical_block = 0;
     // dyc: clear BH_Mapped
 	clear_buffer_mapped(&map_bh);
+    // dyc: create bio
 	bio = do_mpage_readpage(bio, page, 1, &last_block_in_bio,
 			&map_bh, &first_logical_block, get_block);
 	if (bio)
@@ -466,6 +506,7 @@ static int __mpage_writepage(struct page *page, struct writeback_control *wbc,
 			     void *data)
 {
 	struct mpage_data *mpd = data;
+    // dyc: bio usually is NULL
 	struct bio *bio = mpd->bio;
 	struct address_space *mapping = page->mapping;
 	struct inode *inode = page->mapping->host;
@@ -492,6 +533,7 @@ static int __mpage_writepage(struct page *page, struct writeback_control *wbc,
 
 		/* If they're all mapped and dirty, do it */
 		page_block = 0;
+        // dyc: iterate all buffer_head in this page, assign blocks array
 		do {
 			BUG_ON(buffer_locked(bh));
 			if (!buffer_mapped(bh)) {
@@ -505,7 +547,7 @@ static int __mpage_writepage(struct page *page, struct writeback_control *wbc,
 					first_unmapped = page_block;
 				continue;
 			}
-
+            // dyc: first_unmapped != blocks_per_page means first_unmapped = page_block above
 			if (first_unmapped != blocks_per_page)
 				goto confused;	/* hole -> non-hole */
 
@@ -524,6 +566,7 @@ static int __mpage_writepage(struct page *page, struct writeback_control *wbc,
 			bdev = bh->b_bdev;
 		} while ((bh = bh->b_this_page) != head);
 
+        // dyc: if not (first buffer_head in this page is not mapped, but others are mapped)
 		if (first_unmapped)
 			goto page_is_mapped;
 
@@ -534,7 +577,8 @@ static int __mpage_writepage(struct page *page, struct writeback_control *wbc,
 		 * using mpage_readpages then this can rarely happen.
 		 */
 		goto confused;
-	}
+        // dyc: here, bio usually is NULL
+	} // if (page_has_buffers(page))
 
 	/*
 	 * The page has no buffers: map it to disk

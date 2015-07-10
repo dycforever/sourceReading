@@ -1240,27 +1240,32 @@ struct dentry * d_lookup(struct dentry * parent, struct qstr * name)
 	struct dentry * dentry = NULL;
 	unsigned long seq;
 
-        do {
-                seq = read_seqbegin(&rename_lock);
-                dentry = __d_lookup(parent, name);
-                if (dentry)
-			break;
+    do {
+        // dyc: seq  = sl->sequence
+        seq = read_seqbegin(&rename_lock);
+        dentry = __d_lookup(parent, name);
+        if (dentry)
+            break;
+        // dyc: if sl->sequence changed, do again
 	} while (read_seqretry(&rename_lock, seq));
 	return dentry;
 }
 
+// dyc: search in global hash table: dentry_hashtable, find dentry by name
 struct dentry * __d_lookup(struct dentry * parent, struct qstr * name)
 {
 	unsigned int len = name->len;
 	unsigned int hash = name->hash;
 	const unsigned char *str = name->name;
+    // dyc: return dentry_hashtable + (hash & D_HASHMASK)
 	struct hlist_head *head = d_hash(parent,hash);
 	struct dentry *found = NULL;
 	struct hlist_node *node;
 	struct dentry *dentry;
 
 	rcu_read_lock();
-	
+    // dyc: node is loop cursor to iterate head, 
+    //      dentry = hlist_entry(node, struct dentry, d_hash)
 	hlist_for_each_entry_rcu(dentry, node, head, d_hash) {
 		struct qstr *qstr;
 
@@ -1293,7 +1298,7 @@ struct dentry * __d_lookup(struct dentry * parent, struct qstr * name)
 			if (memcmp(qstr->name, str, len))
 				goto next;
 		}
-
+        // dyc: if !(dentry->d_flags & DCACHE_UNHASHED)
 		if (!d_unhashed(dentry)) {
 			atomic_inc(&dentry->d_count);
 			found = dentry;

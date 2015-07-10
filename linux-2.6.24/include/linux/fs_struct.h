@@ -4,6 +4,7 @@
 struct dentry;
 struct vfsmount;
 
+// dyc: used by task_struct to represents root and pwd
 struct fs_struct {
 	atomic_t count;
 	rwlock_t lock;

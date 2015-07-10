@@ -305,7 +305,9 @@ int bio_get_nr_vecs(struct block_device *bdev)
 
 	return nr_pages;
 }
-
+// dyc: add new entry of bio->bi_io_vec
+//      then set the new bvec->bv_page = page;
+//      so all this $page can be a entry of bio->bi_io_vec[]
 static int __bio_add_page(struct request_queue *q, struct bio *bio, struct page
 			  *page, unsigned int len, unsigned int offset,
 			  unsigned short max_sectors)
@@ -329,7 +331,7 @@ static int __bio_add_page(struct request_queue *q, struct bio *bio, struct page
 	 */
 	if (bio->bi_vcnt > 0) {
 		struct bio_vec *prev = &bio->bi_io_vec[bio->bi_vcnt - 1];
-
+        // dyc: if this call is continue of last call
 		if (page == prev->bv_page &&
 		    offset == prev->bv_offset + prev->bv_len) {
 			prev->bv_len += len;

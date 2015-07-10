@@ -62,6 +62,7 @@ struct buffer_head {
 	struct buffer_head *b_this_page;/* circular list of page's buffers */
 	struct page *b_page;		/* the page this bh is mapped to */
 
+    // dyc: if buffer_head is mapped, b_dev and b_blocknr is valid
 	sector_t b_blocknr;		/* start block number */
 	size_t b_size;			/* size of mapping */
 	char *b_data;			/* pointer to data within the page */
@@ -119,6 +120,7 @@ BUFFER_FNS(Lock, locked)
 TAS_BUFFER_FNS(Lock, locked)
 BUFFER_FNS(Req, req)
 TAS_BUFFER_FNS(Req, req)
+// dyc: if buffer_head is mapped, b_dev and b_blocknr is valid
 BUFFER_FNS(Mapped, mapped)
 BUFFER_FNS(New, new)
 BUFFER_FNS(Async_Read, async_read)

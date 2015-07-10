@@ -451,6 +451,7 @@ int filemap_write_and_wait_range(struct address_space *mapping,
  * This function does not add the page to the LRU.  The caller must do that.
  */
 // dyc: add page to radix_tree
+//      may return -EEXIST
 int add_to_page_cache(struct page *page, struct address_space *mapping,
 		pgoff_t offset, gfp_t gfp_mask)
 {
@@ -476,12 +477,18 @@ int add_to_page_cache(struct page *page, struct address_space *mapping,
 }
 EXPORT_SYMBOL(add_to_page_cache);
 
+// dyc: add page to radix-tree and inactive list
+//      may return -EEXIST
 int add_to_page_cache_lru(struct page *page, struct address_space *mapping,
 				pgoff_t offset, gfp_t gfp_mask)
 {
+    // dyc: add page to radix_tree
 	int ret = add_to_page_cache(page, mapping, offset, gfp_mask);
-	if (ret == 0)
+	if (ret == 0) {
+        // dyc: add page into per_cpu lru_add_pvecs
+        //      if no space left in pvec, add all pages into inactive list
 		lru_cache_add(page);
+    }
 	return ret;
 }
 
@@ -634,6 +641,7 @@ EXPORT_SYMBOL(find_get_page);
  *
  * Returns zero if the page was not present. find_lock_page() may sleep.
  */
+// dyc: comments above...
 struct page *find_lock_page(struct address_space *mapping,
 				pgoff_t offset)
 {
@@ -643,7 +651,9 @@ repeat:
 	read_lock_irq(&mapping->tree_lock);
 	page = radix_tree_lookup(&mapping->page_tree, offset);
 	if (page) {
+        // dyc: atomic_inc(&page->_count);
 		page_cache_get(page);
+        // dyc: test if page is locked
 		if (TestSetPageLocked(page)) {
 			read_unlock_irq(&mapping->tree_lock);
 			__lock_page(page);
@@ -2040,6 +2050,7 @@ struct page *__grab_cache_page(struct address_space *mapping, pgoff_t index)
 	int status;
 	struct page *page;
 repeat:
+    // dyc: Locates the desired pagecache page, locks it, increments its reference
 	page = find_lock_page(mapping, index);
 	if (likely(page))
 		return page;
@@ -2047,6 +2058,7 @@ repeat:
 	page = page_cache_alloc(mapping);
 	if (!page)
 		return NULL;
+    // dyc: add page to radix-tree and zone->inactive list
 	status = add_to_page_cache_lru(page, mapping, index, GFP_KERNEL);
 	if (unlikely(status)) {
 		page_cache_release(page);

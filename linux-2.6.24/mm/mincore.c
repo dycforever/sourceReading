@@ -98,16 +98,19 @@ static long do_mincore(unsigned long addr, unsigned char *vec, unsigned long pag
 	if (pmd_none_or_clear_bad(pmd))
 		goto none_mapped;
 
+    // dyc: get ptep and lock ptl
 	ptep = pte_offset_map_lock(vma->vm_mm, pmd, addr, &ptl);
 	for (i = 0; i < nr; i++, ptep++, addr += PAGE_SIZE) {
 		unsigned char present;
+        // dyc: pte is a pointer to frame
 		pte_t pte = *ptep;
 
 		if (pte_present(pte)) {
 			present = 1;
-
 		} else if (pte_none(pte)) {
+            // dyc: here means if pte point to NULL
 			if (vma->vm_file) {
+                // dyc: page offset from start of vm_file
 				pgoff = linear_page_index(vma, addr);
 				present = mincore_page(vma->vm_file->f_mapping,
 							pgoff);
@@ -115,6 +118,7 @@ static long do_mincore(unsigned long addr, unsigned char *vec, unsigned long pag
 				present = 0;
 
 		} else if (pte_file(pte)) {
+            // dyc: when page is not present but dirty, it is in nonlinear mapping
 			pgoff = pte_to_pgoff(pte);
 			present = mincore_page(vma->vm_file->f_mapping, pgoff);
 
@@ -142,6 +146,7 @@ static long do_mincore(unsigned long addr, unsigned char *vec, unsigned long pag
 
 none_mapped:
 	if (vma->vm_file) {
+        // dyc: page offset from start of vm_file
 		pgoff = linear_page_index(vma, addr);
 		for (i = 0; i < nr; i++, pgoff++)
 			vec[i] = mincore_page(vma->vm_file->f_mapping, pgoff);
@@ -194,6 +199,7 @@ asmlinkage long sys_mincore(unsigned long start, size_t len,
 
 	/* This also avoids any overflows on PAGE_CACHE_ALIGN */
 	pages = len >> PAGE_SHIFT;
+    // dyc: PAGE_MASK == (~(PAGE_SIZE - 1))
 	pages += (len & ~PAGE_MASK) != 0;
 
 	if (!access_ok(VERIFY_WRITE, vec, pages))
@@ -210,6 +216,7 @@ asmlinkage long sys_mincore(unsigned long start, size_t len,
 		 * the temporary buffer size.
 		 */
 		down_read(&current->mm->mmap_sem);
+        // dyc: do one page a time
 		retval = do_mincore(start, tmp, min(pages, PAGE_SIZE));
 		up_read(&current->mm->mmap_sem);
 
