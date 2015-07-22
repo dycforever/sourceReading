@@ -203,10 +203,12 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         }
 
         module = ngx_modules[m]->ctx;
-        // dyc: @mi means (mi)th HTTP module
+        // dyc: @mi means (mi)th HTTP module,
+        //      @ctx_index is calculated above
         mi = ngx_modules[m]->ctx_index;
 
         if (module->create_main_conf) {
+            // dyc: such as ngx_http_core_create_main_conf()/ngx_http_upstream_create_main_conf()
             ctx->main_conf[mi] = module->create_main_conf(cf);
             if (ctx->main_conf[mi] == NULL) {
                 return NGX_CONF_ERROR;
@@ -214,6 +216,7 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         }
 
         if (module->create_srv_conf) {
+            // dyc: such as ngx_http_core_create_srv_conf()
             ctx->srv_conf[mi] = module->create_srv_conf(cf);
             if (ctx->srv_conf[mi] == NULL) {
                 return NGX_CONF_ERROR;
@@ -221,13 +224,14 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         }
 
         if (module->create_loc_conf) {
+            // dyc: such as ngx_http_core_create_loc_conf()
             ctx->loc_conf[mi] = module->create_loc_conf(cf);
             if (ctx->loc_conf[mi] == NULL) {
                 return NGX_CONF_ERROR;
             }
         }
     }
-
+    // dyc: save previous cf, such as cmd_type/module_type
     pcf = *cf;
     cf->ctx = ctx;
 
@@ -270,11 +274,13 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         }
 
         module = ngx_modules[m]->ctx;
+        // dyc: @ctx_index is calculated above
         mi = ngx_modules[m]->ctx_index;
 
         /* init http{} main_conf's */
 
         if (module->init_main_conf) {
+            // dyc: such as ngx_http_core_init_main_conf()
             rv = module->init_main_conf(cf, ctx->main_conf[mi]);
             if (rv != NGX_CONF_OK) {
                 goto failed;

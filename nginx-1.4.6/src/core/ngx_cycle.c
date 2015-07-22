@@ -223,6 +223,8 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
             continue;
         }
 
+        // dyc: notice! it is only for NGX_CORE_MODULE !!
+        //      for ngx_http_core_module, they are create_conf/merge_conf
         module = ngx_modules[i]->ctx;
         // dyc: ngx_core_module_create_conf for example, return a ngx_core_conf_t
         if (module->create_conf) {
@@ -269,7 +271,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         ngx_destroy_cycle_pools(&conf);
         return NULL;
     }
-
+    // dyc:  cycle->conf_file such of /usr/local/nginx/conf/nginx.conf
     if (ngx_conf_parse(&conf, &cycle->conf_file) != NGX_CONF_OK) {
         environ = senv;
         ngx_destroy_cycle_pools(&conf);
@@ -288,7 +290,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         }
 
         module = ngx_modules[i]->ctx;
-
+        // dyc: notice! it is only for NGX_CORE_MODULE !!
         if (module->init_conf) {
             if (module->init_conf(cycle, cycle->conf_ctx[ngx_modules[i]->index])
                 == NGX_CONF_ERROR)

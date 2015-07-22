@@ -113,6 +113,15 @@ struct ngx_module_s {
 
     void                 *ctx;
     ngx_command_t        *commands;
+    /* 
+     * 模块的类型，nginx所有的模块类型： 
+     *      NGX_CORE_MODULE 
+     *      NGX_CONF_MODULE 
+     *      NGX_HTTP_MODULE 
+     *      NGX_EVENT_MODULE 
+     *      NGX_MAIL_MODULE 
+     * 这些不同的类型也指定了不同的ctx。 
+     */  
     ngx_uint_t            type;
 
     ngx_int_t           (*init_master)(ngx_log_t *log);

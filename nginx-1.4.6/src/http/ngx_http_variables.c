@@ -345,7 +345,8 @@ ngx_http_variable_value_t  ngx_http_variable_null_value =
 ngx_http_variable_value_t  ngx_http_variable_true_value =
     ngx_http_variable("1");
 
-
+// dyc: add variable into 
+//      ((ngx_http_conf_ctx_t *) cf->ctx)->main_conf[ngx_http_core_module.ctx_index]->variables_keys
 ngx_http_variable_t *
 ngx_http_add_variable(ngx_conf_t *cf, ngx_str_t *name, ngx_uint_t flags)
 {
@@ -364,6 +365,7 @@ ngx_http_add_variable(ngx_conf_t *cf, ngx_str_t *name, ngx_uint_t flags)
     cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
 
     key = cmcf->variables_keys->keys.elts;
+    // dyc: if key exist and no changeable, return NULL
     for (i = 0; i < cmcf->variables_keys->keys.nelts; i++) {
         if (name->len != key[i].key.len
             || ngx_strncasecmp(name->data, key[i].key.data, name->len) != 0)
@@ -2442,13 +2444,15 @@ ngx_http_variables_init_vars(ngx_conf_t *cf)
 
     v = cmcf->variables.elts;
     key = cmcf->variables_keys->keys.elts;
-
+    // dyc: all variables in config must pre-defined in config !
+    // dyc: foreach v in cmcf->variables.elts
     for (i = 0; i < cmcf->variables.nelts; i++) {
-
+        // dyc: foreach key in cmcf->variables_keys->keys
         for (n = 0; n < cmcf->variables_keys->keys.nelts; n++) {
 
             av = key[n].value;
-
+            // dyc: if we find a key in cmcf->variables_keys(in config) MATCHES
+            //      value in cmcf->variable(in code), value->handler = key->handler and so on
             if (av->get_handler
                 && v[i].name.len == key[n].key.len
                 && ngx_strncmp(v[i].name.data, key[n].key.data, v[i].name.len)
@@ -2510,7 +2514,7 @@ ngx_http_variables_init_vars(ngx_conf_t *cf)
 
     next:
         continue;
-    }
+    } // dyc: foreach v in cmcf->variables.elts
 
 
     for (n = 0; n < cmcf->variables_keys->keys.nelts; n++) {
