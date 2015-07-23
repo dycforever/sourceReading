@@ -471,6 +471,7 @@ static int exec_permission_lite(struct inode *inode,
 
 	return -EACCES;
 ok:
+    // dyc: security_ops->inode_permission()
 	return security_inode_permission(inode, MAY_EXEC, nd);
 }
 
@@ -482,6 +483,7 @@ ok:
  * make sure that nobody added the entry to the dcache in the meantime..
  * SMP-safe
  */
+// dyc: create dentry and call dir->i_op->lookup() to read data from disk
 static struct dentry * real_lookup(struct dentry * parent, struct qstr * name, struct nameidata *nd)
 {
 	struct dentry * result;
@@ -504,9 +506,12 @@ static struct dentry * real_lookup(struct dentry * parent, struct qstr * name, s
 	 */
 	result = d_lookup(parent, name);
 	if (!result) {
+        // dyc: alloc dentry, assign name, 
+        //      and set d_parent/d_sb from parent, then add into parent->d_subdirs
 		struct dentry * dentry = d_alloc(parent, name);
 		result = ERR_PTR(-ENOMEM);
 		if (dentry) {
+            // dyc: such as ext4_lookup
 			result = dir->i_op->lookup(dir, dentry, nd);
 			if (result)
 				dput(dentry);
@@ -692,11 +697,15 @@ int follow_up(struct vfsmount **mnt, struct dentry **dentry)
 static int __follow_mount(struct path *path)
 {
 	int res = 0;
+    // dyc: if dentry->d_mounted
+    //      don't know why use while here
 	while (d_mountpoint(path->dentry)) {
+        // dyc: find vfsmount in mount_hashtable that is mounted under @mnt and who's dentry is @dentry
 		struct vfsmount *mounted = lookup_mnt(path->mnt, path->dentry);
 		if (!mounted)
 			break;
 		dput(path->dentry);
+        // dyc: only difference between this function and follow_mount() below
 		if (res)
 			mntput(path->mnt);
 		path->mnt = mounted;
@@ -709,6 +718,7 @@ static int __follow_mount(struct path *path)
 static void follow_mount(struct vfsmount **mnt, struct dentry **dentry)
 {
 	while (d_mountpoint(*dentry)) {
+        // dyc: find vfsmount in mount_hashtable that is mounted under @mnt and who's dentry is @dentry
 		struct vfsmount *mounted = lookup_mnt(*mnt, *dentry);
 		if (!mounted)
 			break;
@@ -725,7 +735,7 @@ static void follow_mount(struct vfsmount **mnt, struct dentry **dentry)
 int follow_down(struct vfsmount **mnt, struct dentry **dentry)
 {
 	struct vfsmount *mounted;
-
+    // dyc: find vfsmount in mount_hashtable that is mounted under @mnt and who's dentry is @dentry
 	mounted = lookup_mnt(*mnt, *dentry);
 	if (mounted) {
 		dput(*dentry);
@@ -736,7 +746,7 @@ int follow_down(struct vfsmount **mnt, struct dentry **dentry)
 	}
 	return 0;
 }
-
+// dyc: try to return back to parent dir
 static __always_inline void follow_dotdot(struct nameidata *nd)
 {
 	struct fs_struct *fs = current->fs;
@@ -785,6 +795,7 @@ static int do_lookup(struct nameidata *nd, struct qstr *name,
 		     struct path *path)
 {
 	struct vfsmount *mnt = nd->mnt;
+    // dyc: search in global hash table: dentry_hashtable, find dentry by name
 	struct dentry *dentry = __d_lookup(nd->dentry, name);
 
 	if (!dentry)
@@ -794,16 +805,20 @@ static int do_lookup(struct nameidata *nd, struct qstr *name,
 done:
 	path->mnt = mnt;
 	path->dentry = dentry;
+    // dyc: if path is a mount point, find that struct vfsmount
+    //      and set to path->mnt
 	__follow_mount(path);
 	return 0;
 
 need_lookup:
+    // dyc: lookup in disk
 	dentry = real_lookup(nd->dentry, name, nd);
 	if (IS_ERR(dentry))
 		goto fail;
 	goto done;
 
 need_revalidate:
+    // dyc: call dentry->d_op->d_revalidate(dentry, nd)
 	dentry = do_revalidate(dentry, nd);
 	if (!dentry)
 		goto need_lookup;
@@ -846,15 +861,20 @@ static fastcall int __link_path_walk(const char * name, struct nameidata *nd)
 		unsigned int c;
 
 		nd->flags |= LOOKUP_CONTINUE;
+        // dyc: check if has MAY_EXEC permission
 		err = exec_permission_lite(inode, nd);
-		if (err == -EAGAIN)
+		if (err == -EAGAIN) {
+            // dyc: check by inode->i_op->permission()
 			err = vfs_permission(nd, MAY_EXEC);
+        }
  		if (err)
 			break;
 
+        // dyc: this is current path component
 		this.name = name;
 		c = *(const unsigned char *)name;
 
+        // dyc: hash = 0
 		hash = init_name_hash();
 		do {
 			name++;
@@ -862,6 +882,7 @@ static fastcall int __link_path_walk(const char * name, struct nameidata *nd)
 			c = *(const unsigned char *)name;
 		} while (c && (c != '/'));
 		this.len = name - (const char *) this.name;
+        // dyc: return hash
 		this.hash = end_name_hash(hash);
 
 		/* remove trailing slashes? */
@@ -893,6 +914,7 @@ static fastcall int __link_path_walk(const char * name, struct nameidata *nd)
 		 * to use its own hash..
 		 */
 		if (nd->dentry->d_op && nd->dentry->d_op->d_hash) {
+            // dyc: recalculate hash
 			err = nd->dentry->d_op->d_hash(nd->dentry, &this);
 			if (err < 0)
 				break;
@@ -1128,6 +1150,7 @@ static int fastcall do_path_lookup(int dfd, const char *name,
 	nd->flags = flags;
 	nd->depth = 0;
 
+    // dyc: if-else below set nd->mnt and nd->dentry
 	if (*name=='/') {
 		read_lock(&fs->lock);
 		if (fs->altroot && !(nd->flags & LOOKUP_NOALT)) {
@@ -1138,6 +1161,7 @@ static int fastcall do_path_lookup(int dfd, const char *name,
 				goto out; /* found in altroot */
 			read_lock(&fs->lock);
 		}
+        // dyc: get and atomic increase vfsmount->mnt_count and dentry->d_count by 1
 		nd->mnt = mntget(fs->rootmnt);
 		nd->dentry = dget(fs->root);
 		read_unlock(&fs->lock);
@@ -1169,7 +1193,7 @@ static int fastcall do_path_lookup(int dfd, const char *name,
 
 		fput_light(file, fput_needed);
 	}
-
+    // dyc: actually __link_path_walk()
 	retval = path_walk(name, nd);
 out:
 	if (unlikely(!retval && !audit_dummy_context() && nd->dentry &&
