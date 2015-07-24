@@ -35,22 +35,22 @@ struct ngx_shm_zone_s {
 
 
 struct ngx_cycle_s {
-    void                  ****conf_ctx;
+    void                  ****conf_ctx;  // 11. init from empty  13. create by each module->create_conf()
     ngx_pool_t               *pool;
 
-    ngx_log_t                *log;
+    ngx_log_t                *log;  // 1, inherit from old cycle
     ngx_log_t                 new_log;
 
     ngx_connection_t        **files;
     ngx_connection_t         *free_connections;
     ngx_uint_t                free_connection_n;
 
-    ngx_queue_t               reusable_connections_queue;
+    ngx_queue_t               reusable_connections_queue;  // 10. init from empty
 
-    ngx_array_t               listening;
-    ngx_array_t               paths;
-    ngx_list_t                open_files;
-    ngx_list_t                shared_memory;
+    ngx_array_t               listening; // 9. copy from old_cycle or create with length 10; 16. listen 
+    ngx_array_t               paths; // 6. same length with old_cycle or 10
+    ngx_list_t                open_files; // 7. same length with old_cycle or 20; 14. create paths
+    ngx_list_t                shared_memory; // 8. same length with old_cycle or 1; 15. create shared_zones
 
     ngx_uint_t                connection_n;
     ngx_uint_t                files_n;
@@ -61,12 +61,12 @@ struct ngx_cycle_s {
 
     ngx_cycle_t              *old_cycle;
 
-    ngx_str_t                 conf_file;  // conf/nginx.conf
-    ngx_str_t                 conf_param;
-    ngx_str_t                 conf_prefix; // conf
-    ngx_str_t                 prefix;  // ~/tools/nginx/
+    ngx_str_t                 conf_file;  // 4. copy from old cycle, such of conf/nginx.conf
+    ngx_str_t                 conf_param; // 5. copy from old cycle
+    ngx_str_t                 conf_prefix; // 2. copy from old cycle, such of conf
+    ngx_str_t                 prefix;  // 3. copy from old cycle, such of conf
     ngx_str_t                 lock_file;
-    ngx_str_t                 hostname;
+    ngx_str_t                 hostname;  // 12. get from sys-function
 };
 
 
