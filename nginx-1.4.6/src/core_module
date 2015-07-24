@@ -1,0 +1,8 @@
+ ngx_errlog_module 
+ ngx_core_module 
+ ngx_regex_module 
+ ngx_google_perftools_module 
+ ngx_openssl_module 
+ ngx_events_module 
+ ngx_http_module 
+ ngx_mail_module 

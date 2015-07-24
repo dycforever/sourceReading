@@ -1,0 +1,10 @@
+ ngx_kqueue_module 
+ ngx_select_module 
+ ngx_rtsig_module 
+ ngx_poll_module 
+ ngx_devpoll_module 
+ ngx_select_module 
+ ngx_epoll_module 
+ ngx_aio_module 
+ ngx_eventport_module 
+ ngx_event_core_module 
