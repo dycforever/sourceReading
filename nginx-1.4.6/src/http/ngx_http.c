@@ -239,9 +239,9 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         if (ngx_modules[m]->type != NGX_HTTP_MODULE) {
             continue;
         }
-
+        // dyc: init when declare, such as ngx_http_core_module
         module = ngx_modules[m]->ctx;
-
+        // dyc: ngx_http_core_preconfiguration() call ngx_http_variables_add_core_vars()
         if (module->preconfiguration) {
             if (module->preconfiguration(cf) != NGX_OK) {
                 return NGX_CONF_ERROR;

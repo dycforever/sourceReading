@@ -2933,7 +2933,7 @@ ngx_http_core_server(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
     if (ctx == NULL) {
         return NGX_CONF_ERROR;
     }
-
+    // dyc: cf->ctx is create in ngx_http_block()
     http_ctx = cf->ctx;
     ctx->main_conf = http_ctx->main_conf;
 
@@ -2977,9 +2977,7 @@ ngx_http_core_server(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
         }
     }
 
-
     /* the server configuration context */
-
     cscf = ctx->srv_conf[ngx_http_core_module.ctx_index];
     cscf->ctx = ctx;
 
@@ -3003,7 +3001,7 @@ ngx_http_core_server(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
     rv = ngx_conf_parse(cf, NULL);
 
     *cf = pcf;
-
+    // dyc: cscf->listen set in ngx_http_core_listen()
     if (rv == NGX_CONF_OK && !cscf->listen) {
         ngx_memzero(&lsopt, sizeof(ngx_http_listen_opt_t));
 
@@ -3056,7 +3054,7 @@ ngx_http_core_location(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
     if (ctx == NULL) {
         return NGX_CONF_ERROR;
     }
-
+    // dyc: cf->ctx is create in ngx_http_core_server()
     pctx = cf->ctx;
     ctx->main_conf = pctx->main_conf;
     ctx->srv_conf = pctx->srv_conf;
@@ -3931,7 +3929,7 @@ ngx_http_core_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     return NGX_CONF_OK;
 }
 
-
+// dyc: for command "listen"
 static char *
 ngx_http_core_listen(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
