@@ -484,7 +484,7 @@ ngx_event_pipe_write_to_downstream(ngx_event_pipe_t *p)
                 for (cl = p->out; cl; cl = cl->next) {
                     cl->buf->recycled = 0;
                 }
-
+                // dyc: ngx_http_output_filter(), will call ngx_http_top_body_filter()
                 rc = p->output_filter(p->output_ctx, p->out);
 
                 if (rc == NGX_ERROR) {

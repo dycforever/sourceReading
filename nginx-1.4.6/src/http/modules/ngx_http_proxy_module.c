@@ -626,7 +626,7 @@ static ngx_path_init_t  ngx_http_proxy_temp_path = {
     ngx_string(NGX_HTTP_PROXY_TEMP_PATH), { 1, 2, 0 }
 };
 
-
+// dyc: create r->upstream, set r->ctx[], and callbacks in r->upstream
 static ngx_int_t
 ngx_http_proxy_handler(ngx_http_request_t *r)
 {
@@ -634,7 +634,7 @@ ngx_http_proxy_handler(ngx_http_request_t *r)
     ngx_http_upstream_t        *u;
     ngx_http_proxy_ctx_t       *ctx;
     ngx_http_proxy_loc_conf_t  *plcf;
-
+    // dyc: create r->upstream
     if (ngx_http_upstream_create(r) != NGX_OK) {
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
@@ -670,6 +670,7 @@ ngx_http_proxy_handler(ngx_http_request_t *r)
 #if (NGX_HTTP_CACHE)
     u->create_key = ngx_http_proxy_create_key;
 #endif
+    // dyc: set callbacks
     u->create_request = ngx_http_proxy_create_request;
     u->reinit_request = ngx_http_proxy_reinit_request;
     u->process_header = ngx_http_proxy_process_status_line;
@@ -3123,7 +3124,7 @@ ngx_http_proxy_pass(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     value = cf->args->elts;
 
     url = &value[1];
-
+    // dyc: count '$'
     n = ngx_http_script_variables_count(url);
 
     if (n) {
@@ -3182,7 +3183,7 @@ ngx_http_proxy_pass(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     u.default_port = port;
     u.uri_part = 1;
     u.no_resolve = 1;
-
+    // dyc: add a node
     plcf->upstream.upstream = ngx_http_upstream_add(cf, &u, 0);
     if (plcf->upstream.upstream == NULL) {
         return NGX_CONF_ERROR;

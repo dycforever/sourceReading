@@ -395,7 +395,6 @@ ngx_epoll_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
     c = ev->data;
 
     events = (uint32_t) event;
-
     if (event == NGX_READ_EVENT) {
         e = c->write;
         prev = EPOLLOUT;
@@ -411,6 +410,8 @@ ngx_epoll_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
 #endif
     }
 
+    // dyc: if e is active for read(EPOLLIN is in epoll)
+    //      we need to EPOLL_CTL_MOD with EPOLLIN | EPOLLOUT
     if (e->active) {
         op = EPOLL_CTL_MOD;
         events |= prev;
@@ -440,6 +441,7 @@ ngx_epoll_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
 }
 
 
+// dyc: delete NGX_READ_EVENT, means keep EPOLLOUT
 static ngx_int_t
 ngx_epoll_del_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
 {
@@ -461,7 +463,7 @@ ngx_epoll_del_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
     }
 
     c = ev->data;
-
+    // dyc: delete NGX_READ_EVENT, means keep EPOLLOUT
     if (event == NGX_READ_EVENT) {
         e = c->write;
         prev = EPOLLOUT;
@@ -474,6 +476,7 @@ ngx_epoll_del_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
     if (e->active) {
         op = EPOLL_CTL_MOD;
         ee.events = prev | (uint32_t) flags;
+        // dyc: combine pointer and instance
         ee.data.ptr = (void *) ((uintptr_t) c | ev->instance);
 
     } else {
@@ -504,6 +507,7 @@ ngx_epoll_add_connection(ngx_connection_t *c)
     struct epoll_event  ee;
 
     ee.events = EPOLLIN|EPOLLOUT|EPOLLET;
+    // dyc: combine pointer and instance
     ee.data.ptr = (void *) ((uintptr_t) c | c->read->instance);
 
     ngx_log_debug2(NGX_LOG_DEBUG_EVENT, c->log, 0,
@@ -559,7 +563,7 @@ ngx_epoll_del_connection(ngx_connection_t *c, ngx_uint_t flags)
     return NGX_OK;
 }
 
-// dyc: called by ngx_process_events_and_timers()
+// dyc: called by ngx_process_events_and_timers()->ngx_process_events()
 static ngx_int_t
 ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
 {
@@ -663,6 +667,8 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
         // dyc: deal write event
         wev = c->write;
         if ((revents & EPOLLOUT) && wev->active) {
+            // dyc: if connection is closed, fd == -1
+            //      if freed connection is used by other one, instance is flipped
             if (c->fd == -1 || wev->instance != instance) {
                 /*
                  * the stale event from a file descriptor

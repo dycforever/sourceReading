@@ -343,7 +343,7 @@ ngx_handle_read_event(ngx_event_t *rev, ngx_uint_t flags)
     return NGX_OK;
 }
 
-
+// dyc: lowat is useless for linux
 ngx_int_t
 ngx_handle_write_event(ngx_event_t *wev, size_t lowat)
 {

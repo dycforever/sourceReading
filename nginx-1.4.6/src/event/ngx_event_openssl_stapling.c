@@ -113,7 +113,7 @@ static ngx_int_t ngx_ssl_ocsp_process_body(ngx_ssl_ocsp_ctx_t *ctx);
 
 static u_char *ngx_ssl_ocsp_log_error(ngx_log_t *log, u_char *buf, size_t len);
 
-
+// dyc: use @cf to get prefix_path and mem_pool
 ngx_int_t
 ngx_ssl_stapling(ngx_conf_t *cf, ngx_ssl_t *ssl, ngx_str_t *file,
     ngx_str_t *responder, ngx_uint_t verify)
@@ -126,7 +126,7 @@ ngx_ssl_stapling(ngx_conf_t *cf, ngx_ssl_t *ssl, ngx_str_t *file,
     if (staple == NULL) {
         return NGX_ERROR;
     }
-
+    // dyc: alloc a ngx_pool_cleanup_t from pool with data of 0
     cln = ngx_pool_cleanup_add(cf->pool, 0);
     if (cln == NULL) {
         return NGX_ERROR;
@@ -156,17 +156,15 @@ ngx_ssl_stapling(ngx_conf_t *cf, ngx_ssl_t *ssl, ngx_str_t *file,
 
         goto done;
     }
-
+    // dyc: set staple's cert/issuer
     rc = ngx_ssl_stapling_issuer(cf, ssl);
-
     if (rc == NGX_DECLINED) {
         return NGX_OK;
     }
-
     if (rc != NGX_OK) {
         return NGX_ERROR;
     }
-
+    // dyc: read ocsp resp from file to @responder and set staple's addrs/host/uri/port
     rc = ngx_ssl_stapling_responder(cf, ssl, responder);
 
     if (rc == NGX_DECLINED) {
@@ -178,14 +176,14 @@ ngx_ssl_stapling(ngx_conf_t *cf, ngx_ssl_t *ssl, ngx_str_t *file,
     }
 
 done:
-
+    // dyc: called when received ocsp response ??
     SSL_CTX_set_tlsext_status_cb(ssl->ctx, ngx_ssl_certificate_status_callback);
     SSL_CTX_set_tlsext_status_arg(ssl->ctx, staple);
 
     return NGX_OK;
 }
 
-
+// dyc: read ocsp response into staple->data
 static ngx_int_t
 ngx_ssl_stapling_file(ngx_conf_t *cf, ngx_ssl_t *ssl, ngx_str_t *file)
 {
@@ -215,7 +213,7 @@ ngx_ssl_stapling_file(ngx_conf_t *cf, ngx_ssl_t *ssl, ngx_str_t *file)
         BIO_free(bio);
         return NGX_ERROR;
     }
-
+    // dyc: calculate length
     len = i2d_OCSP_RESPONSE(response, NULL);
     if (len <= 0) {
         ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
@@ -253,7 +251,7 @@ failed:
     return NGX_ERROR;
 }
 
-
+// dyc: set staple's cert/issuer
 static ngx_int_t
 ngx_ssl_stapling_issuer(ngx_conf_t *cf, ngx_ssl_t *ssl)
 {
@@ -292,7 +290,7 @@ ngx_ssl_stapling_issuer(ngx_conf_t *cf, ngx_ssl_t *ssl)
             return NGX_OK;
         }
     }
-
+    // dyc: if doesn't find issuer above
     store = SSL_CTX_get_cert_store(ssl->ctx);
     if (store == NULL) {
         ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
@@ -340,7 +338,7 @@ ngx_ssl_stapling_issuer(ngx_conf_t *cf, ngx_ssl_t *ssl)
     return NGX_OK;
 }
 
-
+// dyc: set staple's addrs/host/uri/port
 static ngx_int_t
 ngx_ssl_stapling_responder(ngx_conf_t *cf, ngx_ssl_t *ssl, ngx_str_t *responder)
 {
@@ -469,7 +467,7 @@ ngx_ssl_certificate_status_callback(ngx_ssl_conn_t *ssl_conn, void *data)
             ngx_ssl_error(NGX_LOG_ALERT, c->log, 0, "OPENSSL_malloc() failed");
             return SSL_TLSEXT_ERR_NOACK;
         }
-
+        // dyc: staple->data is ocsp response read from file
         ngx_memcpy(p, staple->staple.data, staple->staple.len);
 
         SSL_set_tlsext_status_ocsp_resp(ssl_conn, p, staple->staple.len);

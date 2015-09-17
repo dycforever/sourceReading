@@ -22,7 +22,7 @@ static void ngx_http_upstream_empty_save_session(ngx_peer_connection_t *pc,
 
 #endif
 
-
+// dyc: called by uscfp[i]->peer.init_upstream in ngx_http_upstream_init_main_conf()
 ngx_int_t
 ngx_http_upstream_init_round_robin(ngx_conf_t *cf,
     ngx_http_upstream_srv_conf_t *us)
@@ -31,7 +31,7 @@ ngx_http_upstream_init_round_robin(ngx_conf_t *cf,
     ngx_uint_t                     i, j, n, w;
     ngx_http_upstream_server_t    *server;
     ngx_http_upstream_rr_peers_t  *peers, *backup;
-
+    // dyc: will be called in ngx_http_upstream_init_request()
     us->peer.init = ngx_http_upstream_init_round_robin_peer;
 
     if (us->servers) {
@@ -39,7 +39,7 @@ ngx_http_upstream_init_round_robin(ngx_conf_t *cf,
 
         n = 0;
         w = 0;
-        // dyc: a server name may have multiple ip addresses
+        // dyc: iterate all peers
         for (i = 0; i < us->servers->nelts; i++) {
             if (server[i].backup) {
                 continue;
@@ -206,13 +206,14 @@ ngx_http_upstream_init_round_robin(ngx_conf_t *cf,
 }
 
 // dyc: alloc rrp, clear peer->tried array and set callback functions
+//      will be called in ngx_http_upstream_init_request()
 ngx_int_t
 ngx_http_upstream_init_round_robin_peer(ngx_http_request_t *r,
     ngx_http_upstream_srv_conf_t *us)
 {
     ngx_uint_t                         n;
     ngx_http_upstream_rr_peer_data_t  *rrp;
-
+    // dyc: ngx_http_request_s->ngx_http_upstream_s
     rrp = r->upstream->peer.data;
 
     if (rrp == NULL) {
@@ -223,7 +224,8 @@ ngx_http_upstream_init_round_robin_peer(ngx_http_request_t *r,
 
         r->upstream->peer.data = rrp;
     }
-
+    // dyc: point to runtime peer info struct(ngx_http_upstream_rr_peers_s)
+    //      set in ngx_http_upstream_init_round_robin()
     rrp->peers = us->peer.data;
     rrp->current = 0;
 
@@ -259,7 +261,8 @@ ngx_http_upstream_init_round_robin_peer(ngx_http_request_t *r,
     return NGX_OK;
 }
 
-
+// dyc: set r->upstream->peer's get/free functions, and set r->upstream->peer.data
+//      r->upstream->peer.data is context for one request, such choose peer/retry
 ngx_int_t
 ngx_http_upstream_create_round_robin_peer(ngx_http_request_t *r,
     ngx_http_upstream_resolved_t *ur)
@@ -270,7 +273,8 @@ ngx_http_upstream_create_round_robin_peer(ngx_http_request_t *r,
     struct sockaddr_in                *sin;
     ngx_http_upstream_rr_peers_t      *peers;
     ngx_http_upstream_rr_peer_data_t  *rrp;
-
+    // dyc: this is one request's choose peer context
+    //      ngx_http_upstream_s->ngx_peer_connection_s
     rrp = r->upstream->peer.data;
 
     if (rrp == NULL) {
@@ -292,6 +296,7 @@ ngx_http_upstream_create_round_robin_peer(ngx_http_request_t *r,
     peers->number = ur->naddrs;
     peers->name = &ur->host;
 
+    // dyc: if there is only one addr in ngx_http_upstream_resolved_t
     if (ur->sockaddr) {
         peers->peer[0].sockaddr = ur->sockaddr;
         peers->peer[0].socklen = ur->socklen;

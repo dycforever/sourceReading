@@ -37,7 +37,7 @@ typedef struct {
 #endif
 } ngx_http_upstream_rr_peer_t;
 
-
+// dyc: all server group, or backup group
 typedef struct ngx_http_upstream_rr_peers_s  ngx_http_upstream_rr_peers_t;
 
 struct ngx_http_upstream_rr_peers_s {

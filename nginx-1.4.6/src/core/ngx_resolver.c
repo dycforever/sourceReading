@@ -266,7 +266,7 @@ ngx_resolver_cleanup_tree(ngx_resolver_t *r, ngx_rbtree_t *tree)
     }
 }
 
-
+// dyc: alloc a ngx_resolver_t
 ngx_resolver_ctx_t *
 ngx_resolve_start(ngx_resolver_t *r, ngx_resolver_ctx_t *temp)
 {
@@ -274,6 +274,7 @@ ngx_resolve_start(ngx_resolver_t *r, ngx_resolver_ctx_t *temp)
     ngx_resolver_ctx_t  *ctx;
 
     if (temp) {
+        // dyc: ip string to in_addr_t
         addr = ngx_inet_addr(temp->name.data, temp->name.len);
 
         if (addr != INADDR_NONE) {
@@ -301,7 +302,7 @@ ngx_resolve_start(ngx_resolver_t *r, ngx_resolver_ctx_t *temp)
     return ctx;
 }
 
-
+// dyc: call ngx_resolve_name_locked to resolve
 ngx_int_t
 ngx_resolve_name(ngx_resolver_ctx_t *ctx)
 {
@@ -371,7 +372,7 @@ ngx_resolve_name_done(ngx_resolver_ctx_t *ctx)
     if (ctx->state == NGX_AGAIN || ctx->state == NGX_RESOLVE_TIMEDOUT) {
 
         hash = ngx_crc32_short(ctx->name.data, ctx->name.len);
-
+        // dyc: look in r->name_rbtree
         rn = ngx_resolver_lookup_name(r, &ctx->name, hash);
 
         if (rn) {
@@ -429,9 +430,9 @@ ngx_resolve_name_locked(ngx_resolver_t *r, ngx_resolver_ctx_t *ctx)
     rn = ngx_resolver_lookup_name(r, &ctx->name, hash);
 
     if (rn) {
-
+        // dyc: if find in r->name_rbtree
         if (rn->valid >= ngx_time()) {
-
+            // dyc: this entry is still valid
             ngx_log_debug0(NGX_LOG_DEBUG_CORE, r->log, 0, "resolve cached");
 
             ngx_queue_remove(&rn->queue);
@@ -508,7 +509,7 @@ ngx_resolve_name_locked(ngx_resolver_t *r, ngx_resolver_ctx_t *ctx)
 
             return NGX_OK;
         }
-
+        // dyc: this entry is expire
         if (rn->waiting) {
 
             ctx->next = rn->waiting;
@@ -538,12 +539,12 @@ ngx_resolve_name_locked(ngx_resolver_t *r, ngx_resolver_ctx_t *ctx)
         /* unlock alloc mutex */
 
     } else {
-
+        // dyc: if not find in r->name_rbtree
         rn = ngx_resolver_alloc(r, sizeof(ngx_resolver_node_t));
         if (rn == NULL) {
             return NGX_ERROR;
         }
-
+        // dyc: alloc ctx->name.len and copy
         rn->name = ngx_resolver_dup(r, ctx->name.data, ctx->name.len);
         if (rn->name == NULL) {
             ngx_resolver_free(r, rn);
@@ -576,6 +577,7 @@ ngx_resolve_name_locked(ngx_resolver_t *r, ngx_resolver_ctx_t *ctx)
         return NGX_OK;
     }
 
+    // dyc: uc->connection->read->handler = ngx_resolver_read_response;
     if (ngx_resolver_send_query(r, rn) != NGX_OK) {
         goto failed;
     }
@@ -867,7 +869,7 @@ ngx_resolver_expire(ngx_resolver_t *r, ngx_rbtree_t *tree, ngx_queue_t *queue)
     }
 }
 
-
+// dyc: send udp packet, failed or complete
 static ngx_int_t
 ngx_resolver_send_query(ngx_resolver_t *r, ngx_resolver_node_t *rn)
 {
@@ -1680,7 +1682,7 @@ failed:
     return;
 }
 
-
+// dyc: look in r->name_rbtree
 static ngx_resolver_node_t *
 ngx_resolver_lookup_name(ngx_resolver_t *r, ngx_str_t *name, uint32_t hash)
 {
@@ -1793,7 +1795,7 @@ ngx_resolver_rbtree_insert_value(ngx_rbtree_node_t *temp,
     ngx_rbt_red(node);
 }
 
-
+// dyc: alloc and build DNS lookup query
 static ngx_int_t
 ngx_resolver_create_name_query(ngx_resolver_node_t *rn, ngx_resolver_ctx_t *ctx)
 {

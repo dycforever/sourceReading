@@ -443,10 +443,13 @@ extern ngx_event_actions_t   ngx_event_actions;
 #define ngx_process_changes  ngx_event_actions.process_changes
 #define ngx_process_events   ngx_event_actions.process_events
 #define ngx_done_events      ngx_event_actions.done
-
+// ngx_epoll_add_event
 #define ngx_add_event        ngx_event_actions.add
+// ngx_epoll_del_event
 #define ngx_del_event        ngx_event_actions.del
+// ngx_epoll_add_connection
 #define ngx_add_conn         ngx_event_actions.add_conn
+// ngx_epoll_del_connection
 #define ngx_del_conn         ngx_event_actions.del_conn
 
 #define ngx_add_timer        ngx_event_add_timer
@@ -454,7 +457,7 @@ extern ngx_event_actions_t   ngx_event_actions;
 
 
 extern ngx_os_io_t  ngx_io;
-
+// dyc: ngx_io is ngx_os_io
 #define ngx_recv             ngx_io.recv
 #define ngx_recv_chain       ngx_io.recv_chain
 #define ngx_udp_recv         ngx_io.udp_recv
