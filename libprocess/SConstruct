@@ -1,0 +1,31 @@
+#!/usr/bin/python
+
+import os
+import getpass
+homedir = os.path.expanduser("~")
+user=getpass.getuser()
+
+num_cpu=4
+SetOption('num_jobs', num_cpu)
+cflags="-g"
+cflags="-g -std=c++0x"
+libsname=[
+     'netlib',
+     'z',
+     'pthread'
+]
+
+include_dir = [ './include/process',
+                './include/process/tuples',
+                './include',
+                './3rdparty/stout/include',
+                homedir + '/github/program/common'
+                ]
+
+lib_path=[homedir + '/github/netlib/build',
+          homedir + '/tools/zlib/lib']
+
+VariantDir('build', '.')
+
+SConscript(['./SConscript'], variant_dir='build', exports=['cflags', 'include_dir', 'lib_path'], duplicate=0)
+

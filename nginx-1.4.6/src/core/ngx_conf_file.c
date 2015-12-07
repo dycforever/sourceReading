@@ -126,12 +126,12 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
                                filename->data);
             return NGX_CONF_ERROR;
         }
-
+        // dyc: for include?
         prev = cf->conf_file;
 
 
         cf->conf_file = &conf_file;
-
+        // dyc: call fstat()
         if (ngx_fd_info(fd, &cf->conf_file->file.info) == NGX_FILE_ERROR) {
             ngx_log_error(NGX_LOG_EMERG, cf->log, ngx_errno,
                           ngx_fd_info_n " \"%s\" failed", filename->data);
@@ -309,7 +309,7 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
             }
 
             found = 1;
-
+            // dyc: NGX_CONF_MODULE for command: include
             if (ngx_modules[i]->type != NGX_CONF_MODULE
                 && ngx_modules[i]->type != cf->module_type)
             {
@@ -317,11 +317,11 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
             }
 
             /* is the directive's location right ? */
-            // dyc: totally belong to different type
+            // dyc: no intersection, totally belong to different type
             if (!(cmd->type & cf->cmd_type)) {
                 continue;
             }
-
+            // dyc: means this cmd's value is a block
             if (!(cmd->type & NGX_CONF_BLOCK) && last != NGX_OK) {
                 ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                   "directive \"%s\" is not terminated by \";\"",
@@ -357,7 +357,7 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
                     if (cf->args->nelts < 3) {
                         goto invalid;
                     }
-
+                // dyc: if (cf->args->nelts > 8)
                 } else if (cf->args->nelts > NGX_CONF_MAX_ARGS) {
 
                     goto invalid;
@@ -373,13 +373,16 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
             conf = NULL;
 
             // dyc: conf.ctx = cycle->conf_ctx[module->index] = module->create_conf(cycle);
+            //      different types of config object
             if (cmd->type & NGX_DIRECT_CONF) {
                 conf = ((void **) cf->ctx)[ngx_modules[i]->index];
 
             } else if (cmd->type & NGX_MAIN_CONF) {
+                // dyc: so we will modify the value in cf->ctx[] array, such as http/event cmd
                 conf = &(((void **) cf->ctx)[ngx_modules[i]->index]);
 
             } else if (cf->ctx) {
+                // dyc: for http, cf->ctx is a ngx_http_conf_ctx_t, cmd->conf is offset in ngx_http_conf_ctx_t
                 confp = *(void **) ((char *) cf->ctx + cmd->conf);
 
                 if (confp) {
@@ -387,7 +390,8 @@ ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
                 }
             }
             // dyc: call ngx_http_block() for http block
-            //      @cf is input, @conf is output
+            //      @cf is input, means configuration file
+            //      @conf is output, means config object be initted
             rv = cmd->set(cf, cmd, conf);
             // dyc: if rv == 0
             if (rv == NGX_CONF_OK) {
@@ -694,7 +698,7 @@ ngx_conf_read_token(ngx_conf_t *cf)
                 if (word->data == NULL) {
                     return NGX_ERROR;
                 }
-
+                // dyc: find a token, we need to copy to word, AKA push into cf->args 
                 for (dst = word->data, src = start, len = 0;
                      src < b->pos - 1;
                      len++)
@@ -810,7 +814,7 @@ ngx_conf_include(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     return rv;
 }
 
-
+// dyc: convert @name to absolute path(add cycle->conf_prefix)
 ngx_int_t
 ngx_conf_full_name(ngx_cycle_t *cycle, ngx_str_t *name, ngx_uint_t conf_prefix)
 {

@@ -312,7 +312,7 @@ ngx_pcalloc(ngx_pool_t *pool, size_t size)
     return p;
 }
 
-
+// dyc: alloc a ngx_pool_cleanup_t from pool with data of size
 ngx_pool_cleanup_t *
 ngx_pool_cleanup_add(ngx_pool_t *p, size_t size)
 {

@@ -53,7 +53,7 @@ ngx_unix_send(ngx_connection_t *c, u_char *buf, size_t size)
             wev->ready = 0;
             return n;
         }
-
+        // dyc: if NGX_EINTR, continue
         if (err == NGX_EAGAIN || err == NGX_EINTR) {
             wev->ready = 0;
 
@@ -63,7 +63,7 @@ ngx_unix_send(ngx_connection_t *c, u_char *buf, size_t size)
             if (err == NGX_EAGAIN) {
                 return NGX_AGAIN;
             }
-
+        
         } else {
             wev->error = 1;
             (void) ngx_connection_error(c, err, "send() failed");

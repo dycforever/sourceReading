@@ -68,7 +68,6 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
 
     ngx_time_update();
 
-
     log = old_cycle->log;
 
     pool = ngx_create_pool(NGX_CYCLE_POOL_SIZE, log);
@@ -96,6 +95,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         return NULL;
     }
 
+    // dyc: copy config file path
     cycle->prefix.len = old_cycle->prefix.len;
     cycle->prefix.data = ngx_pstrdup(pool, &old_cycle->prefix);
     if (cycle->prefix.data == NULL) {
@@ -118,7 +118,6 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         ngx_destroy_pool(pool);
         return NULL;
     }
-
 
     n = old_cycle->paths.nelts ? old_cycle->paths.nelts : 10;
 
@@ -153,7 +152,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         return NULL;
     }
 
-
+    // dyc: alloc andd init shared_memory list
     if (old_cycle->shared_memory.part.nelts) {
         n = old_cycle->shared_memory.part.nelts;
         for (part = old_cycle->shared_memory.part.next; part; part = part->next)
@@ -172,6 +171,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         return NULL;
     }
 
+    // dyc: alloc andd init listening array
     n = old_cycle->listening.nelts ? old_cycle->listening.nelts : 10;
 
     cycle->listening.elts = ngx_pcalloc(pool, n * sizeof(ngx_listening_t));
@@ -223,6 +223,8 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
             continue;
         }
 
+        // dyc: notice! it is only for NGX_CORE_MODULE !!
+        //      for ngx_http_core_module, they are create_conf/merge_conf
         module = ngx_modules[i]->ctx;
         // dyc: ngx_core_module_create_conf for example, return a ngx_core_conf_t
         if (module->create_conf) {
@@ -263,13 +265,13 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
 #if 0
     log->log_level = NGX_LOG_DEBUG_ALL;
 #endif
-
+    // dyc: init conf by cmdline-params
     if (ngx_conf_param(&conf) != NGX_CONF_OK) {
         environ = senv;
         ngx_destroy_cycle_pools(&conf);
         return NULL;
     }
-
+    // dyc:  cycle->conf_file such of /usr/local/nginx/conf/nginx.conf
     if (ngx_conf_parse(&conf, &cycle->conf_file) != NGX_CONF_OK) {
         environ = senv;
         ngx_destroy_cycle_pools(&conf);
@@ -288,8 +290,9 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         }
 
         module = ngx_modules[i]->ctx;
-
+        // dyc: notice! it is only for NGX_CORE_MODULE !!
         if (module->init_conf) {
+            // dyc: such as ngx_core_module_init_conf()
             if (module->init_conf(cycle, cycle->conf_ctx[ngx_modules[i]->index])
                 == NGX_CONF_ERROR)
             {
@@ -343,7 +346,6 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     if (ngx_create_paths(cycle, ccf->user) != NGX_OK) {
         goto failed;
     }
-
 
     if (cycle->new_log.file == NULL) {
         cycle->new_log.file = ngx_conf_open_file(cycle, &error_log);
@@ -745,8 +747,7 @@ old_shm_zone_done:
         return cycle;
     }
 
-
-    // dyc: here means I am NGX_PROCESS_MASTER AND isn't init_cycle()
+    // dyc: here means I am not NGX_PROCESS_MASTER AND isn't init_cycle()
     if (ngx_temp_pool == NULL) {
         ngx_temp_pool = ngx_create_pool(128, cycle->log);
         if (ngx_temp_pool == NULL) {

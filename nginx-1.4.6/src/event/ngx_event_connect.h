@@ -41,10 +41,12 @@ struct ngx_peer_connection_s {
     socklen_t                        socklen;
     ngx_str_t                       *name;
 
+    // dyc: 3 members below, set in ngx_http_upstream_init_round_robin_peer at runtime
     ngx_uint_t                       tries;
-
     ngx_event_get_peer_pt            get;
     ngx_event_free_peer_pt           free;
+
+    // dyc: usually ngx_http_upstream_rr_peer_data_t
     void                            *data;
 
 #if (NGX_SSL)
@@ -56,6 +58,7 @@ struct ngx_peer_connection_s {
     ngx_atomic_t                    *lock;
 #endif
 
+    // dyc: set in ngx_http_upstream_init_round_robin_peer()
     ngx_addr_t                      *local;
 
     int                              rcvbuf;
@@ -63,7 +66,6 @@ struct ngx_peer_connection_s {
     ngx_log_t                       *log;
 
     unsigned                         cached:1;
-
                                      /* ngx_connection_log_error_e */
     unsigned                         log_error:2;
 };

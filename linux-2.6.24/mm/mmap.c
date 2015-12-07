@@ -51,14 +51,16 @@ static void unmap_region(struct mm_struct *mm,
  * behavior is in parens:
  *
  * map_type	prot
- *		PROT_NONE	PROT_READ	PROT_WRITE	PROT_EXEC
- * MAP_SHARED	r: (no) no	r: (yes) yes	r: (no) yes	r: (no) yes
- *		w: (no) no	w: (no) no	w: (yes) yes	w: (no) no
- *		x: (no) no	x: (no) yes	x: (no) yes	x: (yes) yes
+ *		PROT_NONE	PROT_READ	    PROT_WRITE	    PROT_EXEC
+ * MAP_SHARED	
+ *      r: (no) no	r: (yes) yes	r: (no) yes	    r: (no) yes
+ *		w: (no) no	w: (no) no	    w: (yes) yes	w: (no) no
+ *		x: (no) no	x: (no) yes	    x: (no) yes	    x: (yes) yes
  *		
- * MAP_PRIVATE	r: (no) no	r: (yes) yes	r: (no) yes	r: (no) yes
- *		w: (no) no	w: (no) no	w: (copy) copy	w: (no) no
- *		x: (no) no	x: (no) yes	x: (no) yes	x: (yes) yes
+ * MAP_PRIVATE	
+ *      r: (no) no	r: (yes) yes	r: (no) yes	    r: (no) yes
+ *		w: (no) no	w: (no) no	    w: (copy) copy	w: (no) no
+ *		x: (no) no	x: (no) yes	    x: (no) yes	    x: (yes) yes
  *
  */
 pgprot_t protection_map[16] = {

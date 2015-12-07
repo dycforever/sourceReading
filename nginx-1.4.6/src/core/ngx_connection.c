@@ -742,7 +742,6 @@ ngx_get_connection(ngx_socket_t s, ngx_log_t *log)
     ngx_connection_t  *c;
 
     /* disable warning: Win32 SOCKET is u_int while UNIX socket is int */
-
     if (ngx_cycle->files && (ngx_uint_t) s >= ngx_cycle->files_n) {
         ngx_log_error(NGX_LOG_ALERT, log, 0,
                       "the new socket has number %d, "
@@ -823,7 +822,7 @@ ngx_free_connection(ngx_connection_t *c)
     }
 }
 
-
+// dyc: delete timer, remove fd from epoll and set to -1; set event->closed = 1; return connection to ngx_cycle->free_connections
 void
 ngx_close_connection(ngx_connection_t *c)
 {

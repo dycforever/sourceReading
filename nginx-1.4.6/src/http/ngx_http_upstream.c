@@ -429,7 +429,7 @@ ngx_http_upstream_create(ngx_http_request_t *r)
     return NGX_OK;
 }
 
-
+// dyc: add c->write to WRITE_EVENT then call ngx_http_upstream_init_request()
 void
 ngx_http_upstream_init(ngx_http_request_t *r)
 {
@@ -455,6 +455,7 @@ ngx_http_upstream_init(ngx_http_request_t *r)
     //      will add write event only it connect success
     if (ngx_event_flags & NGX_USE_CLEAR_EVENT) {
         if (!c->write->active) {
+            // dyc: call ngx_epoll_add_event()
             if (ngx_add_event(c->write, NGX_WRITE_EVENT, NGX_CLEAR_EVENT)
                 == NGX_ERROR)
             {
@@ -484,7 +485,7 @@ ngx_http_upstream_init_request(ngx_http_request_t *r)
     if (r->aio) {
         return;
     }
-    // dyc: set in ngx_http_upstream_create() in such as ngx_http_memcached_handler()
+    // dyc: set in ngx_http_upstream_create() in such as ngx_http_proxy_handler()
     u = r->upstream;
 
 #if (NGX_HTTP_CACHE)
@@ -511,8 +512,8 @@ ngx_http_upstream_init_request(ngx_http_request_t *r)
     }
 #endif
 
-    // dyc: u->conf = &mlcf->upstream set in ngx_http_memcached_handler()
-    //      store is set in fastcgi/wusgi ... modules
+    // dyc: u->conf = &plcf->upstream set in ngx_http_proxy_handler()
+    //      store is set by proxy_store command
     u->store = (u->conf->store || u->conf->store_lengths);
 
     if (!u->store && !r->post_action && !u->conf->ignore_client_abort) {
@@ -524,13 +525,13 @@ ngx_http_upstream_init_request(ngx_http_request_t *r)
     if (r->request_body) {
         u->request_bufs = r->request_body->bufs;
     }
-    // dyc: such as ngx_http_memcached_create_request()
+    // dyc: such as ngx_http_proxy_create_request(), set in ngx_http_proxy_handler()
     //      create r->upstream->request_bufs and ctx->key
     if (u->create_request(r) != NGX_OK) {
         ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
         return;
     }
-
+    // dyc: if specify local ip address in config
     u->peer.local = ngx_http_upstream_get_local(r, u->conf->local);
 
     clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
@@ -539,6 +540,7 @@ ngx_http_upstream_init_request(ngx_http_request_t *r)
     u->output.pool = r->pool;
     u->output.bufs.num = 1;
     u->output.bufs.size = clcf->client_body_buffer_size;
+    // dyc: type ngx_output_chain_ctx_s->ngx_output_chain_filter_pt
     u->output.output_filter = ngx_chain_writer;
     u->output.filter_ctx = &u->writer;
 
@@ -577,12 +579,15 @@ ngx_http_upstream_init_request(ngx_http_request_t *r)
 
     // dyc: u->resolved is allocated in fastcgi/wusgi ... modules
     if (u->resolved == NULL) {
+        // dyc: no variable in upstream uri
         uscf = u->conf->upstream;
 
     } else {
         // dyc: host has been resolved to ip
         if (u->resolved->sockaddr) {
-
+            // dyc: set r->upstream->peer's get/free functions, and set r->upstream->peer.data
+            //      r->upstream->peer.data is type ngx_http_upstream_rr_peer_data_t,
+            //      contain callbacks and context for one request, such choose peer/retry
             if (ngx_http_upstream_create_round_robin_peer(r, u->resolved)
                 != NGX_OK)
             {
@@ -595,7 +600,7 @@ ngx_http_upstream_init_request(ngx_http_request_t *r)
 
             return;
         }
-
+        // dyc: begin to resolve variable
         host = &u->resolved->host;
 
         umcf = ngx_http_get_module_main_conf(r, ngx_http_upstream_module);
@@ -1266,7 +1271,8 @@ ngx_http_upstream_connect(ngx_http_request_t *r, ngx_http_upstream_t *u)
         ngx_add_timer(c->write, u->conf->connect_timeout);
         return;
     }
-
+    // dyc: things as ngx_http_upstream_send_request_handler() do
+    
 #if (NGX_HTTP_SSL)
 
     if (u->ssl && c->ssl == NULL) {
@@ -1429,7 +1435,7 @@ ngx_http_upstream_send_request(ngx_http_request_t *r, ngx_http_upstream_t *u)
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, c->log, 0,
                    "http upstream send request");
-    // dyc; if test failed, use next upstream
+    // dyc; if test SOL_SOCKET SO_ERROR failed, use next upstream
     if (!u->request_sent && ngx_http_upstream_test_connect(c) != NGX_OK) {
         ngx_http_upstream_next(r, u, NGX_HTTP_UPSTREAM_FT_ERROR);
         return;
@@ -1437,6 +1443,7 @@ ngx_http_upstream_send_request(ngx_http_request_t *r, ngx_http_upstream_t *u)
 
     c->log->action = "sending request to upstream";
     // dyc: u->output.output_filter = ngx_chain_writer or ngx_http_output_filter
+    //      send request to upstream
     rc = ngx_output_chain(&u->output, u->request_sent ? NULL : u->request_bufs);
 
     u->request_sent = 1;
@@ -1475,7 +1482,7 @@ ngx_http_upstream_send_request(ngx_http_request_t *r, ngx_http_upstream_t *u)
 
         c->tcp_nopush = NGX_TCP_NOPUSH_UNSET;
     }
-
+    // dyc: ngx_event_add_timer
     ngx_add_timer(c->read, u->conf->read_timeout);
 
 #if 1
@@ -1496,7 +1503,7 @@ ngx_http_upstream_send_request(ngx_http_request_t *r, ngx_http_upstream_t *u)
 #endif
 
     u->write_event_handler = ngx_http_upstream_dummy_handler;
-
+    // dyc: if not active and not ready, add into epoll
     if (ngx_handle_write_event(c->write, 0) != NGX_OK) {
         ngx_http_upstream_finalize_request(r, u,
                                            NGX_HTTP_INTERNAL_SERVER_ERROR);
@@ -1565,7 +1572,7 @@ ngx_http_upstream_process_header(ngx_http_request_t *r, ngx_http_upstream_t *u)
         ngx_http_upstream_next(r, u, NGX_HTTP_UPSTREAM_FT_ERROR);
         return;
     }
-
+    // dyc: if first call, alloc buffer
     if (u->buffer.start == NULL) {
         u->buffer.start = ngx_palloc(r->pool, u->conf->buffer_size);
         if (u->buffer.start == NULL) {
@@ -1975,7 +1982,7 @@ ngx_http_upstream_process_headers(ngx_http_request_t *r, ngx_http_upstream_t *u)
             h = part->elts;
             i = 0;
         }
-
+        // dyc: skip hiden headers
         if (ngx_hash_find(&u->conf->hide_headers_hash, h[i].hash,
                           h[i].lowcase_key, h[i].key.len))
         {
@@ -1994,7 +2001,7 @@ ngx_http_upstream_process_headers(ngx_http_request_t *r, ngx_http_upstream_t *u)
 
             continue;
         }
-
+        // dyc: copy h[i] to r->headers_out.headers
         if (ngx_http_upstream_copy_header_line(r, &h[i], 0) != NGX_OK) {
             ngx_http_upstream_finalize_request(r, u,
                                                NGX_HTTP_INTERNAL_SERVER_ERROR);
@@ -2131,7 +2138,7 @@ ngx_http_upstream_send_response(ngx_http_request_t *r, ngx_http_upstream_t *u)
                 ngx_connection_error(c, ngx_socket_errno,
                                      ngx_shutdown_socket_n " failed");
             }
-
+            // dyc: do nothing
             r->read_event_handler = ngx_http_request_empty_handler;
             r->write_event_handler = ngx_http_request_empty_handler;
             c->error = 1;
@@ -2292,7 +2299,7 @@ ngx_http_upstream_send_response(ngx_http_request_t *r, ngx_http_upstream_t *u)
 #endif
 
     p = u->pipe;
-
+    // dyc: type struct ngx_event_pipe_s->ngx_event_pipe_output_filter_pt
     p->output_filter = (ngx_event_pipe_output_filter_pt) ngx_http_output_filter;
     p->output_ctx = r;
     p->tag = u->output.tag;
@@ -2948,12 +2955,13 @@ ngx_http_upstream_process_downstream(ngx_http_request_t *r)
             return;
         }
 
+        // dyc: call ngx_event_pipe_write_to_downstream()
         if (ngx_event_pipe(p, 1) == NGX_ABORT) {
             ngx_http_upstream_finalize_request(r, u, 0);
             return;
         }
     }
-
+    // dyc: call ngx_http_upstream_finalize_request(r, u, 0);
     ngx_http_upstream_process_request(r);
 }
 
@@ -2970,22 +2978,24 @@ ngx_http_upstream_process_upstream(ngx_http_request_t *r,
                    "http upstream process upstream");
 
     c->log->action = "reading upstream";
-
+    // dyc: pipe is set in such as ngx_http_proxy_handler()
     if (c->read->timedout) {
         u->pipe->upstream_error = 1;
         ngx_connection_error(c, NGX_ETIMEDOUT, "upstream timed out");
 
     } else {
+        // dyc: call ngx_event_pipe_write_to_downstream()
         if (ngx_event_pipe(u->pipe, 0) == NGX_ABORT) {
             ngx_http_upstream_finalize_request(r, u, 0);
             return;
         }
     }
-
+    // dyc: call ngx_http_upstream_finalize_request(r, u, 0);
     ngx_http_upstream_process_request(r);
 }
 
-// dyc: finalize upstream and request if eof of error
+// dyc: call ngx_http_upstream_finalize_request(r, u, 0);
+//      finalize upstream and request if eof of error
 static void
 ngx_http_upstream_process_request(ngx_http_request_t *r)
 {
@@ -3290,7 +3300,7 @@ ngx_http_upstream_cleanup(void *data)
     ngx_http_upstream_finalize_request(r, r->upstream, NGX_DONE);
 }
 
-
+// dyc: close peer.connection, send special and ngx_http_finalize_request 
 static void
 ngx_http_upstream_finalize_request(ngx_http_request_t *r,
     ngx_http_upstream_t *u, ngx_int_t rc)
@@ -3319,7 +3329,7 @@ ngx_http_upstream_finalize_request(ngx_http_request_t *r,
             u->state->response_length = u->pipe->read_length;
         }
     }
-
+    // dyc: such as ngx_http_proxy_finalize_request(), do nothing
     u->finalize_request(r, rc);
 
     if (u->peer.free && u->peer.sockaddr) {
@@ -3356,7 +3366,7 @@ ngx_http_upstream_finalize_request(ngx_http_request_t *r,
         }
 
         ngx_close_connection(u->peer.connection);
-    }
+    } // (u->peer.connection)
 
     u->peer.connection = NULL;
 
@@ -4672,8 +4682,11 @@ ngx_http_upstream_srv_conf_t *
 ngx_http_upstream_add(ngx_conf_t *cf, ngx_url_t *u, ngx_uint_t flags)
 {
     ngx_uint_t                      i;
+    // dyc: a peer
     ngx_http_upstream_server_t     *us;
+    // dyc: a node
     ngx_http_upstream_srv_conf_t   *uscf, **uscfp;
+    // dyc: all node
     ngx_http_upstream_main_conf_t  *umcf;
 
     if (!(flags & NGX_HTTP_UPSTREAM_CREATE)) {
@@ -4691,7 +4704,7 @@ ngx_http_upstream_add(ngx_conf_t *cf, ngx_url_t *u, ngx_uint_t flags)
     umcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_upstream_module);
 
     uscfp = umcf->upstreams.elts;
-
+    // dyc: iterate all nodes
     for (i = 0; i < umcf->upstreams.nelts; i++) {
 
         if (uscfp[i]->host.len != u->host.len
@@ -4742,7 +4755,7 @@ ngx_http_upstream_add(ngx_conf_t *cf, ngx_url_t *u, ngx_uint_t flags)
 
         return uscfp[i];
     }
-
+    // dyc: create a node
     uscf = ngx_pcalloc(cf->pool, sizeof(ngx_http_upstream_srv_conf_t));
     if (uscf == NULL) {
         return NULL;
@@ -4872,11 +4885,11 @@ ngx_http_upstream_get_local(ngx_http_request_t *r,
     if (local == NULL) {
         return NULL;
     }
-
+    
     if (local->value == NULL) {
         return local->addr;
     }
-
+    // dyc: if has variable in local address
     if (ngx_http_complex_value(r, local->value, &val) != NGX_OK) {
         return NULL;
     }
@@ -5101,7 +5114,8 @@ ngx_http_upstream_init_main_conf(ngx_conf_t *cf, void *conf)
     uscfp = umcf->upstreams.elts;
 
     for (i = 0; i < umcf->upstreams.nelts; i++) {
-
+        // dyc: peer.init will be set in init_upstream
+        //      such as ngx_http_upstream_init_round_robin and ngx_http_upstream_init_round_robin_peer
         init = uscfp[i]->peer.init_upstream ? uscfp[i]->peer.init_upstream:
                                             ngx_http_upstream_init_round_robin;
 

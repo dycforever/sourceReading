@@ -669,7 +669,7 @@ ngx_http_ssl_handshake(ngx_event_t *rev)
         ngx_log_debug0(NGX_LOG_DEBUG_HTTP, rev->log, 0, "plain http");
 
         c->log->action = "waiting for request";
-
+        // dyc: parse http request line and http headers
         rev->handler = ngx_http_wait_request_handler;
         ngx_http_wait_request_handler(rev);
 
@@ -2329,11 +2329,12 @@ ngx_http_finalize_request(ngx_http_request_t *r, ngx_int_t rc)
         ngx_del_timer(c->write);
     }
 
+    // dyc: r->main->count--; and free request and close connection if count == 0
     if (c->read->eof) {
         ngx_http_close_request(r, 0);
         return;
     }
-
+    // dyc: ngx_http_set_keepalive or ngx_http_close_request(r, 0)
     ngx_http_finalize_connection(r);
 }
 
@@ -2423,7 +2424,8 @@ ngx_http_finalize_connection(ngx_http_request_t *r)
                                       + (time_t) (clcf->lingering_time / 1000);
             }
         }
-
+        // dyc: call all @r->cleanup, ngx_stat_reading and ngx_stat_writing -1
+        //      then free r
         ngx_http_close_request(r, 0);
         return;
     }
@@ -3243,7 +3245,7 @@ ngx_http_post_action(ngx_http_request_t *r)
     return NGX_OK;
 }
 
-
+// dyc: free request and close fd
 static void
 ngx_http_close_request(ngx_http_request_t *r, ngx_int_t rc)
 {
@@ -3276,7 +3278,8 @@ ngx_http_close_request(ngx_http_request_t *r, ngx_int_t rc)
     ngx_http_close_connection(c);
 }
 
-
+// dyc: call all @r->cleanup, ngx_stat_reading and ngx_stat_writing -1
+//      then free r
 void
 ngx_http_free_request(ngx_http_request_t *r, ngx_int_t rc)
 {
@@ -3355,7 +3358,7 @@ ngx_http_free_request(ngx_http_request_t *r, ngx_int_t rc)
 
     pool = r->pool;
     r->pool = NULL;
-
+    // dyc: @r is alloc from pool
     ngx_destroy_pool(pool);
 }
 

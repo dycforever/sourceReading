@@ -54,7 +54,7 @@ ngx_event_del_timer(ngx_event_t *ev)
     ev->timer_set = 0;
 }
 
-
+// dyc: insert into rbtree
 static ngx_inline void
 ngx_event_add_timer(ngx_event_t *ev, ngx_msec_t timer)
 {

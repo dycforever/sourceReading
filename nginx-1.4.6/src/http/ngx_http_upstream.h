@@ -65,6 +65,7 @@ typedef struct {
 
 typedef struct {
     ngx_hash_t                       headers_in_hash;
+    // dyc: array of ngx_http_upstream_srv_conf_s, all nodes
     ngx_array_t                      upstreams;
                                              /* ngx_http_upstream_srv_conf_t */
 } ngx_http_upstream_main_conf_t;
@@ -103,7 +104,7 @@ typedef struct {
 #define NGX_HTTP_UPSTREAM_DOWN          0x0010
 #define NGX_HTTP_UPSTREAM_BACKUP        0x0020
 
-
+// dyc: a node
 struct ngx_http_upstream_srv_conf_s {
     ngx_http_upstream_peer_t         peer;
     void                           **srv_conf;
@@ -127,6 +128,7 @@ typedef struct {
 
 
 typedef struct {
+    // dyc: point to node's conf
     ngx_http_upstream_srv_conf_t    *upstream;
 
     ngx_msec_t                       connect_timeout;
@@ -195,7 +197,7 @@ typedef struct {
 
     ngx_str_t                        module;
 } ngx_http_upstream_conf_t;
-
+// dyc: value in ngx_http_upstream_conf_t is read from conf file
 
 typedef struct {
     ngx_str_t                        name;
@@ -254,6 +256,7 @@ typedef struct {
     ngx_uint_t                       naddrs;
     in_addr_t                       *addrs;
 
+    // dyc: if there is only one addr, ues below
     struct sockaddr                 *sockaddr;
     socklen_t                        socklen;
 
@@ -264,12 +267,13 @@ typedef struct {
 typedef void (*ngx_http_upstream_handler_pt)(ngx_http_request_t *r,
     ngx_http_upstream_t *u);
 
-
+// dyc: for a upstream's runtime context
 struct ngx_http_upstream_s {
     ngx_http_upstream_handler_pt     read_event_handler;
     ngx_http_upstream_handler_pt     write_event_handler;
 
-    ngx_peer_connection_t            peer;
+    // dyc: get/free callback in struct ngx_peer_connection_s
+    ngx_peer_connection_s            peer;
 
     ngx_event_pipe_t                *pipe;
 
