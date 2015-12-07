@@ -1161,7 +1161,7 @@ ngx_http_upstream_connect(ngx_http_request_t *r, ngx_http_upstream_t *u)
     tp = ngx_timeofday();
     u->state->response_sec = tp->sec;
     u->state->response_msec = tp->msec;
-    // dyc: connect upstream server
+    // dyc: choose a peer and connect upstream server
     //      EINPROGRESS return NGX_AGAIN
     rc = ngx_event_connect_peer(&u->peer);
 
@@ -1436,7 +1436,7 @@ ngx_http_upstream_send_request(ngx_http_request_t *r, ngx_http_upstream_t *u)
     }
 
     c->log->action = "sending request to upstream";
-    // dyc: u->output.output_filter = ngx_chain_writer
+    // dyc: u->output.output_filter = ngx_chain_writer or ngx_http_output_filter
     rc = ngx_output_chain(&u->output, u->request_sent ? NULL : u->request_bufs);
 
     u->request_sent = 1;
@@ -1489,7 +1489,7 @@ ngx_http_upstream_send_request(ngx_http_request_t *r, ngx_http_upstream_t *u)
          * of ngx_http_upstream_connect() CHECK IT !!!
          * it's better to do here because we postpone header buffer allocation
          */
-
+        // dyc: receive and copy all headers from upstream to client
         ngx_http_upstream_process_header(r, u);
         return;
     }
@@ -1504,7 +1504,7 @@ ngx_http_upstream_send_request(ngx_http_request_t *r, ngx_http_upstream_t *u)
     }
 }
 
-
+// dyc: check write timeout and call ngx_http_upstream_send_request()
 static void
 ngx_http_upstream_send_request_handler(ngx_http_request_t *r,
     ngx_http_upstream_t *u)
@@ -1541,7 +1541,7 @@ ngx_http_upstream_send_request_handler(ngx_http_request_t *r,
     ngx_http_upstream_send_request(r, u);
 }
 
-
+// dyc: receive and copy all headers from upstream to client
 static void
 ngx_http_upstream_process_header(ngx_http_request_t *r, ngx_http_upstream_t *u)
 {
@@ -1598,9 +1598,9 @@ ngx_http_upstream_process_header(ngx_http_request_t *r, ngx_http_upstream_t *u)
         }
 #endif
     }
-
+    // dyc: recv data from upstream and use callback to process header
     for ( ;; ) {
-
+        // dyc: c = u->peer.connection;
         n = c->recv(c, u->buffer.last, u->buffer.end - u->buffer.last);
 
         if (n == NGX_AGAIN) {
@@ -1652,7 +1652,7 @@ ngx_http_upstream_process_header(ngx_http_request_t *r, ngx_http_upstream_t *u)
         }
 
         break;
-    }
+    } // for(;;)
 
     if (rc == NGX_HTTP_UPSTREAM_INVALID_HEADER) {
         ngx_http_upstream_next(r, u, NGX_HTTP_UPSTREAM_FT_INVALID_HEADER);
@@ -1681,7 +1681,7 @@ ngx_http_upstream_process_header(ngx_http_request_t *r, ngx_http_upstream_t *u)
             return;
         }
     }
-
+    // dyc: copy all headers from upstream response to client response
     if (ngx_http_upstream_process_headers(r, u) != NGX_OK) {
         return;
     }
@@ -1706,12 +1706,14 @@ ngx_http_upstream_process_header(ngx_http_request_t *r, ngx_http_upstream_t *u)
     }
 
     n = u->buffer.last - u->buffer.pos;
-
+    // dyc: if there is some data in buffer(read with headers)
     if (n) {
         u->buffer.last -= n;
 
         u->state->response_length += n;
-
+        // dyc: such as ngx_http_upstream_non_buffered_filter() or 
+        //      ngx_http_proxy_copy_filter()
+        //      will alloc a chain and append to u->out_bufs
         if (u->input_filter(u->input_filter_ctx, n) == NGX_ERROR) {
             ngx_http_upstream_finalize_request(r, u, NGX_ERROR);
             return;
@@ -1896,7 +1898,7 @@ ngx_http_upstream_test_connect(ngx_connection_t *c)
     return NGX_OK;
 }
 
-
+// dyc: copy all headers from upstream response to client response
 static ngx_int_t
 ngx_http_upstream_process_headers(ngx_http_request_t *r, ngx_http_upstream_t *u)
 {
@@ -1961,7 +1963,7 @@ ngx_http_upstream_process_headers(ngx_http_request_t *r, ngx_http_upstream_t *u)
 
     part = &u->headers_in.headers.part;
     h = part->elts;
-
+    // dyc: copy all headers
     for (i = 0; /* void */; i++) {
 
         if (i >= part->nelts) {
@@ -2018,7 +2020,7 @@ ngx_http_upstream_process_headers(ngx_http_request_t *r, ngx_http_upstream_t *u)
     return NGX_OK;
 }
 
-
+// dyc: recv and call u->input_filter()
 static void
 ngx_http_upstream_process_body_in_memory(ngx_http_request_t *r,
     ngx_http_upstream_t *u)
@@ -2066,7 +2068,8 @@ ngx_http_upstream_process_body_in_memory(ngx_http_request_t *r,
         }
 
         u->state->response_length += n;
-
+        // dyc: such as ngx_http_upstream_non_buffered_filter() or 
+        //      ngx_http_proxy_copy_filter()
         if (u->input_filter(u->input_filter_ctx, n) == NGX_ERROR) {
             ngx_http_upstream_finalize_request(r, u, NGX_ERROR);
             return;
@@ -2095,7 +2098,7 @@ ngx_http_upstream_process_body_in_memory(ngx_http_request_t *r,
     }
 }
 
-
+// called in upstream's read handler
 static void
 ngx_http_upstream_send_response(ngx_http_request_t *r, ngx_http_upstream_t *u)
 {
@@ -2213,7 +2216,7 @@ ngx_http_upstream_send_response(ngx_http_request_t *r, ngx_http_upstream_t *u)
         }
 
         return;
-    }
+    } // if (!u->buffering)
 
     /* TODO: preallocate event_pipe bufs, look "Content-Length" */
 
@@ -2954,7 +2957,7 @@ ngx_http_upstream_process_downstream(ngx_http_request_t *r)
     ngx_http_upstream_process_request(r);
 }
 
-
+// dyc: pipe and check upstream status
 static void
 ngx_http_upstream_process_upstream(ngx_http_request_t *r,
     ngx_http_upstream_t *u)
@@ -2982,7 +2985,7 @@ ngx_http_upstream_process_upstream(ngx_http_request_t *r,
     ngx_http_upstream_process_request(r);
 }
 
-
+// dyc: finalize upstream and request if eof of error
 static void
 ngx_http_upstream_process_request(ngx_http_request_t *r)
 {
